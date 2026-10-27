@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/async-callback.schema.json",
+  "title": "AsyncCallback",
+  "description": "Inbound async callback message delivered by an external service after an async service.invoke step. Part of the Tracto Common Execution Contract v1.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "sourceRunId",
+    "sourceStepId",
+    "nonce",
+    "timestamp",
+    "serviceOutcome"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier for this callback event. Used for deduplication."
+    },
+    "sourceRunId": {
+      "type": "string",
+      "description": "Run identifier of the execution that initiated the service.invoke step this callback answers."
+    },
+    "sourceStepId": {
+      "type": "string",
+      "description": "Step identifier of the service.invoke step this callback answers."
+    },
+    "nonce": {
+      "type": "string",
+      "description": "Single-use token from the original callbackConfig.nonce. Validators MUST verify this matches the nonce issued with the request to prevent replay."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 / RFC 3339 timestamp at which the external service produced this callback."
+    },
+    "signature": {
+      "type": "string",
+      "description": "Optional cryptographic signature over the callback payload, produced by the external service. Validators should verify this before accepting the message."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Arbitrary structured data returned by the external service. Schema is service-specific.",
+      "additionalProperties": true
+    },
+    "serviceOutcome": {
+      "enum": [
+        "SUCCESS",
+        "BUSINESS_REJECTION",
+        "TECHNICAL_FAILURE",
+        "TRANSIENT_FAILURE",
+        "UNKNOWN_OUTCOME"
+      ],
+      "description": "The outcome reported by the external service for the invoked operation."
+    },
+    "authenticated": {
+      "type": "boolean",
+      "description": "MUST NOT be accepted as a self-assertion of authentication status. Validators must ignore or reject authenticated:true claims. Authentication is established through the transport channel (mutual-TLS or token), not through this field."
+    },
+    "continuationRuleId": {
+      "type": "string",
+      "description": "Optional identifier of the static continuation rule to activate upon receipt of this callback. If absent, default continuation logic applies."
+    }
+  }
+}

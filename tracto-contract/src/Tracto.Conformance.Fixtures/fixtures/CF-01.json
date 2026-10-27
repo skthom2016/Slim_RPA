@@ -1,0 +1,21 @@
+{
+  "fixtureId": "CF-01",
+  "title": "Happy path: worker registers, accepts job, completes with SUCCEEDED",
+  "acIds": ["ST1-14-AC01"],
+  "category": "happy-path",
+  "description": "A desktop interactive worker registers successfully, is offered a job, sends 2 heartbeats, and finishes with SUCCEEDED. Validates the baseline execution contract end-to-end.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf01",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "isInteractiveJob": true,
+  "heartbeatCount": 2,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "SUCCEEDED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Baseline happy-path scenario. All subsequent fixtures deviate from this baseline in exactly one dimension."
+}

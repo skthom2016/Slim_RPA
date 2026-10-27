@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Security.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests">
+            <summary>
+            DT-11 — DPAPI Secret Handling unit tests.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.Tests.SecretHandlingTests.BuildStore(System.String,System.String)">
+            <summary>
+            Creates a mock DPAPI-like blob: the plaintext UTF-8 bytes as-is (used with
+            MockDpapiResolver which skips actual DPAPI).
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.CallCountingCredentialStore">
+            <summary>Credential store that counts calls to GetEncryptedBlob.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.CapturingSecretResolver">
+            <summary>Resolver that captures the ClearableBuffer it returns.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.ThrowingAfterResolveResolver">
+            <summary>Resolver that captures the buffer but the keyboard engine will throw.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.NoOpKeyboardInputEngine">
+            <summary>Keyboard engine that does nothing (no-op) for secret typing tests.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.ThrowingKeyboardInputEngine">
+            <summary>Keyboard engine that always throws to test buffer disposal on failure.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.Tests.SecretHandlingTests.FakeElementRef">
+            <summary>Creates a fake ElementRef for use in tests (avoids UIA dependency).</summary>
+        </member>
+    </members>
+</doc>

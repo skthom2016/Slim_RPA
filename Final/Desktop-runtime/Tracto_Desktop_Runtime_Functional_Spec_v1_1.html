@@ -1,0 +1,840 @@
+<title>Desktop Runtime Spec v1.1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed left nav + scrollable content */
+:root {
+  --bg: #F8F9FB;
+  --bg2: #FFFFFF;
+  --fg: #1A1D23;
+  --fg2: #4B5563;
+  --accent: #1E5FA8;
+  --accent-light: #EBF2FF;
+  --border: #D4D8DF;
+  --code-bg: #EEF1F5;
+  --change-bg: #FFF8E6;
+  --change-border: #E9A800;
+  --new-bg: #EDFAF2;
+  --new-border: #15803D;
+  --tag-existing: #DBEAFE;
+  --tag-existing-fg: #1E40AF;
+  --tag-compose: #EDE9FE;
+  --tag-compose-fg: #5B21B6;
+  --tag-internal: #DCFCE7;
+  --tag-internal-fg: #166534;
+  --tag-new: #FEE2E2;
+  --tag-new-fg: #991B1B;
+  --nav-bg: #F1F3F7;
+  --nav-active: #1E5FA8;
+  --serif: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141720; --bg2: #1C2030; --fg: #E2E6ED; --fg2: #9BA3B3;
+    --accent: #5B9BD5; --accent-light: #1A2A40; --border: #2D3347;
+    --code-bg: #1F2438; --change-bg: #2D2410; --change-border: #C08C00;
+    --new-bg: #0F2A1A; --new-border: #22C55E;
+    --tag-existing: #172554; --tag-existing-fg: #93C5FD;
+    --tag-compose: #2E1065; --tag-compose-fg: #C4B5FD;
+    --tag-internal: #052E16; --tag-internal-fg: #86EFAC;
+    --tag-new: #450A0A; --tag-new-fg: #FCA5A5;
+    --nav-bg: #1A1F2E; --nav-active: #5B9BD5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141720; --bg2: #1C2030; --fg: #E2E6ED; --fg2: #9BA3B3;
+  --accent: #5B9BD5; --accent-light: #1A2A40; --border: #2D3347;
+  --code-bg: #1F2438; --change-bg: #2D2410; --change-border: #C08C00;
+  --new-bg: #0F2A1A; --new-border: #22C55E;
+  --tag-existing: #172554; --tag-existing-fg: #93C5FD;
+  --tag-compose: #2E1065; --tag-compose-fg: #C4B5FD;
+  --tag-internal: #052E16; --tag-internal-fg: #86EFAC;
+  --tag-new: #450A0A; --tag-new-fg: #FCA5A5;
+  --nav-bg: #1A1F2E; --nav-active: #5B9BD5;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+  display: flex;
+  min-height: 100%;
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+nav {
+  width: 240px;
+  min-width: 240px;
+  background: var(--nav-bg);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+nav .nav-logo {
+  padding: 0 16px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+nav .nav-logo .prod { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--fg2); }
+nav .nav-logo .title { font-size: 13px; font-weight: 700; color: var(--fg); line-height: 1.3; margin-top: 2px; }
+nav .nav-logo .ver { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 600; background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 10px; letter-spacing: .04em; }
+nav a {
+  display: block;
+  padding: 5px 16px 5px 20px;
+  font-size: 12px;
+  color: var(--fg2);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+}
+nav a:hover { color: var(--accent); }
+nav a.active { color: var(--nav-active); border-left-color: var(--nav-active); font-weight: 600; background: var(--accent-light); }
+nav .nav-section { padding: 10px 16px 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg2); margin-top: 4px; }
+main {
+  flex: 1;
+  min-width: 0;
+  padding: 40px max(24px, env(safe-area-inset-right, 0px)) 80px max(24px, env(safe-area-inset-left, 0px));
+  max-width: 900px;
+}
+.doc-header {
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 20px;
+  margin-bottom: 36px;
+}
+.doc-header .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.doc-header h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; line-height: 1.2; text-wrap: balance; }
+.doc-header .meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--fg2); }
+.doc-header .meta span { display: flex; gap: 5px; }
+.doc-header .status-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--new-bg); color: var(--new-border); border: 1px solid var(--new-border); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 10px; }
+section { margin-bottom: 44px; }
+h2 { font-size: 18px; font-weight: 700; color: var(--fg); margin: 0 0 16px; padding-top: 8px; border-top: 1px solid var(--border); text-wrap: balance; }
+h3 { font-size: 14px; font-weight: 700; color: var(--fg); margin: 24px 0 10px; }
+h4 { font-size: 13px; font-weight: 600; color: var(--fg); margin: 20px 0 8px; }
+p { margin: 0 0 12px; color: var(--fg); }
+p:last-child { margin-bottom: 0; }
+code, .mono { font-family: var(--mono); font-size: 12px; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; color: var(--accent); }
+.req-block {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 14px 0;
+  overflow: hidden;
+  background: var(--bg2);
+}
+.req-block .req-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; font-family: var(--mono);
+}
+.req-block .req-id { color: var(--accent); }
+.req-block .req-body { padding: 10px 14px; }
+.req-block .req-body strong { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--fg2); display: block; margin-bottom: 2px; }
+.req-block .req-body p { margin: 0 0 8px; font-size: 13px; }
+.req-block .req-body p:last-child { margin: 0; }
+.change-note {
+  background: var(--change-bg);
+  border-left: 3px solid var(--change-border);
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.change-note .label { font-weight: 700; color: var(--change-border); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.new-note {
+  background: var(--new-bg);
+  border-left: 3px solid var(--new-border);
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.new-note .label { font-weight: 700; color: var(--new-border); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.tbl-wrap { overflow-x: auto; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 520px; }
+th { background: var(--bg); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); color: var(--fg2); white-space: nowrap; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.tag-existing { background: var(--tag-existing); color: var(--tag-existing-fg); }
+.tag-compose { background: var(--tag-compose); color: var(--tag-compose-fg); }
+.tag-internal { background: var(--tag-internal); color: var(--tag-internal-fg); }
+.tag-new { background: var(--tag-new); color: var(--tag-new-fg); }
+.tag-fix { background: var(--change-bg); color: var(--change-border); border: 1px solid var(--change-border); }
+.action-row td:first-child { font-family: var(--mono); font-size: 11.5px; color: var(--accent); font-weight: 500; }
+ul, ol { margin: 8px 0 12px 0; padding-left: 20px; }
+li { margin-bottom: 4px; }
+.scope-table td:first-child { font-weight: 600; }
+.retry-badge {
+  font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 3px; font-weight: 600;
+}
+.never { background: #FEE2E2; color: #991B1B; }
+.idempotent { background: #DCFCE7; color: #166534; }
+.transient { background: #FEF3C7; color: #92400E; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .never { background: #450A0A; color: #FCA5A5; }
+  :root:not([data-theme="light"]) .idempotent { background: #052E16; color: #86EFAC; }
+  :root:not([data-theme="light"]) .transient { background: #451A03; color: #FCD34D; }
+}
+:root[data-theme="dark"] .never { background: #450A0A; color: #FCA5A5; }
+:root[data-theme="dark"] .idempotent { background: #052E16; color: #86EFAC; }
+:root[data-theme="dark"] .transient { background: #451A03; color: #FCD34D; }
+.appendix-header { background: var(--accent); color: #fff; padding: 12px 16px; border-radius: 6px 6px 0 0; font-weight: 700; font-size: 13px; margin-bottom: 0; }
+@media (max-width: 720px) {
+  body { flex-direction: column; }
+  nav { width: 100%; min-width: 0; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); padding: 12px 0; }
+  nav a { padding: 4px 12px; display: inline-block; }
+  nav .nav-section { display: none; }
+  main { padding: 24px max(16px, env(safe-area-inset-right, 0px)) 60px max(16px, env(safe-area-inset-left, 0px)); }
+}
+</style>
+
+<nav>
+  <div class="nav-logo">
+    <div class="prod">Tracto RPA Platform</div>
+    <div class="title">Desktop Runtime<br>Functional Specification</div>
+    <div class="ver">v1.1 — 23 Oct 2026</div>
+  </div>
+  <div class="nav-section">Contents</div>
+  <a href="#scope">§1 Scope</a>
+  <a href="#part-a">§2 Part A — Host Obligations</a>
+  <a href="#part-b">§3 Part B — Environment</a>
+  <a href="#gap-table">§3.2 Action Gap Classification ★</a>
+  <a href="#lifecycle">§4 Application Lifecycle</a>
+  <a href="#element">§5 Element Identification</a>
+  <a href="#input">§6 Input Actions</a>
+  <a href="#controls">§7 Standard Controls</a>
+  <a href="#recovery">§8 Waiting &amp; Recovery</a>
+  <a href="#fixtures">§9 Acceptance Fixtures</a>
+  <a href="#catalogue">§10 Action Catalogue</a>
+  <a href="#selectors">§11 Selector Schema</a>
+  <a href="#defaults">§12 Defaults &amp; Policies</a>
+  <a href="#tests">§13 Additional Tests</a>
+  <div class="nav-section">Appendices</div>
+  <a href="#error-taxonomy">A — Error Taxonomy ★</a>
+  <a href="#dod">Definition of Done</a>
+  <div class="nav-section">Legend</div>
+  <a href="#legend">★ = v1.1 addition</a>
+</nav>
+
+<main>
+  <div class="doc-header">
+    <div class="eyebrow">Tracto / Architecture-Aligned Specification</div>
+    <h1>Desktop Runtime — Functional Requirements</h1>
+    <div class="meta">
+      <span><strong>Document:</strong> TRACTO-DESK-SPEC-001</span>
+      <span><strong>Version:</strong> 1.1</span>
+      <span><strong>Date:</strong> 23 October 2026</span>
+      <span><strong>Supersedes:</strong> v1.0 (22 Oct 2026)</span>
+    </div>
+    <div class="status-badge">✓ Functional baseline — corrections applied per architect review</div>
+    <div class="change-note" style="margin-top:14px">
+      <div class="label">v1.1 Changes</div>
+      Contract references updated to CEC v1.0.1 · Action gap classification table added (§3.2) · Error code taxonomy aligned with Common Contract (Appendix A) · Retry classes corrected for <code>desktop.app.launch</code> and <code>desktop.mouse.scroll</code> · Pointer targeting rule tightened (§11) · Session-lock pause clarified as internal bounded wait (REC-008) · <code>desktop.grid.editCell</code> added; hover dwell and tree state parameters extended on existing actions.
+    </div>
+  </div>
+
+  <!-- §1 -->
+  <section id="scope">
+    <h2>§1 — Scope and Relationship to the Architecture</h2>
+    <p>The Desktop Runtime reproduces authorized human mouse, keyboard, clipboard and control interactions with Windows applications using deterministic scripts. Primary targeting is Windows UI Automation; Java Access Bridge is used for supported Java controls; keyboard navigation is an approved fallback; coordinates are allowed only relative to a UIA-identified control. There is no OCR/image targeting or arbitrary screen coordinate execution in v1.</p>
+    <p>This is one independently delivered .NET application in the Tracto Runtime family. The product has three logical components: Designer, Runtime family and Orchestrator. This document covers Part A (shared host obligations) and Part B (Desktop-specific actions, environment, failure conditions and acceptance tests).</p>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Included in this document</th><th>Outside this Runtime</th></tr>
+        <tr><td>Interactive Windows application lifecycle, UIA/Java targeting, pointer/keyboard, clipboard, controls, dialogs and recovery</td><td>Pixel-only Citrix/VDI from outside the target session, secure/UAC desktop bypass, domain computations, Office-specific business macros, OCR/image-based actions</td></tr>
+        <tr><td>Runtime-specific technical actions, waits, recovery and certified fixtures</td><td>Business rules, calculations, enrichment, reconciliation, persistence, transaction compensation</td></tr>
+        <tr><td>Conformance to Common Execution Contract v1.0.1</td><td>Designer AI generation, Orchestrator scheduling logic, other runtimes' action catalogues</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- §2 -->
+  <section id="part-a">
+    <h2>§2 — Part A: Shared Runtime Host Obligations</h2>
+    <div class="change-note">
+      <div class="label">v1.1 Fix — P1</div>
+      All references to "CEC v1.0" updated to <strong>CEC v1.0.1</strong>. The completed Stage 1 contract packages (Tracto.Contract.*, Tracto.Conformance.*) are the normative implementation baseline. The Desktop team must import the published NuGet packages from the Stage 1 release, not a provisional v1.0 baseline.
+    </div>
+    <p>The following host obligations are required for every worker. The canonical wire, result and condition semantics belong to the <strong>Common Execution &amp; Orchestrator Interface Contract v1.0.1</strong>. A runtime team may share .NET libraries or implement these separately, but must pass the same conformance fixtures.</p>
+
+    <h3>§2.0 Shared Host Contract Reference</h3>
+    <p>This Runtime conforms to CEC-HOST-001 through CEC-HOST-009 in the <strong>Common Execution &amp; Orchestrator Interface Contract v1.0.1</strong>. Those normative host requirements are defined once in the CEC. Only engine-specific obligations are specified below.</p>
+    <p>All programmatic API invocations use <code>service.invoke</code> to a registered independently developed custom business service. Normal UI/website/shell interactions with authorized target applications remain in scope.</p>
+
+    <h3>§2.1 Invocation and Execution Model</h3>
+    <ol>
+      <li>A configured worker advertises its <code>runtimeType</code>, capabilities, worker version and supported schema majors.</li>
+      <li>Worker initiates authenticated outbound pull; receives a run/attempt-bound lease and immutable artifact reference.</li>
+      <li>Before side effects, verify signatures, input types, environment permissions, policy refs and workload compatibility.</li>
+      <li>Execute runtime-specific steps with bounded deadlines, technical pre/postconditions and action status evidence.</li>
+      <li>Handle a synchronous registered custom-service response or an acknowledged asynchronous handoff; never call third-party business APIs directly or make business decisions.</li>
+      <li>Write local run journal and send final result. Reconcile after disconnect; release job capacity and runtime-specific resources.</li>
+    </ol>
+
+    <h3>§2.2 Worker/Session and Deployment Assumptions</h3>
+    <p>One job per registered bot worker in v1. Worker processes are separate applications; multiple workers may share a host only where capacity and session/input isolation allow. Isolated deployment uses the single Windows Runtime Host Supervisor to supervise WSL2/Docker/Orchestrator. Host/interactive-session POC-01–POC-10 gates remain those of architecture v1.2A.</p>
+  </section>
+
+  <!-- §3 -->
+  <section id="part-b">
+    <h2>§3 — Part B: Desktop Execution Environment and Target Model</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Target type</th><th>Primary technical approach</th><th>Fallback / acceptance boundary</th></tr>
+        <tr><td>Win32 and legacy accessible controls</td><td>UIA patterns + Win32 window identity</td><td>Keyboard/accelerator fallback when accessible target is unstable</td></tr>
+        <tr><td>WinForms / WPF</td><td>UIA AutomationId, Name, ControlType, ancestry</td><td>Window-relative targeting; controlled focus and keyboard navigation</td></tr>
+        <tr><td>Java Swing/JavaFX where supported</td><td>Java Access Bridge adapter / accessibility exposure</td><td>Keyboard fallback; explicit unsupported result if no accessible identity</td></tr>
+        <tr><td>Custom canvas / opaque surface</td><td>Only keyboard-accessible navigation or control-relative coordinates</td><td>No OCR/image or arbitrary pixel matching; otherwise unsupported</td></tr>
+        <tr><td>Remote/VDI Windows desktop</td><td>Runtime installed inside SAME interactive desktop/session as app</td><td>Pixel-only remoting outside that session is unsupported</td></tr>
+      </table>
+    </div>
+
+    <h3>§3.1 Action Classes and Scope Boundary</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Class</th><th>v1 required actions</th><th>Deferred or explicitly excluded</th></tr>
+        <tr><td><strong>Window / process</strong></td><td>launch, attach, enumerate, activate, minimize, restore, resize, close, wait</td><td>Elevated UAC consent interaction / protected desktop</td></tr>
+        <tr><td><strong>Discovery</strong></td><td>UIA query, property inspect, scoped anchor, Java Access Bridge, re-resolve stale</td><td>OCR/image matching; arbitrary absolute coordinates</td></tr>
+        <tr><td><strong>Mouse</strong></td><td>move, left/right/double click, hover (with dwell), drag/drop, horizontal/vertical scroll</td><td>Pixel-game capture, screen-image targeting</td></tr>
+        <tr><td><strong>Keyboard</strong></td><td>Unicode type, keypress, hotkey, navigate, selection, keydown/up cleanup</td><td>Bypass OS/input security</td></tr>
+        <tr><td><strong>Clipboard</strong></td><td>copy/paste, text read/write, contention retry, best-effort restore</td><td>Guaranteeing restoration of every proprietary binary clipboard format</td></tr>
+        <tr><td><strong>Controls</strong></td><td>text, checkbox, radio, combo, list, grid (read/select/<strong>edit</strong>), tree (expand/collapse), tabs, menus, dialogs, date widget where accessible</td><td>Unsupported proprietary controls without reliable accessible/keyboard path</td></tr>
+        <tr><td><strong>Timing/recovery</strong></td><td>wait, assert, focus verify, retry safe action, cancellation, crash and lock detection</td><td>Domain rollback or unbounded brute-force clicking</td></tr>
+      </table>
+    </div>
+
+    <h3 id="gap-table">§3.2 Action Catalogue Gap Classification ★</h3>
+    <div class="new-note">
+      <div class="label">New in v1.1</div>
+      This table closes the implementation ambiguity identified in the architect review. Each required capability from §3.1 and §6–§7 is classified as: (1) delivered by an existing public action, (2) a composition of existing actions documented as a pattern, (3) internal Runtime behavior not exposed as a script step, or (4) a new action required. Only classification 4 adds to the catalogue. The results of this analysis are applied in §10.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Required capability</th><th>Source req.</th><th>Classification</th><th>Resolution</th></tr>
+        <tr>
+          <td>Mouse hover with dwell</td><td>INPUT-003</td>
+          <td><span class="tag tag-existing">Existing — extended</span></td>
+          <td>Add optional <code>dwellMs?</code> parameter to <code>desktop.mouse.move</code>. When set, the Runtime holds the cursor position for the specified duration, enabling contextual UI (tooltips, hover menus) to appear. No separate action needed.</td>
+        </tr>
+        <tr>
+          <td>Tree node collapse</td><td>§3.1 Controls, CTRL-005</td>
+          <td><span class="tag tag-existing">Existing — extended</span></td>
+          <td>Extend <code>desktop.tree.expand</code> to accept <code>state: expanded | collapsed</code> parameter (default: <code>expanded</code>). The UIA ExpandCollapse pattern already supports both directions. The action is idempotent regardless of direction. Rename not required; the existing action name is retained with the new parameter.</td>
+        </tr>
+        <tr>
+          <td>Clipboard restoration</td><td>INPUT-006</td>
+          <td><span class="tag tag-internal">Internal behavior</span></td>
+          <td>OS clipboard save/restore around a paste operation is internal Runtime behavior governed by deployment policy. When the policy is enabled, the Runtime captures the pre-paste OS clipboard text (best-effort), executes the paste into the target UI control, and restores the captured text after the paste commits. This is transparent to the script; callers do not compose a save/restore sequence using public actions. No new public action is required.</td>
+        </tr>
+        <tr>
+          <td>Tab selection</td><td>CTRL-006</td>
+          <td><span class="tag tag-existing">Existing action</span></td>
+          <td><code>desktop.control.select</code> with <code>optionText</code> targets a named tab in a TabControl. The UIA Selection pattern applies to tab strips. Explicitly map this in CTRL-006 acceptance wording.</td>
+        </tr>
+        <tr>
+          <td>Grid cell editing</td><td>CTRL-004</td>
+          <td><span class="tag tag-new">New action required</span></td>
+          <td><code>desktop.grid.editCell(gridRef, rowRef, columnRef, valueRef)</code> — entering edit mode, setting value and confirming is a distinct interaction sequence that cannot be composed from read/select alone without exposing intermediate state to the script. Added to §10 catalogue.</td>
+        </tr>
+        <tr>
+          <td>Button keydown/up cleanup</td><td>INPUT-008</td>
+          <td><span class="tag tag-existing">Existing action</span></td>
+          <td><code>desktop.keyboard.keyDownUp</code> ✓ — already in catalogue with holdMs and cancellation-safe release.</td>
+        </tr>
+        <tr>
+          <td>Scroll to element (UIA ScrollPattern)</td><td>UIA-010</td>
+          <td><span class="tag tag-internal">Internal behavior</span></td>
+          <td>When <code>desktop.element.find</code> or any action targets an element in a virtualized/scrollable container, the Runtime internally scrolls to realize the element using the UIA ScrollPattern before resolving the reference. This is a Runtime guarantee, not a script step.</td>
+        </tr>
+        <tr>
+          <td>Stale element re-resolution</td><td>UIA-003</td>
+          <td><span class="tag tag-internal">Internal behavior</span></td>
+          <td>When a cached element reference becomes stale (UIA provider reports invalid), the Runtime automatically re-finds the element using the original selector before retrying. This is transparent to the script.</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- §4 -->
+  <section id="lifecycle">
+    <h2>§4 — Desktop Application and Session Lifecycle</h2>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-001</span> Session eligibility</div><div class="req-body"><strong>Requirement</strong><p>Verify authorized interactive logon, active input desktop, process identity, lock state and session class before GUI input.</p><strong>Acceptance</strong><p>Given locked, logged-off, disconnected or noninteractive session, no click/key injection occurs and a stable <code>SESSION_UNAVAILABLE</code> result is returned.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-002</span> Display baseline</div><div class="req-body"><strong>Requirement</strong><p>Validate single active monitor and configured fixed resolution/DPI against certified environment at run admission and after major UI changes.</p><strong>Acceptance</strong><p>Resolution or DPI drift blocks control-relative coordinates with <code>DISPLAY_PROFILE_CHANGED</code>; UIA-only actions may follow explicit policy.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-003</span> Foreground ownership</div><div class="req-body"><strong>Requirement</strong><p>Acquire exclusive input lease per interactive desktop session and verify active target foreground before each input phase.</p><strong>Acceptance</strong><p>Two workers cannot interleave input in one session; focus theft fails safely without typing into unrelated application.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-004</span> Application launch and attach</div><div class="req-body"><strong>Requirement</strong><p>Launch a policy-allowlisted executable/shortcut with arguments or attach using process identity and window ownership.</p><strong>Acceptance</strong><p>Correct PID/window is attached even when identical titles exist; unauthorized executable returns policy error.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-005</span> Window enumeration</div><div class="req-body"><strong>Requirement</strong><p>Discover owned top-level/child windows, visibility, bounds, enabled/focused state and modal ownership.</p><strong>Acceptance</strong><p>Finds main window and nested modal in WinForms/WPF fixture; ambiguous matches surface candidates instead of guessing.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-006</span> Window state control</div><div class="req-body"><strong>Requirement</strong><p>Activate, bring to front, restore, maximize, minimize, move and resize windows where OS permits.</p><strong>Acceptance</strong><p>Each action verifies resulting state within bounded timeout; denial returns <code>WINDOW_CONTROL_FAILED</code>.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-007</span> Application exit handling</div><div class="req-body"><strong>Requirement</strong><p>Detect normal process exit, crash, freeze and owned child-process changes, with configured close/relaunch policy.</p><strong>Acceptance</strong><p>Unexpected exit before postcondition never yields SUCCEEDED; evidence identifies missing process.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-008</span> Unexpected modal handling</div><div class="req-body"><strong>Requirement</strong><p>Recognize configured dialogs or stop with diagnostic; never blindly dismiss arbitrary security or update prompts.</p><strong>Acceptance</strong><p>Injected unrelated modal blocks action and is reported with sanitized window metadata.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-009</span> User interference</div><div class="req-body"><strong>Requirement</strong><p>Detect foreground theft and competing physical mouse/keyboard input under unattended mode and apply policy (pause/fail).</p><strong>Acceptance</strong><p>Human activity causes controlled suspension/failure without corrupting later steps.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">DES-010</span> Supervisor integration</div><div class="req-body"><strong>Requirement</strong><p>Desktop interactive executor receives host/session readiness via authorized local IPC; shared Supervisor owns WSL start and availability in isolated mode.</p><strong>Acceptance</strong><p>Background Supervisor cannot inject desktop events; executor runs only in correct user session and owns job pull/heartbeat.</p></div></div>
+  </section>
+
+  <!-- §5 -->
+  <section id="element">
+    <h2>§5 — Element Identification and State Targeting</h2>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-001</span> Stable UIA queries</div><div class="req-body"><strong>Requirement</strong><p>Select targets by AutomationId, ControlType, Name, ClassName, ancestor/window/process context and available patterns.</p><strong>Acceptance</strong><p>Button selection survives window movement and control-relative layout changes.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-002</span> Unique target enforcement</div><div class="req-body"><strong>Requirement</strong><p>Require one unambiguous accessible target or explicit, stable scoped selector/index within named container.</p><strong>Acceptance</strong><p>Two identical buttons without disambiguation yield <code>TARGET_AMBIGUOUS</code> without action.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-003</span> Re-resolution after redraw</div><div class="req-body"><strong>Requirement</strong><p>Invalidate cached element references when provider reports stale or window refreshes; re-find using selector. This is internal Runtime behavior — not a script step.</p><strong>Acceptance</strong><p>Fixture re-renders list and selected control can be re-found without stale COM object crash.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-004</span> Visibility and enabled checks</div><div class="req-body"><strong>Requirement</strong><p>Verify control exists, is visible and enabled, in foreground ownership and not occluded when pointer input is required.</p><strong>Acceptance</strong><p>Disabled or offscreen control is waited for or reported; no blind click.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-005</span> UIA pattern preference</div><div class="req-body"><strong>Requirement</strong><p>Use Invoke, Value, Selection, Toggle, ExpandCollapse, Scroll and other supported UIA patterns where appropriate.</p><strong>Acceptance</strong><p>A checkbox is set to target state without unintended toggle when already checked.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-006</span> Java accessibility adapter</div><div class="req-body"><strong>Requirement</strong><p>Support explicitly certified Java Access Bridge applications and exposed names/roles/states/actions.</p><strong>Acceptance</strong><p>Swing fixture button, editable field and tree are addressed with stable Java accessibility identity.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-007</span> Keyboard fallback</div><div class="req-body"><strong>Requirement</strong><p>Use documented tab order, accelerators and navigation when semantic element controls are unavailable.</p><strong>Acceptance</strong><p>Fixture responds to known hotkey path and asserted state without absolute cursor coordinates.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-008</span> Control-relative pointer fallback</div><div class="req-body"><strong>Requirement</strong><p>Allow bounded offsets only from freshly located <strong>UIA control</strong> with verified rectangle, foreground, DPI and hit region. Java Access Bridge location alone is insufficient to authorize coordinate input — see §11.</p><strong>Acceptance</strong><p>An offset remains inside the anchored UIA control after moving the window; missing UIA anchor blocks action.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-009</span> No visual targeting</div><div class="req-body"><strong>Requirement</strong><p>Reject OCR/image confidence selectors, screenshot-coordinate selectors and arbitrary absolute screen click actions.</p><strong>Acceptance</strong><p>Validation rejects unsupported selector class before job begins.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-010</span> Virtualized/scrollable controls</div><div class="req-body"><strong>Requirement</strong><p>Scroll to target via element/scroll patterns or bounded keyboard paths and re-resolve after realization. This scrolling is internal Runtime behavior triggered by any action that needs to locate the element.</p><strong>Acceptance</strong><p>Virtualized grid row reached, targeted and verified in reference app.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">UIA-011</span> Accessibility provider failure</div><div class="req-body"><strong>Requirement</strong><p>Surface <code>TIMEOUT</code> / <code>UNSUPPORTED_CONTROL</code> / <code>ACCESS_DENIED</code> instead of silently converting to arbitrary coordinates.</p><strong>Acceptance</strong><p>Opaque custom control without accessible/keyboard path is a documented clean failure.</p></div></div>
+  </section>
+
+  <!-- §6 -->
+  <section id="input">
+    <h2>§6 — Human-Equivalent Input Actions</h2>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-001</span> Mouse movement and clicking</div><div class="req-body"><strong>Requirement</strong><p>Provide move, left/right/middle click, double click, button down/up and context-menu invocation on verified target.</p><strong>Acceptance</strong><p>Reference app logs proper target, click count and button with no out-of-window input.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-002</span> Drag and drop</div><div class="req-body"><strong>Requirement</strong><p>Press, move along configured bounded path, release and verify resulting UI state; always release input on cancellation.</p><strong>Acceptance</strong><p>Drag item between panes completes; forced cancellation leaves no held mouse button.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-003</span> Hover and scrolling</div><div class="req-body"><strong>Requirement</strong><p>Dwell on verified control to open contextual UI (via <code>dwellMs</code> on <code>desktop.mouse.move</code>); support vertical/horizontal wheel and UIA ScrollPattern.</p><strong>Acceptance</strong><p>Nested menu opens after dwell and list scroll affects intended pane only.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-004</span> Unicode typing</div><div class="req-body"><strong>Requirement</strong><p>Enter Unicode/multiline text and keyboard shortcuts with defined keyboard layout/IME handling; release modifier keys.</p><strong>Acceptance</strong><p>Accented/non-Latin test strings and Ctrl/Alt/Shift shortcuts work in certified editors.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-005</span> Text entry strategy</div><div class="req-body"><strong>Requirement</strong><p>Prefer UIA ValuePattern where supported; otherwise controlled typing or clipboard paste under declared policy.</p><strong>Acceptance</strong><p>Target field receives exact expected value; chosen strategy is reported.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-006</span> Clipboard isolation</div><div class="req-body"><strong>Requirement</strong><p>Read/write permitted clipboard text, handle clipboard-lock contention and restore supported prior contents when policy requires. Restoration is a script-authored sequence using existing clipboard actions — not an atomic single action.</p><strong>Acceptance</strong><p>Busy clipboard gets bounded retry; prior text is restored and unsupported proprietary formats are disclosed.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-007</span> Copy-paste workflow</div><div class="req-body"><strong>Requirement</strong><p>Select UI text, copy to controlled buffer, map it to output/API input and paste approved returned data into target UI.</p><strong>Acceptance</strong><p>Extracted text exactly matches fixture; API response is pasted unmodified without domain calculation.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-008</span> Hotkey and key-hold cleanup</div><div class="req-body"><strong>Requirement</strong><p>Support keydown/up, key combinations, repeat count and timeout-aware release in any failure path.</p><strong>Acceptance</strong><p>Cancelled Ctrl+Shift sequence leaves neither modifier logically pressed.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">INPUT-009</span> Sensitive text input</div><div class="req-body"><strong>Requirement</strong><p>Resolve <code>secretRef</code> only on Windows, suppress keystroke/clipboard secret echo in evidence and clear owned sensitive transient buffers.</p><strong>Acceptance</strong><p>Secret fills auth control; no plaintext appears in logs, screenshots or Orchestrator messages.</p></div></div>
+  </section>
+
+  <!-- §7 -->
+  <section id="controls">
+    <h2>§7 — Standard Windows Control Families</h2>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-001</span> Text edit and rich text</div><div class="req-body"><strong>Requirement</strong><p>Read/set supported text fields; select-all, cursor positioning, multiline entry and display verification.</p><strong>Acceptance</strong><p>Text from standard and rich edit fixtures is accurate within documented control support.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-002</span> Buttons, toggles, radio</div><div class="req-body"><strong>Requirement</strong><p>Invoke and verify buttons, check boxes, radio buttons and toggle controls by intended final state.</p><strong>Acceptance</strong><p>Already-checked checkbox is not inadvertently unchecked.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-003</span> Combobox and dropdown</div><div class="req-body"><strong>Requirement</strong><p>Open dropdown, choose visible value using semantic selection or bounded keyboard navigation; verify displayed value.</p><strong>Acceptance</strong><p>Two same-name items require explicit disambiguation.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-004</span> Lists, tables and grids</div><div class="req-body"><strong>Requirement</strong><p>Navigate rows/cells; select, <strong>edit where allowed</strong>, retrieve accessible cell values and copy supported ranges. Cell editing uses <code>desktop.grid.editCell</code> (see §10).</p><strong>Acceptance</strong><p>Sorted/virtualized grid row selected by stable identity, not stale ordinal position. Edited cell reflects committed value after postcondition check.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-005</span> Trees, menus and ribbons</div><div class="req-body"><strong>Requirement</strong><p>Expand/collapse nodes (via <code>desktop.tree.expand</code> with <code>state</code> parameter), navigate hierarchy, select menu/ribbon commands including overflow.</p><strong>Acceptance</strong><p>Resized app window still executes intended ribbon command or returns unsupported.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-006</span> Tabs and modal dialogs</div><div class="req-body"><strong>Requirement</strong><p>Select named tabs via <code>desktop.control.select</code> (tab strips expose the UIA Selection pattern), invoke context menus, respond only to declared dialog/button states.</p><strong>Acceptance</strong><p>Save confirmation handled by explicit policy; unexpected security prompt stops.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-007</span> File pickers</div><div class="req-body"><strong>Requirement</strong><p>Operate Windows file/folder selectors, type allowed paths, select files, save and handle overwrite according to policy.</p><strong>Acceptance</strong><p>Unicode-path save/reopen succeeds; denied overwrite cannot be bypassed.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-008</span> Date, numeric and masked fields</div><div class="req-body"><strong>Requirement</strong><p>Enter supported control values via exposed accessible interface or certified keyboard procedure.</p><strong>Acceptance</strong><p>Locale-sensitive date displays exact intended date in reference fixture.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">CTRL-009</span> Native Office control coverage</div><div class="req-body"><strong>Requirement</strong><p>Automate certified Office UI tasks through accessible controls and keyboard navigation, not custom document macro execution.</p><strong>Acceptance</strong><p>Named Office fixture completes open/save/form-navigation sequence; unsupported ribbon behavior recorded.</p></div></div>
+  </section>
+
+  <!-- §8 -->
+  <section id="recovery">
+    <h2>§8 — Waiting, Failures and Safe Recovery</h2>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-001</span> Explicit state waits</div><div class="req-body"><strong>Requirement</strong><p>Wait for visible, enabled, focused, text-equals technical navigation state, window creation/destruction and app ready conditions.</p><strong>Acceptance</strong><p>Slow-load fixture succeeds without arbitrary fixed delay; timeout ends with code and evidence.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-002</span> Postcondition verification</div><div class="req-body"><strong>Requirement</strong><p>Every potentially consequential UI action must have observable app-state assertion or explicit unknown completion policy.</p><strong>Acceptance</strong><p>Click with no confirmed change is not automatically reported SUCCEEDED.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-003</span> Focus theft and overlay</div><div class="req-body"><strong>Requirement</strong><p>After waits, recheck foreground, target bounds and overlay/modal presence before sending input.</p><strong>Acceptance</strong><p>Injected overlay blocks action and no unrelated input occurs.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-004</span> Irreversible action uncertainty</div><div class="req-body"><strong>Requirement</strong><p>When Save/Submit may have succeeded but response is lost, record run state UNKNOWN with <code>unknownReason: action.commitUncertain</code>; do not automatically repeat unless idempotence is proven.</p><strong>Acceptance</strong><p>ERP save timeout results in UNKNOWN + <code>needsAttention=true</code> and no second Save.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-005</span> Cancellation and cleanup</div><div class="req-body"><strong>Requirement</strong><p>On cancel/timeouts release held keys/buttons, transient clipboard handles, session input lease and owned process handles.</p><strong>Acceptance</strong><p>Kill during drag or hotkey does not leave desktop unusable.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-006</span> Window/application crash</div><div class="req-body"><strong>Requirement</strong><p>Detect hung/crashed app, collect safe evidence and execute only approved restart/recovery step.</p><strong>Acceptance</strong><p>Injected crash reports <code>APP_CRASH</code> (errorCategory: ENVIRONMENT) and optional safe relaunch without duplicating submission.</p></div></div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-007</span> Selector failure diagnostics</div><div class="req-body"><strong>Requirement</strong><p>Return missing/ambiguous/stale/unsupported provider codes, attempted selector strategy and sanitized bounds.</p><strong>Acceptance</strong><p>Engineer can identify failing control without retaining secret input.</p></div></div>
+    <div class="req-block">
+      <div class="req-header"><span class="req-id">REC-008</span> User lock/disconnect recovery <span class="tag tag-fix" style="margin-left:8px;font-size:10px">v1.1 clarified</span></div>
+      <div class="req-body">
+        <strong>Requirement</strong>
+        <p>Pause or fail safely when the interactive session is locked, logged off or disconnected. Any paused run retains a bounded pause deadline (default 5 minutes, configurable by approved policy), then exits as FAILED, TIMED_OUT or UNKNOWN according to side-effect evidence.</p>
+        <div class="change-note">
+          <div class="label">v1.1 Clarification — P2</div>
+          This bounded wait is an <strong>internal behavior under the RUNNING state</strong> — no PAUSED run state is introduced. Heartbeat continues during the wait period and counts toward the lease deadline. On deadline expiry, the run exits through the normal FAILED, TIMED_OUT, or UNKNOWN path per Common Contract C3 rules, depending on whether the last consequential action's side effect can be established. The 5-minute default is a configurable policy value, not an immutable architectural constant.
+        </div>
+        <strong>Acceptance</strong>
+        <p>Lock screen mid-run yields defined FAILED or UNKNOWN outcome depending on last action; RUNNING state is maintained throughout; no PAUSED state is emitted.</p>
+      </div>
+    </div>
+    <div class="req-block"><div class="req-header"><span class="req-id">REC-009</span> Service outcome routing</div><div class="req-body"><strong>Requirement</strong><p>Map service outcome category or allowlisted actionCode to predefined UI steps; do not compare business amounts.</p><strong>Acceptance</strong><p>Rejected invoice status is rendered as given; amount threshold expressions are rejected.</p></div></div>
+  </section>
+
+  <!-- §9 -->
+  <section id="fixtures">
+    <h2>§9 — Desktop Acceptance Application Matrix</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Fixture</th><th>Coverage purpose</th><th>Certification status</th></tr>
+        <tr><td>Classic Win32 (Notepad + Win32 test harness)</td><td>Process/window, menus, text, clipboard, file dialogs</td><td>Required; exact build pending</td></tr>
+        <tr><td>WinForms reference harness</td><td>AutomationId, grid, modal, combobox, checkbox</td><td>Required custom/standard test fixture</td></tr>
+        <tr><td>WPF reference harness</td><td>UIA patterns, virtualization, ribbon, stale redraw</td><td>Required custom/standard test fixture</td></tr>
+        <tr><td>Java Swing accessible harness</td><td>Java Access Bridge, hierarchy, text, tables</td><td>Required; supported JDK/JAB matrix pending</td></tr>
+        <tr><td>Office desktop application</td><td>Ribbon, dialogs, save, keyboard navigation</td><td>Required; named build to be selected</td></tr>
+        <tr><td>One real customer legacy/ERP app</td><td>Real-world timings, custom controls, unexpected dialogs</td><td>Conditional customer-approved fixture</td></tr>
+        <tr><td>Known unsupported control fixture</td><td>Clean UNSUPPORTED_CONTROL result</td><td>Required negative test</td></tr>
+      </table>
+    </div>
+    <h3>Acceptance Scenario Catalogue</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Test ID</th><th>Scenario</th><th>Observable pass criterion</th></tr>
+        <tr><td>DES-AT-01</td><td>UIA stable click</td><td>Move/resize WPF app; selector identifies same button and postcondition passes.</td></tr>
+        <tr><td>DES-AT-02</td><td>Focus stolen</td><td>Input never reaches wrong window; controlled fail/reacquire.</td></tr>
+        <tr><td>DES-AT-03</td><td>Java accessibility</td><td>Swing text/button/tree accessible actions succeed.</td></tr>
+        <tr><td>DES-AT-04</td><td>Custom opaque UI</td><td>No OCR/image use; returns supported keyboard path or explicit unsupported.</td></tr>
+        <tr><td>DES-AT-05</td><td>Multi-step copy/paste</td><td>Transfer exact Unicode value; clipboard contention handled.</td></tr>
+        <tr><td>DES-AT-06</td><td>Modal surprise</td><td>Unknown popup blocks submission and generates sanitized evidence.</td></tr>
+        <tr><td>DES-AT-07</td><td>Locked desktop</td><td>Run blocks without input; heartbeat continues; state is not falsely successful.</td></tr>
+        <tr><td>DES-AT-08</td><td>Control-relative coordinates</td><td>UIA anchor located at new position; bounded offset stays inside control.</td></tr>
+        <tr><td>DES-AT-09</td><td>DPAPI secret</td><td>SecretRef resolved on Windows only, never in logs or Linux container.</td></tr>
+        <tr><td>DES-AT-10</td><td>Async API handoff</td><td>Job HANDED_OFF after acknowledged request; worker released.</td></tr>
+        <tr><td>DES-AT-11</td><td>Orchestrator restart</td><td>Journal/attempt fencing prevent irreversible duplicate click.</td></tr>
+        <tr><td>DES-AT-12</td><td>Cancelled drag</td><td>Mouse released; job CANCELLED or UNKNOWN according to observed side effect.</td></tr>
+        <tr><td>DES-AT-13</td><td>Wrong display profile</td><td>Reject relative-coordinate action against noncertified DPI.</td></tr>
+        <tr><td>DES-AT-14</td><td>File overwrite</td><td>Policy deny/confirm respected.</td></tr>
+        <tr><td>DES-AT-15</td><td>Reference applications</td><td>Every certified fixture run with recorded OS/app version and reproducible evidence.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- §10 -->
+  <section id="catalogue">
+    <h2>§10 — Detailed Desktop Action Catalogue (Normative v1)</h2>
+    <div class="change-note">
+      <div class="label">v1.1 Changes — P1</div>
+      (1) All actions use the <strong>CEC v1.0.1</strong> step envelope. (2) <code>UNKNOWN_OUTCOME</code> removed throughout — replaced with the correct contract pattern: <em>errorCategory indicates the failure class; run/step state is UNKNOWN with <code>unknownReason</code> where the side effect cannot be established</em> (see Appendix A). (3) <code>desktop.app.launch</code> retry changed from TRANSIENT_SAFE → <strong>NEVER</strong>. (4) <code>desktop.mouse.scroll</code> retry changed from TRANSIENT_SAFE → <strong>NEVER</strong> (relative scroll). (5) <code>desktop.mouse.move</code> extended with optional <code>dwellMs?</code>. (6) <code>desktop.tree.expand</code> extended with <code>state: expanded|collapsed</code>. (7) <code>desktop.grid.editCell</code> added.
+    </div>
+    <p>Every action uses the CEC v1.0.1 step envelope. Parameters below are action-specific; common <code>timeout</code>, <code>retryClass</code>, <code>preconditions</code>, <code>postconditions</code>, and <code>errorCategory</code> are inherited. All actions are v1 REQUIRED unless labeled DEFERRED.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Action and parameters</th><th>Outputs / default postcondition</th><th>Retry</th><th>Error codes (see Appendix A)</th></tr>
+        <tr class="action-row">
+          <td>desktop.app.launch<br><small>executableRef, argsRef?, workingDirRef?</small></td>
+          <td>processId, mainWindowRef<br><em>Postcondition: Process/window exists</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>ENVIRONMENT, POLICY_DENIED<br><small>Uncertain launch → step state UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.app.attach<br><small>processId|processName + disambiguator</small></td>
+          <td>processRef<br><em>Postcondition: Unique owned process</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>TARGET_NOT_FOUND, TARGET_AMBIGUOUS</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.app.close<br><small>processRef, gracefulTimeoutMs</small></td>
+          <td>closed:boolean<br><em>Postcondition: Process terminated or graceful close observed</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TIMEOUT<br><small>Uncertain close → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.window.find<br><small>selectorRef</small></td>
+          <td>windowRef<br><em>Postcondition: Exactly one window</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>TARGET_NOT_FOUND, TARGET_AMBIGUOUS</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.window.activate<br><small>windowRef</small></td>
+          <td>focused:boolean<br><em>Postcondition: Foreground verified</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>SESSION_UNAVAILABLE, TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.window.moveResize<br><small>windowRef, x,y,width,height</small></td>
+          <td>bounds<br><em>Postcondition: Desired bounds observed</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>ENVIRONMENT, TIMEOUT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.window.state<br><small>windowRef, state[min|max|restore]</small></td>
+          <td>state<br><em>Postcondition: Requested window state verified</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.element.find<br><small>selectorRef</small></td>
+          <td>elementRef, properties<br><em>Postcondition: Unique enabled/visible where requested</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>TARGET_NOT_FOUND, TARGET_AMBIGUOUS</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.element.read<br><small>elementRef, propertyRef</small></td>
+          <td>value<br><em>Postcondition: Readback observed</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_NOT_FOUND, ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.element.wait<br><small>selectorRef, state, timeoutMs</small></td>
+          <td>observedState<br><em>Postcondition: Predicate true</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>TIMEOUT, TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.control.setValue<br><small>elementRef, valueRef</small></td>
+          <td>observedValue<br><em>Postcondition: Value equality postcondition</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>ENVIRONMENT, TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.control.click<br><small>elementRef, mouseButton?</small></td>
+          <td>actionEvidence<br><em>Postcondition: Expected UI postcondition</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TARGET_NOT_FOUND<br><small>No confirmed postcondition → UNKNOWN, unknownReason: postcondition.irrevocableUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.control.setCheck<br><small>elementRef, checked:boolean</small></td>
+          <td>checked<br><em>Postcondition: Correct target state observed</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.control.select<br><small>elementRef, optionText|index</small></td>
+          <td>selectedValue<br><em>Postcondition: Selected option observed</em><br><small>Use for tabs (TabControl/Selection pattern) and comboboxes</small></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_AMBIGUOUS</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.grid.readCell<br><small>gridRef, rowRef, columnRef</small></td>
+          <td>cellValue<br><em>Postcondition: Located cell exists</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>TARGET_NOT_FOUND, ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.grid.selectRow<br><small>gridRef, rowRef</small></td>
+          <td>selection<br><em>Postcondition: Selected row verified</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row" style="background: var(--new-bg);">
+          <td>desktop.grid.editCell ★<br><small>gridRef, rowRef, columnRef, valueRef</small></td>
+          <td>observedValue<br><em>Postcondition: Cell value matches valueRef after commit</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TARGET_NOT_FOUND, ENVIRONMENT<br><small>Uncertain commit → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.tree.expand ★<br><small>nodeRef, state: expanded|collapsed<br>(default: expanded)</small></td>
+          <td>expandedState<br><em>Postcondition: Observed UIA ExpandCollapse state matches requested state</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.menu.select<br><small>menuPathRefs[]</small></td>
+          <td>selected<br><em>Postcondition: Expected menu state or postcondition</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TARGET_NOT_FOUND<br><small>Uncertain selection → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.keyboard.type<br><small>targetRef, textRef, strategy?</small></td>
+          <td>observedText?<br><em>Postcondition: Readback if exposed</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>ENVIRONMENT<br><small>No readback confirmation → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.keyboard.press<br><small>key|shortcut, repeats?</small></td>
+          <td>sent:boolean<br><em>Postcondition: Expected technical UI state</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.keyboard.keyDownUp<br><small>key, holdMs</small></td>
+          <td>released:boolean<br><em>Postcondition: All modifiers released</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>CANCELLED, ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.mouse.move ★<br><small>elementRef, relativeX, relativeY, dwellMs?</small></td>
+          <td>cursorState<br><em>Postcondition: Coordinates within UIA-found control; if dwellMs set, contextual UI observable after dwell</em></td>
+          <td><span class="retry-badge idempotent">IDEMPOTENT</span></td>
+          <td>TARGET_NOT_FOUND</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.mouse.click<br><small>elementRef, relativeX, relativeY, button, count</small></td>
+          <td>actionEvidence<br><em>Postcondition: Visible control and expected postcondition</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TARGET_NOT_FOUND<br><small>No confirmed postcondition → UNKNOWN, unknownReason: postcondition.irrevocableUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.mouse.drag<br><small>sourceRef, targetRef, offset?</small></td>
+          <td>actionEvidence<br><em>Postcondition: Target UI state verified</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TARGET_NOT_FOUND<br><small>Uncertain drop → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.mouse.scroll<br><small>targetRef, direction, amount</small></td>
+          <td>observedState<br><em>Postcondition: Target scroll state changed</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>TIMEOUT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.clipboard.copy<br><small>sourceRef, format[text]</small></td>
+          <td>clipboardRef<br><em>Postcondition: Captured data matches permitted readback</em></td>
+          <td><span class="retry-badge transient">TRANSIENT_SAFE</span></td>
+          <td>ENVIRONMENT</td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.clipboard.paste<br><small>targetRef, clipboardRef</small></td>
+          <td>observedValue?<br><em>Postcondition: Pasted content verified if accessible</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>ENVIRONMENT<br><small>Uncertain paste → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.dialog.fileChoose<br><small>dialogRef, approvedPathRef</small></td>
+          <td>chosenPath<br><em>Postcondition: Dialog state and path verified</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>POLICY_DENIED<br><small>Uncertain confirm → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+        <tr class="action-row">
+          <td>desktop.dialog.confirm<br><small>dialogRef, choiceRef</small></td>
+          <td>dialogState<br><em>Postcondition: Dialog closed and action result verified</em></td>
+          <td><span class="retry-badge never">NEVER</span></td>
+          <td>ENVIRONMENT<br><small>Uncertain outcome → UNKNOWN, unknownReason: action.commitUncertain</small></td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size:12px; color:var(--fg2); margin-top:8px">★ = extended or added in v1.1 &nbsp;|&nbsp; Retry: <span class="retry-badge never" style="font-size:10px">NEVER</span> effectful actions &nbsp; <span class="retry-badge idempotent" style="font-size:10px">IDEMPOTENT</span> safe to repeat &nbsp; <span class="retry-badge transient" style="font-size:10px">TRANSIENT_SAFE</span> discovery/wait actions only</p>
+  </section>
+
+  <!-- §11 -->
+  <section id="selectors">
+    <h2>§11 — Desktop Selector and Target Schema (Normative)</h2>
+    <div class="change-note">
+      <div class="label">v1.1 Fix — P2</div>
+      <code>relativePoint</code> may only be anchored to a <strong>UIA-located</strong> control. Java Access Bridge enables semantic actions and keyboard fallback for Java applications; it does not authorize coordinate-based input. The phrase "UIA/Java-located" in v1.0 has been corrected to "UIA-located" throughout this section.
+    </div>
+    <p>Selectors are stable logical targets, not captured click coordinates. Resolution chain: executable/process identity → top-level window → zero or more ancestor controls → leaf control. RuntimeId, volatile window handles and arbitrary absolute screen coordinates must never be persisted as long-term selectors.</p>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Selector field</th><th>Meaning / constraints</th></tr>
+        <tr><td><code>processRef</code></td><td>Approved executable identity plus optional attach discriminator; processId only transient at runtime.</td></tr>
+        <tr><td><code>window</code></td><td>titlePattern, className, process ownership and unique matching constraints; must be tied to chosen process.</td></tr>
+        <tr><td><code>ancestors[]</code></td><td>Ordered control chain with UIA AutomationId, ControlType, ClassName or stable Name.</td></tr>
+        <tr><td><code>element</code></td><td>Stable UIA AutomationId preferred, plus ControlType, ClassName, Name, supported properties.</td></tr>
+        <tr><td><code>matchPolicy</code></td><td>REQUIRE_UNIQUE by default; indexWithinContainer allowed only with stable parent and explicit evidence.</td></tr>
+        <tr><td><code>javaBridge</code></td><td>Adapter-specific role, accessibleName, indexInParent only within stable parent. Used for semantic actions and keyboard fallback only — not as a coordinate anchor.</td></tr>
+        <tr><td><code>relativePoint</code></td><td>Permitted only inside bounds of a uniquely <strong>UIA-located</strong> control; revalidate bounds/focus immediately before input.</td></tr>
+        <tr><td><code>resolutionFallback</code></td><td>UIA semantic → Java Access Bridge (Java apps, semantic actions only) → keyboard traversal → UIA-control-relative pointer (UIA anchor required for all coordinate actions); no OCR/image/absolute screen fallback.</td></tr>
+      </table>
+    </div>
+    <div style="background: var(--code-bg); border-radius: 6px; padding: 14px 16px; font-family: var(--mono); font-size: 12px; margin-top: 12px; overflow-x: auto;">
+{"processRef":"erp.exe", "window":{"titlePattern":"Invoice*"}, "ancestors":[{"controlType":"Pane","automationId":"MainPanel"}], "element":{"controlType":"Button","automationId":"Submit"}, "matchPolicy":"REQUIRE_UNIQUE"}
+    </div>
+  </section>
+
+  <!-- §12 -->
+  <section id="defaults">
+    <h2>§12 — Desktop Defaults, Evidence and Compatibility Policies</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Parameter</th><th>Baseline default (policy override only)</th></tr>
+        <tr><td>elementWaitMs</td><td>10000; polling 250ms; bounded by action/job deadline.</td></tr>
+        <tr><td>windowActivateMs</td><td>5000; recheck foreground before input.</td></tr>
+        <tr><td>inputSettleMs</td><td>200 after action, then use state-based postcondition; not a substitute for waits.</td></tr>
+        <tr><td>pauseMaxMs</td><td>300000 (5 minutes) until explicit eligible recovery or terminal failure/UNKNOWN. Internal bounded wait only — no PAUSED run state (see REC-008).</td></tr>
+        <tr><td>retry</td><td>0 for potentially effectful click/type/paste by default; ≤2 only for certified TRANSIENT_SAFE discovery/waits.</td></tr>
+        <tr><td>evidence</td><td>On classified failure and uncertainty where policy permits; optional approved checkpoints, not every keystroke.</td></tr>
+        <tr><td>screenshots</td><td>Mask sensitive control regions; skip capture entirely if masking cannot be guaranteed; retention centrally policy-controlled.</td></tr>
+        <tr><td>elevation</td><td>v1 standard-integrity executor only; elevated application/secure desktop is unsupported unless separately approved and certified outside this baseline.</td></tr>
+        <tr><td>typing</td><td>Unicode text support with permitted keyboard-layout/scancode fallback when app rejects Unicode packets; test Win32 + Java fixtures.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- §13 -->
+  <section id="tests">
+    <h2>§13 — Additional Desktop Acceptance Tests</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Test ID</th><th>Input / scenario</th><th>Pass criteria</th></tr>
+        <tr><td>DES-AT-16</td><td>Two same-title windows</td><td>Selector resolves unique process + ancestry or returns TARGET_AMBIGUOUS.</td></tr>
+        <tr><td>DES-AT-17</td><td>Volatile UIA RuntimeId changes across restart</td><td>Published selector still locates target or cleanly fails; never uses old RuntimeId.</td></tr>
+        <tr><td>DES-AT-18</td><td>Java app rejects Unicode packet injection</td><td>Approved scancode/layout fallback types expected text; no silently corrupt content.</td></tr>
+        <tr><td>DES-AT-19</td><td>Target app elevated while Runtime is standard identity</td><td>Policy boundary detected; no unsafe input injection.</td></tr>
+        <tr><td>DES-AT-20</td><td>Unexpected update modal overlays target</td><td>Focus/occlusion check stops click and records sanitized evidence.</td></tr>
+        <tr><td>DES-AT-21</td><td>Disallowed third-party API URL encoded in script</td><td>Script validation denies; service.invoke to registered custom service succeeds.</td></tr>
+        <tr><td>DES-AT-22</td><td>Pause exceeds policy limit</td><td>Run closes with classified outcome and releases lease; no indefinite pause.</td></tr>
+        <tr><td>DES-AT-23</td><td>Image-only custom control without UIA anchor</td><td>UNSUPPORTED / TARGET_NOT_FOUND published exclusion; no OCR/image click.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Appendix A -->
+  <section id="error-taxonomy">
+    <div class="appendix-header">Appendix A — Desktop Error Code to Contract errorCategory Mapping ★</div>
+    <div class="new-note" style="border-radius: 0 0 0 0; margin: 0;">
+      <div class="label">New in v1.1 — P1 correction</div>
+      Desktop-specific error identifiers must be mapped to the Common Contract <code>errorCategory</code> enum. <code>UNKNOWN_OUTCOME</code> (used in v1.0 action catalogue) is not an error code — it was conflated with the run/step state UNKNOWN. The correct pattern: when a consequential action's side effect cannot be established, the <strong>step/run state</strong> is UNKNOWN and <code>unknownReason</code> carries a C3-approved stable code. The <code>errorCategory</code> on the step describes the class of failure that led to the uncertainty.
+    </div>
+    <div class="tbl-wrap" style="margin-top:0">
+      <table>
+        <tr><th>Desktop identifier / detailCode</th><th>Contract errorCategory</th><th>When to use</th><th>Run/step state</th></tr>
+        <tr><td><code>desktop.sessionUnavailable</code> (detailCode)</td><td><code>SESSION_UNAVAILABLE</code></td><td>Session locked, disconnected, or noninteractive at input time. This is its own canonical category, not ENVIRONMENT.</td><td>FAILED or UNKNOWN (per side-effect evidence)</td></tr>
+        <tr><td><code>desktop.displayProfileChanged</code> (detailCode)</td><td><code>ENVIRONMENT</code></td><td>Resolution/DPI drift detected; coordinate actions blocked</td><td>FAILED</td></tr>
+        <tr><td><code>desktop.windowControlFailed</code> (detailCode)</td><td><code>ENVIRONMENT</code></td><td>Window state action (activate, resize) denied by OS</td><td>FAILED</td></tr>
+        <tr><td><code>desktop.appCrash</code> (detailCode)</td><td><code>ENVIRONMENT</code></td><td>Unexpected process exit, hang, or crash detected</td><td>FAILED or UNKNOWN (if crash mid-action)</td></tr>
+        <tr><td><code>TARGET_NOT_FOUND</code> (canonical errorCategory)</td><td><code>TARGET_NOT_FOUND</code></td><td>Selector resolved zero elements within timeout. This is its own canonical category, not ENVIRONMENT.</td><td>FAILED</td></tr>
+        <tr><td><code>TARGET_AMBIGUOUS</code> (canonical errorCategory)</td><td><code>TARGET_AMBIGUOUS</code></td><td>Selector resolved multiple elements without disambiguation. This is its own canonical category, not ENVIRONMENT.</td><td>FAILED</td></tr>
+        <tr><td><code>desktop.unsupportedControl</code> (detailCode)</td><td><code>ENVIRONMENT</code></td><td>No accessible/keyboard path for target control</td><td>FAILED</td></tr>
+        <tr><td><code>desktop.accessDenied</code> (detailCode)</td><td><code>POLICY_DENIED</code></td><td>UIA/OS refused access to element or action due to process integrity boundary</td><td>FAILED</td></tr>
+        <tr><td><code>POLICY_DENIED</code> (canonical errorCategory)</td><td><code>POLICY_DENIED</code></td><td>Executable, path, or action not on approved allowlist. <code>POLICY</code> is not a valid CEC v1.0.1 category; use <code>POLICY_DENIED</code>.</td><td>FAILED</td></tr>
+        <tr><td><code>TIMEOUT</code> (canonical errorCategory)</td><td><code>TIMEOUT</code></td><td>Action or wait exceeded configured deadline</td><td>TIMED_OUT or UNKNOWN (if mid-action)</td></tr>
+        <tr><td><code>ENVIRONMENT</code> (generic, detailCode absent)</td><td><code>ENVIRONMENT</code></td><td>Other environment-level failure not covered by a more specific category above</td><td>FAILED</td></tr>
+        <tr style="background: var(--change-bg)">
+          <td colspan="4" style="padding: 10px 12px; font-size: 12px;">
+            <strong>Removed from v1.0: <code>UNKNOWN_OUTCOME</code></strong> — this was incorrectly used as an error code. Replacement: where a consequential action (click, submit, type, paste, dialog confirm) cannot confirm its side effect, the step errorCategory reflects why (e.g., TIMEOUT, ENVIRONMENT), and <em>step/run state = UNKNOWN</em> with <code>unknownReason</code> set to the applicable C3-approved code: <code>action.commitUncertain</code> (side effect delivery unknown) or <code>postcondition.irrevocableUncertain</code> (postcondition unverifiable after irreversible action).
+          </td>
+        </tr>
+      </table>
+    </div>
+    <h3>Requirement-to-Action-to-Test Traceability</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Requirement</th><th>Primary action(s)</th><th>Acceptance test(s)</th></tr>
+        <tr><td>DES-001 Session eligibility</td><td>All input actions (pre-check)</td><td>DES-AT-07</td></tr>
+        <tr><td>DES-002 Display baseline</td><td>All coordinate actions (pre-check)</td><td>DES-AT-13</td></tr>
+        <tr><td>DES-003 Foreground ownership</td><td>desktop.window.activate + all input</td><td>DES-AT-02</td></tr>
+        <tr><td>DES-004 Launch/attach</td><td>desktop.app.launch, desktop.app.attach</td><td>DES-AT-01, DES-AT-16</td></tr>
+        <tr><td>UIA-001–UIA-005 UIA targeting</td><td>desktop.element.find, desktop.element.wait</td><td>DES-AT-01, DES-AT-17</td></tr>
+        <tr><td>UIA-006 Java Bridge</td><td>desktop.element.find (javaBridge)</td><td>DES-AT-03, DES-AT-18</td></tr>
+        <tr><td>UIA-007 Keyboard fallback</td><td>desktop.keyboard.press, desktop.keyboard.type</td><td>DES-AT-04</td></tr>
+        <tr><td>UIA-008 Control-relative coords</td><td>desktop.mouse.move, desktop.mouse.click</td><td>DES-AT-08</td></tr>
+        <tr><td>UIA-009 No visual targeting</td><td>Validator (pre-execution)</td><td>DES-AT-23</td></tr>
+        <tr><td>INPUT-001–INPUT-003 Mouse</td><td>desktop.mouse.click, desktop.mouse.drag, desktop.mouse.move (dwellMs)</td><td>DES-AT-01, DES-AT-12</td></tr>
+        <tr><td>INPUT-004–INPUT-005 Typing</td><td>desktop.keyboard.type, desktop.control.setValue</td><td>DES-AT-18</td></tr>
+        <tr><td>INPUT-006–INPUT-007 Clipboard</td><td>desktop.clipboard.copy, desktop.clipboard.paste</td><td>DES-AT-05</td></tr>
+        <tr><td>INPUT-009 Secret input</td><td>desktop.keyboard.type (secretRef path)</td><td>DES-AT-09</td></tr>
+        <tr><td>CTRL-004 Grid editing</td><td>desktop.grid.editCell</td><td>DES-AT-15 (WinForms/WPF fixture)</td></tr>
+        <tr><td>CTRL-005 Tree collapse</td><td>desktop.tree.expand (state: collapsed)</td><td>DES-AT-15 (WPF fixture)</td></tr>
+        <tr><td>CTRL-006 Tab selection</td><td>desktop.control.select</td><td>DES-AT-15 (WinForms fixture)</td></tr>
+        <tr><td>REC-004 Irreversible uncertainty</td><td>All NEVER-retry actions with uncertain postcondition</td><td>DES-AT-11</td></tr>
+        <tr><td>REC-008 Session lock</td><td>Internal bounded wait</td><td>DES-AT-07, DES-AT-22</td></tr>
+        <tr><td>DES-AT-19 Elevation boundary</td><td>Validator + OS integrity check</td><td>DES-AT-19</td></tr>
+        <tr><td>DES-AT-20 Overlay detection</td><td>desktop.element.wait + focus recheck</td><td>DES-AT-20, DES-AT-06</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Definition of Done -->
+  <section id="dod">
+    <h2>Definition of Done and Release Traceability</h2>
+    <div class="change-note">
+      <div class="label">v1.1 Fix — P1</div>
+      References updated to CEC v1.0.1 and its actual published conformance packages.
+    </div>
+    <ul>
+      <li>All requirements have uniquely named automated or reproducible tests with positive and negative outcomes; the requirement-to-action-to-test mapping in Appendix A is fully populated.</li>
+      <li>The complete <strong>CEC v1.0.1</strong> conformance suite passes against the mock Orchestrator fixture and a real Orchestrator environment.</li>
+      <li>Business-comparison predicates and dynamically selected scripts/commands are rejected before executing any side effect.</li>
+      <li>Sensitive values are absent from logs, evidence, job messages, local crash dumps and container-mounted Tracto state.</li>
+      <li>Supported capability claims are backed by named environment fixtures; unsupported apps/targets are published as known limits.</li>
+      <li>Crash, timeout, focus/session (if applicable) and control-plane restart tests demonstrate correct cleanup, journal reconciliation and UNKNOWN semantics per C3.</li>
+      <li>The worker may be released independently of Browser and Terminal Runtime applications, only within declared script/Orchestrator compatibility.</li>
+      <li>Implementation testing uses <strong>Tracto.Mock.Orchestrator</strong> (Stage 1 NuGet package) for unit/integration tests; final release gate adds testing against a real compatible Orchestrator.</li>
+    </ul>
+  </section>
+
+  <section id="legend" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px;">
+    <p style="font-size: 12px; color: var(--fg2);">
+      <strong>Legend:</strong>
+      <span class="tag tag-existing">Existing action</span> already in v1.0 catalogue &nbsp;
+      <span class="tag tag-compose">Composition</span> sequence of existing actions &nbsp;
+      <span class="tag tag-internal">Internal behavior</span> Runtime guarantee, not scriptable &nbsp;
+      <span class="tag tag-new">New action</span> added to catalogue in v1.1 &nbsp;
+      <span class="tag tag-fix">v1.1 fix</span> correction applied
+    </p>
+  </section>
+</main>

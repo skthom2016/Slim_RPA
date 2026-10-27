@@ -1,0 +1,717 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Recovery</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Recovery.AttemptFencedException">
+            <summary>
+            Thrown when an action is attempted after the execution attempt has been fenced.
+            <para>
+            Per DT-16-AC06: once an attempt is fenced (UNKNOWN with <c>needsAttention=true</c>),
+            no subsequent automation step — including read-only queries — may execute.
+            Continuation requires a new valid <c>attemptId</c> issued by the Orchestrator after reconciliation.
+            </para>
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.AttemptFencedException.AttemptId">
+            <summary>Gets the attempt identifier that was already fenced when this exception was thrown.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.AttemptFencedException.#ctor(System.String)">
+            <summary>
+            Initialises the exception with the fenced attempt identifier.
+            </summary>
+            <param name="attemptId">The attempt ID that is already fenced.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.AttemptFenceState">
+            <summary>
+            Thread-safe attempt fence that prevents any further automation actions once an UNKNOWN
+            outcome has been declared for the current execution attempt.
+            </summary>
+            <remarks>
+            Per DT-16-AC06:
+            <list type="bullet">
+              <item>
+                <see cref="M:Tracto.Desktop.Recovery.AttemptFenceState.TryFence(System.String)"/> returns <see langword="true"/> on the first call — the caller may
+                proceed to record the UNKNOWN outcome.
+              </item>
+              <item>
+                Every subsequent call to <see cref="M:Tracto.Desktop.Recovery.AttemptFenceState.TryFence(System.String)"/> returns <see langword="false"/>.
+              </item>
+              <item>
+                After the fence is set, <see cref="M:Tracto.Desktop.Recovery.AttemptFenceState.ThrowIfFenced"/> raises <see cref="T:Tracto.Desktop.Recovery.AttemptFencedException"/>
+                for <em>all</em> subsequent actions — including read-only queries; there is no bypass path.
+              </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.AttemptFenceState.IsFenced">
+            <summary>Gets whether the fence has been set.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.AttemptFenceState.FencedAttemptId">
+            <summary>Gets the attempt identifier that raised the fence, or <see langword="null"/> if not yet fenced.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.AttemptFenceState.TryFence(System.String)">
+            <summary>
+            Attempts to set the fence for <paramref name="attemptId"/>.
+            </summary>
+            <param name="attemptId">The execution attempt identifier to fence.</param>
+            <returns>
+            <see langword="true"/> if this is the first call and the fence was successfully set;
+            <see langword="false"/> if the fence was already set by a prior call.
+            </returns>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.AttemptFenceState.ThrowIfFenced">
+            <summary>
+            Throws <see cref="T:Tracto.Desktop.Recovery.AttemptFencedException"/> when the fence has been set.
+            Must be called at the entry point of every action (including read-only queries)
+            to enforce the "no continuation after UNKNOWN" contract.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Recovery.AttemptFencedException">
+            Thrown when <see cref="P:Tracto.Desktop.Recovery.AttemptFenceState.IsFenced"/> is <see langword="true"/>.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CancellationContext">
+            <summary>
+            Captures the runtime state that must be cleaned up when a job is cancelled,
+            times out, or terminates unexpectedly (DT-17).
+            </summary>
+            <param name="JobId">Identifier of the job whose resources must be released.</param>
+            <param name="AttemptId">Identifier of the execution attempt being cancelled.</param>
+            <param name="HeldModifierKeys">
+              Names of modifier keys (e.g. "Ctrl", "Shift") that are currently held down
+              and must receive KEYEVENTF_KEYUP events during cleanup.
+            </param>
+            <param name="IsMouseButtonDown">
+              <c>true</c> when a mouse button (left) is logically held; a MOUSEEVENTF_LEFTUP
+              must be sent during cleanup.
+            </param>
+            <param name="ClipboardHandleOpen">
+              <c>true</c> when the clipboard is open (between OpenClipboard and CloseClipboard);
+              <c>IClipboardEngine.ForceCloseHandle</c> must be called during cleanup.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CancellationContext.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.Boolean)">
+            <summary>
+            Captures the runtime state that must be cleaned up when a job is cancelled,
+            times out, or terminates unexpectedly (DT-17).
+            </summary>
+            <param name="JobId">Identifier of the job whose resources must be released.</param>
+            <param name="AttemptId">Identifier of the execution attempt being cancelled.</param>
+            <param name="HeldModifierKeys">
+              Names of modifier keys (e.g. "Ctrl", "Shift") that are currently held down
+              and must receive KEYEVENTF_KEYUP events during cleanup.
+            </param>
+            <param name="IsMouseButtonDown">
+              <c>true</c> when a mouse button (left) is logically held; a MOUSEEVENTF_LEFTUP
+              must be sent during cleanup.
+            </param>
+            <param name="ClipboardHandleOpen">
+              <c>true</c> when the clipboard is open (between OpenClipboard and CloseClipboard);
+              <c>IClipboardEngine.ForceCloseHandle</c> must be called during cleanup.
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CancellationContext.JobId">
+            <summary>Identifier of the job whose resources must be released.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CancellationContext.AttemptId">
+            <summary>Identifier of the execution attempt being cancelled.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CancellationContext.HeldModifierKeys">
+            <summary>
+              Names of modifier keys (e.g. "Ctrl", "Shift") that are currently held down
+              and must receive KEYEVENTF_KEYUP events during cleanup.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CancellationContext.IsMouseButtonDown">
+            <summary>
+              <c>true</c> when a mouse button (left) is logically held; a MOUSEEVENTF_LEFTUP
+              must be sent during cleanup.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CancellationContext.ClipboardHandleOpen">
+            <summary>
+              <c>true</c> when the clipboard is open (between OpenClipboard and CloseClipboard);
+              <c>IClipboardEngine.ForceCloseHandle</c> must be called during cleanup.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CancellationOutcome">
+            <summary>
+            Classifies the outcome of a job cancellation with respect to input side effects (DT-17-AC05).
+            </summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.CancellationOutcome.Cancelled">
+            <summary>
+            No input was sent before cancellation arrived; the action had no side effect.
+            The run result should be reported as CANCELLED.
+            </summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.CancellationOutcome.Unknown">
+            <summary>
+            Input was sent but the postcondition was not confirmed; the outcome is uncertain.
+            The run result should be reported as UNKNOWN with
+            <c>unknownReason = "action.commitUncertain"</c>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CancellationReleaseSequence">
+            <summary>
+            Executes every <see cref="T:Tracto.Desktop.Recovery.IResourceReleaseStep"/> in order, collecting all
+            exceptions and throwing a single <see cref="T:System.AggregateException"/> at the end.
+            Every step runs regardless of prior failures (DT-17 release guarantee).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CancellationReleaseSequence.RunAsync(Tracto.Desktop.Recovery.CancellationContext,System.Collections.Generic.IEnumerable{Tracto.Desktop.Recovery.IResourceReleaseStep},System.Threading.CancellationToken)">
+            <summary>
+            Runs all <paramref name="steps"/> against <paramref name="ctx"/> in sequence.
+            Each step is wrapped in an individual try/catch so that a failure in one step
+            does not prevent subsequent steps from running.
+            </summary>
+            <param name="ctx">The cancellation context describing held resources.</param>
+            <param name="steps">Ordered sequence of release steps to execute.</param>
+            <param name="ct">
+              Cooperative cancellation token; individual steps may inspect it but must still
+              attempt the release.
+            </param>
+            <exception cref="T:System.AggregateException">
+              Thrown after <em>all</em> steps have run when one or more steps threw an
+              exception.  All collected exceptions are included.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CancellationResultClassifier">
+            <summary>
+            Determines the correct <see cref="T:Tracto.Desktop.Recovery.CancellationOutcome"/> based on whether any
+            input was dispatched before the cancellation signal arrived (DT-17-AC05).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CancellationResultClassifier.Classify(System.Boolean)">
+            <summary>
+            Returns <see cref="F:Tracto.Desktop.Recovery.CancellationOutcome.Cancelled"/> when no input was sent,
+            or <see cref="F:Tracto.Desktop.Recovery.CancellationOutcome.Unknown"/> (with reason
+            <c>"action.commitUncertain"</c>) when input was sent but the postcondition
+            was not confirmed.
+            </summary>
+            <param name="anyInputSent">
+              <c>true</c> when at least one mouse, keyboard or clipboard input event was
+              delivered to the OS before cancellation; <c>false</c> if the action was
+              aborted before any side effect.
+            </param>
+            <returns>The appropriate <see cref="T:Tracto.Desktop.Recovery.CancellationOutcome"/> value.</returns>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.CancellationResultClassifier.UnknownReason">
+            <summary>
+            The <c>unknownReason</c> value to include in the Orchestrator result message
+            whenever <see cref="M:Tracto.Desktop.Recovery.CancellationResultClassifier.Classify(System.Boolean)"/> returns <see cref="F:Tracto.Desktop.Recovery.CancellationOutcome.Unknown"/>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.ClipboardHandleReleaseStep">
+            <summary>
+            Release step that closes an open clipboard handle via
+            <see cref="M:Tracto.Desktop.Input.IClipboardEngine.ForceCloseHandle"/> when the clipboard was open
+            at the time of cancellation (DT-17-AC03).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ClipboardHandleReleaseStep.#ctor(Tracto.Desktop.Input.IClipboardEngine)">
+            <param name="clipboardEngine">
+              Clipboard engine whose <see cref="M:Tracto.Desktop.Input.IClipboardEngine.ForceCloseHandle"/>
+              method is called unconditionally when a handle is open.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ClipboardHandleReleaseStep.ExecuteAsync(Tracto.Desktop.Recovery.CancellationContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CrashDetector">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Recovery.ICrashDetector"/>.
+            <para>
+            Uses <c>Process.GetProcessById</c> to check <c>Process.HasExited</c> and
+            <c>EnumWindows</c> to detect Windows Error Reporting dialogs whose window class contains
+            <c>WerFault</c>.
+            </para>
+            <para>
+            For unit testing, pass custom delegates to the overloaded constructor
+            to avoid real Win32 calls.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CrashDetector.#ctor">
+            <summary>
+            Initialises a production crash detector that uses real Win32 APIs.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CrashDetector.#ctor(System.Func{System.Int32,System.ValueTuple{System.Boolean,System.Nullable{System.Int32}}},System.Func{System.Boolean})">
+            <summary>
+            Initialises a crash detector with injectable dependencies (intended for testing).
+            </summary>
+            <param name="inspectProcess">
+            Given a process ID, returns (hasExited, exitCode?).
+            </param>
+            <param name="hasWerDialog">
+            Returns <see langword="true"/> if any top-level window with a class name containing
+            "WerFault" exists on the desktop.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CrashDetector.DetectCrash(System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.CrashResult">
+            <summary>
+            Result of a crash-detection check on a managed application process.
+            </summary>
+            <param name="IsCrashed">True when the target process has exited or cannot be found.</param>
+            <param name="ExitCode">The process exit code when available; null if the process is still running or the code cannot be retrieved.</param>
+            <param name="WerDialogDetected">True when a Windows Error Reporting (WerFault) dialog was observed at detection time.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.CrashResult.#ctor(System.Boolean,System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Result of a crash-detection check on a managed application process.
+            </summary>
+            <param name="IsCrashed">True when the target process has exited or cannot be found.</param>
+            <param name="ExitCode">The process exit code when available; null if the process is still running or the code cannot be retrieved.</param>
+            <param name="WerDialogDetected">True when a Windows Error Reporting (WerFault) dialog was observed at detection time.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CrashResult.IsCrashed">
+            <summary>True when the target process has exited or cannot be found.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CrashResult.ExitCode">
+            <summary>The process exit code when available; null if the process is still running or the code cannot be retrieved.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.CrashResult.WerDialogDetected">
+            <summary>True when a Windows Error Reporting (WerFault) dialog was observed at detection time.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.ElementWaiter">
+            <summary>
+            Polls <see cref="T:Tracto.Desktop.Element.IElementFinder"/> and <see cref="T:Tracto.Desktop.Element.IElementStateChecker"/> at a configured
+            interval until a <see cref="T:Tracto.Desktop.Recovery.WaitCondition"/> is met or the timeout expires.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ElementWaiter.WaitAsync(Tracto.Desktop.Element.ElementSelector,Tracto.Desktop.Recovery.WaitOptions,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.FakeTimer">
+            <summary>
+            Controllable test double for <see cref="T:Tracto.Desktop.Recovery.ITimer"/>.
+            <para>
+            Call <see cref="M:Tracto.Desktop.Recovery.FakeTimer.AdvanceMs(System.Int32)"/> to make time pass in the fake clock.
+            Any <see cref="M:Tracto.Desktop.Recovery.FakeTimer.DelayAsync(System.Int32,System.Threading.CancellationToken)"/> call whose requested duration has been exceeded by the
+            total advanced time completes immediately (or synchronously inline when already past).
+            </para>
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FakeTimer.AdvanceMs(System.Int32)">
+            <summary>
+            Advances the fake clock by <paramref name="ms"/> milliseconds.
+            Completes all pending delays whose target time is now reachable.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FakeTimer.DelayAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.FocusTheftDetector">
+            <summary>
+            Detects foreground-window theft by comparing the current foreground window handle against
+            the expected automation target window.
+            </summary>
+            <remarks>
+            Pass a custom <c>getForegroundWindow</c> delegate in tests to avoid real Win32 calls.
+            </remarks>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FocusTheftDetector.#ctor">
+            <summary>
+            Initialises a production focus-theft detector backed by <c>GetForegroundWindow</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FocusTheftDetector.#ctor(System.Func{System.IntPtr},System.Func{System.IntPtr,System.String})">
+            <summary>
+            Initialises a focus-theft detector with injectable functions (intended for testing).
+            </summary>
+            <param name="getForegroundWindow">Returns the current foreground window handle.</param>
+            <param name="getWindowTitle">Returns the sanitised title for a window handle, or <see langword="null"/>.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FocusTheftDetector.Check(System.IntPtr)">
+            <summary>
+            Checks whether the foreground window is the <paramref name="expectedWindow"/>.
+            </summary>
+            <param name="expectedWindow">The window handle that should own the foreground.</param>
+            <returns>
+            A <see cref="T:Tracto.Desktop.Recovery.FocusTheftResult"/> indicating whether focus has been stolen and, if so,
+            the sanitised title of the stealing window.
+            </returns>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.FocusTheftResult">
+            <summary>
+            Result of a foreground-window ownership check.
+            </summary>
+            <param name="IsStolen">True when the foreground window differs from the expected window handle.</param>
+            <param name="StealingWindowTitle">
+            Sanitised title of the window that has taken foreground focus, or <see langword="null"/> when
+            <see cref="P:Tracto.Desktop.Recovery.FocusTheftResult.IsStolen"/> is <see langword="false"/>.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.FocusTheftResult.#ctor(System.Boolean,System.String)">
+            <summary>
+            Result of a foreground-window ownership check.
+            </summary>
+            <param name="IsStolen">True when the foreground window differs from the expected window handle.</param>
+            <param name="StealingWindowTitle">
+            Sanitised title of the window that has taken foreground focus, or <see langword="null"/> when
+            <see cref="P:Tracto.Desktop.Recovery.FocusTheftResult.IsStolen"/> is <see langword="false"/>.
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.FocusTheftResult.IsStolen">
+            <summary>True when the foreground window differs from the expected window handle.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.FocusTheftResult.StealingWindowTitle">
+            <summary>
+            Sanitised title of the window that has taken foreground focus, or <see langword="null"/> when
+            <see cref="P:Tracto.Desktop.Recovery.FocusTheftResult.IsStolen"/> is <see langword="false"/>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.ICrashDetector">
+            <summary>
+            Detects unexpected process exit and Windows Error Reporting dialogs for a given process.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ICrashDetector.DetectCrash(System.Int32)">
+            <summary>
+            Inspects the process identified by <paramref name="processId"/> and returns a
+            <see cref="T:Tracto.Desktop.Recovery.CrashResult"/> describing its exit and WER status.
+            </summary>
+            <param name="processId">The OS process identifier to inspect.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.IElementWaiter">
+            <summary>
+            Polls an element selector until a state predicate is satisfied or the timeout elapses.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.IElementWaiter.WaitAsync(Tracto.Desktop.Element.ElementSelector,Tracto.Desktop.Recovery.WaitOptions,System.Threading.CancellationToken)">
+            <summary>
+            Polls <paramref name="sel"/> at <see cref="P:Tracto.Desktop.Recovery.WaitOptions.PollIntervalMs"/> intervals
+            until the <see cref="P:Tracto.Desktop.Recovery.WaitOptions.Condition"/> is met or <see cref="P:Tracto.Desktop.Recovery.WaitOptions.TimeoutMs"/> expires.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            ErrorCategory=TIMEOUT when the condition is not met within the timeout.
+            The exception message includes the last observed element state.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.IHeartbeatSender">
+            <summary>
+            Sends periodic heartbeat signals to the Orchestrator to keep the job lease alive.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.IHeartbeatSender.SendHeartbeatAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Sends a single heartbeat for the given <paramref name="leaseId"/>.
+            </summary>
+            <param name="leaseId">The active job lease identifier.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.InputLeaseReleaseStep">
+            <summary>
+            Release step that returns the exclusive input lease to the
+            <see cref="T:Tracto.Desktop.Session.InputLeaseManager"/> so subsequent runs can acquire it (DT-17-AC04).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.InputLeaseReleaseStep.#ctor(Tracto.Desktop.Session.InputLeaseManager)">
+            <param name="leaseManager">
+              The shared <see cref="T:Tracto.Desktop.Session.InputLeaseManager"/> for this desktop session.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.InputLeaseReleaseStep.ExecuteAsync(Tracto.Desktop.Recovery.CancellationContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.IResourceReleaseStep">
+            <summary>
+            A single idempotent cleanup step in the cancellation release sequence (DT-17).
+            Each implementation releases one category of held resource (modifier keys, mouse
+            button, clipboard handle, input lease, etc.).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.IResourceReleaseStep.ExecuteAsync(Tracto.Desktop.Recovery.CancellationContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes the release step asynchronously.
+            </summary>
+            <param name="ctx">
+              Snapshot of the resources held at the time of cancellation.
+            </param>
+            <param name="ct">
+              Cancellation token.  Implementations should honour it when performing
+              async work, but <em>must</em> attempt the release regardless of whether
+              the token has already fired — the purpose of this step is cleanup.
+            </param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.ITimer">
+            <summary>
+            Abstraction over async delays, enabling deterministic testing via <see cref="T:Tracto.Desktop.Recovery.FakeTimer"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ITimer.DelayAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Waits for <paramref name="ms"/> milliseconds (or until <paramref name="ct"/> is cancelled).
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.JournalEntry">
+            <summary>
+            An immutable journal record written whenever a step produces an UNKNOWN outcome or another
+            durable event (crash, lock, focus theft) that must survive a Runtime restart for reconciliation.
+            </summary>
+            <param name="AttemptId">The CEC v1.0.1 attempt identifier for the current execution attempt.</param>
+            <param name="StepId">The identifier of the step that produced this entry.</param>
+            <param name="LastAction">A sanitised description of the last action that was dispatched before the uncertain outcome.</param>
+            <param name="UnknownReason">
+            The CEC v1.0.1 <c>unknownReason</c> code (e.g. <c>action.commitUncertain</c>) or an empty
+            string for non-UNKNOWN events such as crash or lock notifications.
+            </param>
+            <param name="Timestamp">Unix epoch milliseconds at the time the entry was written.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.JournalEntry.#ctor(System.String,System.String,System.String,System.String,System.Int64)">
+            <summary>
+            An immutable journal record written whenever a step produces an UNKNOWN outcome or another
+            durable event (crash, lock, focus theft) that must survive a Runtime restart for reconciliation.
+            </summary>
+            <param name="AttemptId">The CEC v1.0.1 attempt identifier for the current execution attempt.</param>
+            <param name="StepId">The identifier of the step that produced this entry.</param>
+            <param name="LastAction">A sanitised description of the last action that was dispatched before the uncertain outcome.</param>
+            <param name="UnknownReason">
+            The CEC v1.0.1 <c>unknownReason</c> code (e.g. <c>action.commitUncertain</c>) or an empty
+            string for non-UNKNOWN events such as crash or lock notifications.
+            </param>
+            <param name="Timestamp">Unix epoch milliseconds at the time the entry was written.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalEntry.AttemptId">
+            <summary>The CEC v1.0.1 attempt identifier for the current execution attempt.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalEntry.StepId">
+            <summary>The identifier of the step that produced this entry.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalEntry.LastAction">
+            <summary>A sanitised description of the last action that was dispatched before the uncertain outcome.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalEntry.UnknownReason">
+            <summary>
+            The CEC v1.0.1 <c>unknownReason</c> code (e.g. <c>action.commitUncertain</c>) or an empty
+            string for non-UNKNOWN events such as crash or lock notifications.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalEntry.Timestamp">
+            <summary>Unix epoch milliseconds at the time the entry was written.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.JournalStore">
+            <summary>
+            Durable, append-only store for <see cref="T:Tracto.Desktop.Recovery.JournalEntry"/> records.
+            <para>
+            Each attempt gets its own JSONL file at <c>{Root}/journal/{attemptId}.jsonl</c>.
+            The file survives a Runtime restart; the Executor reads it during reconciliation.
+            </para>
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.JournalStore.Root">
+            <summary>Gets the root directory under which the <c>journal/</c> sub-folder is created.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.JournalStore.#ctor(System.String)">
+            <summary>
+            Initialises a journal store rooted at <paramref name="root"/>.
+            </summary>
+            <param name="root">
+            Absolute path to the root directory. A <c>journal/</c> sub-directory is created automatically.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.JournalStore.AppendAsync(Tracto.Desktop.Recovery.JournalEntry)">
+            <summary>
+            Appends <paramref name="entry"/> as a JSON line to the attempt's journal file.
+            Creates the journal directory and file if they do not exist.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.JournalStore.ReadAllAsync(System.String)">
+            <summary>
+            Reads all journal entries for <paramref name="attemptId"/> from disk.
+            Returns an empty list when no journal file exists yet.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.LockMonitorResult">
+            <summary>
+            Result of a session-lock monitoring run.
+            </summary>
+            <param name="Expired">True when the lock persisted beyond the configured policy limit.</param>
+            <param name="Resumed">True when the session unlocked before the policy limit was reached.</param>
+            <param name="ErrorCategory">CEC v1.0.1 errorCategory string when <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.Expired"/> is true; empty otherwise.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.LockMonitorResult.#ctor(System.Boolean,System.Boolean,System.String)">
+            <summary>
+            Result of a session-lock monitoring run.
+            </summary>
+            <param name="Expired">True when the lock persisted beyond the configured policy limit.</param>
+            <param name="Resumed">True when the session unlocked before the policy limit was reached.</param>
+            <param name="ErrorCategory">CEC v1.0.1 errorCategory string when <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.Expired"/> is true; empty otherwise.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.LockMonitorResult.Expired">
+            <summary>True when the lock persisted beyond the configured policy limit.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.LockMonitorResult.Resumed">
+            <summary>True when the session unlocked before the policy limit was reached.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.LockMonitorResult.ErrorCategory">
+            <summary>CEC v1.0.1 errorCategory string when <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.Expired"/> is true; empty otherwise.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.MockHeartbeatSender">
+            <summary>
+            Test double for <see cref="T:Tracto.Desktop.Recovery.IHeartbeatSender"/>.
+            Records every <see cref="M:Tracto.Desktop.Recovery.MockHeartbeatSender.SendHeartbeatAsync(System.String,System.Threading.CancellationToken)"/> call; inspect <see cref="P:Tracto.Desktop.Recovery.MockHeartbeatSender.CallCount"/> to assert heartbeat activity.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.MockHeartbeatSender.CallCount">
+            <summary>Gets the number of times <see cref="M:Tracto.Desktop.Recovery.MockHeartbeatSender.SendHeartbeatAsync(System.String,System.Threading.CancellationToken)"/> has been called.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.MockHeartbeatSender.SendHeartbeatAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.ModifierKeyReleaseStep">
+            <summary>
+            Release step that sends KEYEVENTF_KEYUP for every modifier key held at
+            the time of cancellation (DT-17-AC01).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ModifierKeyReleaseStep.#ctor(Tracto.Desktop.Input.IKeySendInputProvider)">
+            <param name="keyProvider">
+              Abstraction over Win32 SendInput keyboard events.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.ModifierKeyReleaseStep.ExecuteAsync(Tracto.Desktop.Recovery.CancellationContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.MouseButtonReleaseStep">
+            <summary>
+            Release step that sends MOUSEEVENTF_LEFTUP when the left mouse button is
+            logically held at the time of cancellation (DT-17-AC02).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.MouseButtonReleaseStep.#ctor(Tracto.Desktop.Input.ISendInputProvider)">
+            <param name="mouseProvider">
+              Abstraction over Win32 SendInput mouse events.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.MouseButtonReleaseStep.ExecuteAsync(Tracto.Desktop.Recovery.CancellationContext,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.PostconditionAssertion">
+            <summary>
+            Verifies that an element's state satisfies a declared postcondition predicate after an action.
+            A failed assertion means the step FAILED — not SUCCEEDED — because the expected outcome was not confirmed.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.PostconditionAssertion.AssertAsync(Tracto.Desktop.Element.ElementRef,System.Func{Tracto.Desktop.Element.ElementStateResult,System.Boolean},System.Threading.CancellationToken)">
+            <summary>
+            Reads the current state of <paramref name="el"/> and evaluates <paramref name="predicate"/>.
+            Throws <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> when the predicate is not satisfied.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            ErrorCategory=ENVIRONMENT, DetailCode=desktop.postconditionFailed — predicate returned false.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.SessionLockMonitor">
+            <summary>
+            Monitors a locked Windows desktop session and sends continuous heartbeats while the lock persists.
+            </summary>
+            <remarks>
+            Per DT-16 spec:
+            <list type="bullet">
+              <item>The run state remains RUNNING throughout the lock period — no PAUSED state is emitted.</item>
+              <item>Heartbeats are sent at every <see cref="F:Tracto.Desktop.Recovery.SessionLockMonitor.HeartbeatIntervalMs"/> interval while the session is locked.</item>
+              <item>If the lock is released within the policy limit, <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.Resumed"/> is true.</item>
+              <item>If the lock persists past the configured policy limit, <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.Expired"/> is true
+                  and <see cref="P:Tracto.Desktop.Recovery.LockMonitorResult.ErrorCategory"/> is <c>"TIMEOUT"</c>.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.SessionLockMonitor.HeartbeatIntervalMs">
+            <summary>
+            Interval between successive heartbeat sends and session-state polls, in milliseconds.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.SessionLockMonitor.MonitorAsync(Tracto.Desktop.Session.ISessionStateProvider,Tracto.Desktop.Recovery.IHeartbeatSender,System.TimeSpan,Tracto.Desktop.Recovery.ITimer,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Monitors the session state, sending heartbeats while locked.
+            Returns once the session is unlocked or the policy limit is exceeded.
+            </summary>
+            <param name="provider">Provides the current session state.</param>
+            <param name="hb">Sends heartbeats to keep the job lease alive.</param>
+            <param name="policyLimit">Maximum time the lock may persist before the job fails.</param>
+            <param name="timer">Timer abstraction (use <see cref="T:Tracto.Desktop.Recovery.FakeTimer"/> in tests).</param>
+            <param name="leaseId">The active job lease identifier passed to every heartbeat.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.SystemTimer">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Recovery.ITimer"/> backed by <see cref="M:System.Threading.Tasks.Task.Delay(System.Int32,System.Threading.CancellationToken)"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.SystemTimer.DelayAsync(System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.UnknownOutcomeException">
+            <summary>
+            Thrown to propagate an UNKNOWN run/step outcome with its <c>unknownReason</c> through the call stack.
+            <para>
+            The <see cref="P:Tracto.Desktop.Recovery.UnknownOutcomeException.UnknownReason"/> property maps directly to the CEC v1.0.1
+            <c>unknownReason</c> field emitted in the final result envelope.
+            </para>
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.UnknownOutcomeException.UnknownReason">
+            <summary>Gets the CEC v1.0.1 <c>unknownReason</c> code associated with this uncertain outcome.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Recovery.UnknownOutcomeException.#ctor(System.String)">
+            <summary>
+            Initialises the exception with the CEC v1.0.1 <c>unknownReason</c> code.
+            </summary>
+            <param name="unknownReason">The reason code for the unknown outcome (e.g. <c>action.commitUncertain</c>).</param>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.WaitCondition">
+            <summary>
+            The element state predicate that <see cref="T:Tracto.Desktop.Recovery.IElementWaiter"/> polls until the timeout.
+            </summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.WaitCondition.Visible">
+            <summary>Wait until the element is visible (not off-screen).</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.WaitCondition.Enabled">
+            <summary>Wait until the element is enabled.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.WaitCondition.Exists">
+            <summary>Wait until the element exists in the UIA tree (regardless of state).</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Recovery.WaitCondition.NotExists">
+            <summary>Wait until the element is absent from the UIA tree.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.WaitOptions">
+            <summary>
+            Configuration for a bounded element wait operation.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitOptions.Condition">
+            <summary>The state predicate to poll for.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitOptions.TimeoutMs">
+            <summary>Maximum milliseconds to wait before declaring a timeout.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitOptions.PollIntervalMs">
+            <summary>Milliseconds between successive state polls.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.WaitResult">
+            <summary>
+            Outcome of a completed <see cref="M:Tracto.Desktop.Recovery.IElementWaiter.WaitAsync(Tracto.Desktop.Element.ElementSelector,Tracto.Desktop.Recovery.WaitOptions,System.Threading.CancellationToken)"/> call.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitResult.Resolved">
+            <summary>True when the wait condition was satisfied before the timeout.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitResult.LastObservedState">
+            <summary>
+            Human-readable description of the last observed element state before the wait resolved or timed out.
+            Included in timeout diagnostics.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Recovery.WaitResult.ElapsedMs">
+            <summary>Approximate number of milliseconds elapsed during the wait (based on poll intervals).</summary>
+        </member>
+    </members>
+</doc>

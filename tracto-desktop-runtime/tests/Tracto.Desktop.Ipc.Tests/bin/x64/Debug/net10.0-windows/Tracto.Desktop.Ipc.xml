@@ -1,0 +1,203 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Ipc</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Ipc.ExecutorPipeClient">
+            <summary>
+            Named-pipe client used exclusively by the Executor process to connect to the
+            Supervisor's <see cref="T:Tracto.Desktop.Ipc.SupervisorPipeServer"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.ExecutorPipeClient.ConnectAsync(System.String,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Creates a new pipe client and connects to <paramref name="pipeName"/> on the local machine.
+            </summary>
+            <param name="pipeName">Pipe name to connect to (e.g. <c>tracto-supervisor-{MachineName}</c>).</param>
+            <param name="timeoutMs">Maximum wait in milliseconds for the server to be available.</param>
+            <param name="ct">Cancellation token; an already-cancelled token causes immediate <see cref="T:System.OperationCanceledException"/>.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.ExecutorPipeClient.SendMessageAsync(Tracto.Desktop.Ipc.IpcMessage,System.Threading.CancellationToken)">
+            <summary>Sends <paramref name="msg"/> over the pipe using a 4-byte little-endian length prefix.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.ExecutorPipeClient.ReceiveMessageAsync(System.Threading.CancellationToken)">
+            <summary>Reads the next framed message from the pipe and deserializes it.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.ExecutorPipeClient.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.IpcHandshakeProtocol">
+            <summary>
+            Stateless helpers that implement the two-phase Register/RegisterAck handshake
+            between the Supervisor and Executor over the named-pipe IPC channel.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcHandshakeProtocol.ExecutorHandshakeAsync(Tracto.Desktop.Ipc.ExecutorPipeClient,System.Threading.CancellationToken)">
+            <summary>
+            Executor side of the handshake: sends a <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.Register"/> message and
+            awaits a <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.RegisterAck"/> reply containing the
+            <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/> JSON in its payload.
+            </summary>
+            <param name="client">An already-connected <see cref="T:Tracto.Desktop.Ipc.ExecutorPipeClient"/>.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/> the Supervisor reported.</returns>
+            <exception cref="T:System.IO.InvalidDataException">
+            Thrown when the reply message type is not <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.RegisterAck"/>
+            or the payload cannot be deserialized to an <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/>.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcHandshakeProtocol.SupervisorHandshakeAsync(Tracto.Desktop.Ipc.SupervisorPipeServer,Tracto.Desktop.Ipc.OrchestratorEndpoint,System.Threading.CancellationToken)">
+            <summary>
+            Supervisor side of the handshake: awaits a <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.Register"/> message
+            and replies with a <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.RegisterAck"/> containing the serialized
+            <paramref name="endpoint"/> as the payload.
+            </summary>
+            <param name="server">
+            A <see cref="T:Tracto.Desktop.Ipc.SupervisorPipeServer"/> that has already accepted a client connection via
+            <see cref="M:Tracto.Desktop.Ipc.SupervisorPipeServer.AcceptConnectionAsync(System.Threading.CancellationToken)"/>.
+            </param>
+            <param name="endpoint">The <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/> to advertise to the Executor.</param>
+            <param name="ct">Cancellation token.</param>
+            <exception cref="T:System.IO.InvalidDataException">
+            Thrown when the received message type is not <see cref="F:Tracto.Desktop.Ipc.IpcMessageType.Register"/>.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.IpcMessage">
+            <summary>
+            Immutable message exchanged over the named-pipe IPC channel between Supervisor and Executor.
+            Serialized as JSON with a 4-byte little-endian length prefix on the wire.
+            </summary>
+            <param name="Type">Discriminator identifying the purpose of this message.</param>
+            <param name="Payload">JSON-encoded payload specific to the message type; empty string when unused.</param>
+            <param name="CorrelationId">Opaque identifier used to match requests with their acknowledgements.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcMessage.#ctor(Tracto.Desktop.Ipc.IpcMessageType,System.String,System.String)">
+            <summary>
+            Immutable message exchanged over the named-pipe IPC channel between Supervisor and Executor.
+            Serialized as JSON with a 4-byte little-endian length prefix on the wire.
+            </summary>
+            <param name="Type">Discriminator identifying the purpose of this message.</param>
+            <param name="Payload">JSON-encoded payload specific to the message type; empty string when unused.</param>
+            <param name="CorrelationId">Opaque identifier used to match requests with their acknowledgements.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.IpcMessage.Type">
+            <summary>Discriminator identifying the purpose of this message.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.IpcMessage.Payload">
+            <summary>JSON-encoded payload specific to the message type; empty string when unused.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.IpcMessage.CorrelationId">
+            <summary>Opaque identifier used to match requests with their acknowledgements.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.IpcMessageType">
+            <summary>Discriminated union of all named-pipe IPC message types exchanged between Supervisor and Executor.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.Register">
+            <summary>Executor → Supervisor: request to register and receive the Orchestrator endpoint.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.RegisterAck">
+            <summary>Supervisor → Executor: acknowledgement of registration, carries OrchestratorEndpoint JSON in payload.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.JobPull">
+            <summary>Executor → Supervisor: request to pull the next job from the Orchestrator.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.JobOffer">
+            <summary>Supervisor → Executor: a job offer containing job descriptor JSON in payload.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.Heartbeat">
+            <summary>Executor → Supervisor: periodic heartbeat to confirm the Executor is alive.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.HeartbeatAck">
+            <summary>Supervisor → Executor: acknowledgement of a heartbeat.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.Cancel">
+            <summary>Supervisor → Executor: instruction to cancel the currently executing job.</summary>
+        </member>
+        <member name="F:Tracto.Desktop.Ipc.IpcMessageType.CancelAck">
+            <summary>Executor → Supervisor: acknowledgement that cancellation has been processed.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.IpcSerializer">
+            <summary>
+            Thread-safe, allocation-minimal JSON serialization helpers for <see cref="T:Tracto.Desktop.Ipc.IpcMessage"/>
+            and related IPC payload types.  All methods are static so callers need no instance.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcSerializer.Serialize(Tracto.Desktop.Ipc.IpcMessage)">
+            <summary>Serializes <paramref name="message"/> to a UTF-8 JSON byte array.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcSerializer.Deserialize(System.ReadOnlySpan{System.Byte})">
+            <summary>Deserializes an <see cref="T:Tracto.Desktop.Ipc.IpcMessage"/> from a UTF-8 JSON byte span.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcSerializer.SerializeEndpoint(Tracto.Desktop.Ipc.OrchestratorEndpoint)">
+            <summary>Serializes <paramref name="endpoint"/> to a compact JSON string (used as message payload).</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.IpcSerializer.DeserializeEndpoint(System.String)">
+            <summary>Deserializes an <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/> from a JSON string payload.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.OrchestratorEndpoint">
+            <summary>
+            Immutable descriptor of the Orchestrator network endpoint delivered to the Executor during the IPC handshake.
+            The Executor cannot mutate or override these values — they originate exclusively from the Supervisor.
+            </summary>
+            <param name="Host">Hostname or IP address of the Orchestrator (e.g. "localhost" or WSL2 gateway address).</param>
+            <param name="Port">TCP port on which the Orchestrator listens.</param>
+            <param name="Scheme">URI scheme used by the Orchestrator protocol, typically "https" or "grpc".</param>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.OrchestratorEndpoint.#ctor(System.String,System.Int32,System.String)">
+            <summary>
+            Immutable descriptor of the Orchestrator network endpoint delivered to the Executor during the IPC handshake.
+            The Executor cannot mutate or override these values — they originate exclusively from the Supervisor.
+            </summary>
+            <param name="Host">Hostname or IP address of the Orchestrator (e.g. "localhost" or WSL2 gateway address).</param>
+            <param name="Port">TCP port on which the Orchestrator listens.</param>
+            <param name="Scheme">URI scheme used by the Orchestrator protocol, typically "https" or "grpc".</param>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.OrchestratorEndpoint.Host">
+            <summary>Hostname or IP address of the Orchestrator (e.g. "localhost" or WSL2 gateway address).</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.OrchestratorEndpoint.Port">
+            <summary>TCP port on which the Orchestrator listens.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.OrchestratorEndpoint.Scheme">
+            <summary>URI scheme used by the Orchestrator protocol, typically "https" or "grpc".</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.SupervisorPipeServer">
+            <summary>
+            Named-pipe server endpoint owned exclusively by the Supervisor process.
+            Accepts exactly one Executor client connection; access is restricted to the
+            current Windows user SID via OS-enforced <see cref="T:System.IO.Pipes.PipeSecurity"/> ACL.
+            </summary>
+            <remarks>
+            This class intentionally contains no GUI-input APIs (SendInput, mouse_event,
+            keybd_event, SetForegroundWindow, etc.).  The Supervisor cannot inject desktop
+            events by design — that boundary is enforced structurally, not by policy alone.
+            </remarks>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.SupervisorPipeServer.PipeName">
+            <summary>Name of the pipe as registered with the OS.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.SupervisorPipeServer.#ctor(System.String)">
+            <summary>
+            Initialises the server stream.  The pipe is not yet listening; call
+            <see cref="M:Tracto.Desktop.Ipc.SupervisorPipeServer.AcceptConnectionAsync(System.Threading.CancellationToken)"/> to block until the Executor connects.
+            </summary>
+            <param name="pipeName">
+            Fully-qualified pipe name, e.g. <c>tracto-supervisor-{MachineName}</c>.
+            Pass <see langword="null"/> to use the default machine-scoped name.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.SupervisorPipeServer.AcceptConnectionAsync(System.Threading.CancellationToken)">
+            <summary>Blocks asynchronously until an Executor client connects or <paramref name="ct"/> is cancelled.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.SupervisorPipeServer.SendMessageAsync(Tracto.Desktop.Ipc.IpcMessage,System.Threading.CancellationToken)">
+            <summary>Sends <paramref name="msg"/> over the pipe using a 4-byte little-endian length prefix.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.SupervisorPipeServer.ReceiveMessageAsync(System.Threading.CancellationToken)">
+            <summary>Reads the next framed message from the pipe and deserializes it.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.SupervisorPipeServer.Dispose">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

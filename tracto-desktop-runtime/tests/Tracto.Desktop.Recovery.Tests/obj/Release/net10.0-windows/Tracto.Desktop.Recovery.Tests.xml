@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Recovery.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Recovery.Tests.BoundedWaitTests">
+            <summary>
+            Unit tests for DT-15: bounded waits, FakeTimer, and PostconditionAssertion.
+            FakeTimer is advanced with a single AdvanceMs call per test to avoid
+            scheduling races between async continuations and subsequent advances.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.Tests.MockSendInputProvider">
+            <summary>
+            Records all KeyUp calls so tests can assert modifier-key release count/names.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.Tests.MockClipboardEngine">
+            <summary>
+            Records ForceCloseHandle invocations.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.Tests.CancellationTests">
+            <summary>
+            Unit tests for DT-17: safe cancellation and resource release.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Recovery.Tests.RecoveryTests">
+            <summary>
+            Unit tests for DT-16: crash detection, session-lock monitoring,
+            focus-theft detection, and attempt fencing.
+            </summary>
+        </member>
+    </members>
+</doc>

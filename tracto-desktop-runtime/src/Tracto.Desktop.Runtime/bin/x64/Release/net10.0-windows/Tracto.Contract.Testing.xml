@@ -1,0 +1,184 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Contract.Testing</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Contract.Testing.AutomationEnvelopeBuilder">
+            <summary>
+            Fluent builder for <see cref="T:Tracto.Contract.Models.Envelope.AutomationEnvelope"/> with sensible defaults
+            suitable for unit and conformance tests.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithSchemaVersion(System.String)">
+            <summary>Override the schema version (default: "1.0").</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithAutomationId(System.String)">
+            <summary>Override the automation identifier (default: "test/automation/default").</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithRuntimeType(Tracto.Contract.Models.RuntimeType)">
+            <summary>Override the runtime type (default: <see cref="F:Tracto.Contract.Models.RuntimeType.Desktop"/>).</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithPolicyRef(System.String)">
+            <summary>Append a policy reference.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithInput(System.String,Tracto.Contract.Models.Envelope.InputDeclaration)">
+            <summary>Declare an input parameter.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithOutput(System.String,Tracto.Contract.Models.Envelope.OutputDeclaration)">
+            <summary>Declare an output parameter.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithVar(System.String,Tracto.Contract.Models.Envelope.VarDeclaration)">
+            <summary>Declare a script-scoped variable.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.WithStep(Tracto.Contract.Models.Envelope.StepDefinition)">
+            <summary>Append a step definition.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.AutomationEnvelopeBuilder.Build">
+            <summary>Build and return the configured <see cref="T:Tracto.Contract.Models.Envelope.AutomationEnvelope"/>.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Testing.FakeTimeProvider">
+            <summary>
+            A controllable <see cref="T:System.TimeProvider"/> for deterministic unit tests.
+            Replaces the real wall clock with a manually advanced clock so that
+            time-sensitive contract logic can be driven by the test.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FakeTimeProvider.#ctor(System.Nullable{System.DateTimeOffset})">
+            <param name="start">
+            The initial value returned by <see cref="M:Tracto.Contract.Testing.FakeTimeProvider.GetUtcNow"/>.
+            Defaults to 2026-01-01T00:00:00Z when omitted.
+            </param>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FakeTimeProvider.GetUtcNow">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FakeTimeProvider.Advance(System.TimeSpan)">
+            <summary>Advance the clock by <paramref name="by"/>.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FakeTimeProvider.SetTime(System.DateTimeOffset)">
+            <summary>Jump the clock to an absolute point in time.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Testing.FixtureAssert">
+            <summary>
+            FluentAssertions-based assertion helpers for common contract invariants.
+            Centralises assertion language so individual test projects stay concise and consistent.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FixtureAssert.RunStateIs(Tracto.Contract.Models.Execution.RunResult,Tracto.Contract.Models.RunState)">
+            <summary>
+            Assert that <paramref name="result"/> has the expected <see cref="T:Tracto.Contract.Models.RunState"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FixtureAssert.HasNeedsAttention(Tracto.Contract.Models.Execution.RunResult)">
+            <summary>
+            Assert that <paramref name="result"/> has <c>needsAttention = true</c>.
+            Required for any <see cref="F:Tracto.Contract.Models.RunState.Unknown"/> outcome (C3).
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FixtureAssert.HasNoPlaintextSecrets(System.String)">
+            <summary>
+            Assert that <paramref name="json"/> contains no recognisable plaintext secrets.
+            Validates the telemetry-redaction contract: no passwords or raw authorization headers
+            may appear in any emitted telemetry payload.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.FixtureAssert.IsTerminalState(Tracto.Contract.Models.Execution.RunResult)">
+            <summary>
+            Assert that <paramref name="result"/> is in one of the terminal run states
+            defined by the state-machine contract.
+            </summary>
+        </member>
+        <member name="T:Tracto.Contract.Testing.RunResultBuilder">
+            <summary>
+            Fluent builder for <see cref="T:Tracto.Contract.Models.Execution.RunResult"/> with sensible defaults for tests.
+            Defaults: <see cref="F:Tracto.Contract.Models.RunState.Succeeded"/>, no step results, timestamps set to UTC now.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithRunId(System.String)">
+            <summary>Override the run identifier.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithAttemptId(System.String)">
+            <summary>Override the attempt identifier.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithRunState(Tracto.Contract.Models.RunState)">
+            <summary>Override the terminal run state (default: <see cref="F:Tracto.Contract.Models.RunState.Succeeded"/>).</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithStepResult(Tracto.Contract.Models.Execution.StepResult)">
+            <summary>Append a step result.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithNeedsAttention">
+            <summary>
+            Set <c>needsAttention = true</c>.
+            Must be set for any <see cref="F:Tracto.Contract.Models.RunState.Unknown"/> outcome per C3.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithUnknownReason(System.String)">
+            <summary>
+            Set a stable <c>unknownReason</c> code.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithStartedAt(System.DateTimeOffset)">
+            <summary>Override the started-at timestamp.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.WithCompletedAt(System.DateTimeOffset)">
+            <summary>Override the completed-at timestamp.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.RunResultBuilder.Build">
+            <summary>Build and return the configured <see cref="T:Tracto.Contract.Models.Execution.RunResult"/>.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Testing.SchemaFixtureLoader">
+            <summary>
+            Utility for loading JSON fixture files from disk into test assertions.
+            Keeps fixture loading consistent across all conformance test projects.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.SchemaFixtureLoader.LoadFixture(System.String)">
+            <summary>
+            Read a fixture file and return its raw JSON string.
+            </summary>
+            <param name="path">Absolute or relative path to the fixture file.</param>
+            <exception cref="T:System.IO.FileNotFoundException">
+            Thrown when <paramref name="path"/> does not exist.
+            </exception>
+        </member>
+        <member name="M:Tracto.Contract.Testing.SchemaFixtureLoader.LoadFixtureAsDocument(System.String)">
+            <summary>
+            Read a fixture file and parse it as a <see cref="T:System.Text.Json.JsonDocument"/>.
+            Callers are responsible for disposing the returned document.
+            </summary>
+            <param name="path">Absolute or relative path to the fixture file.</param>
+            <exception cref="T:System.IO.FileNotFoundException">
+            Thrown when <paramref name="path"/> does not exist.
+            </exception>
+        </member>
+        <member name="T:Tracto.Contract.Testing.StepDefinitionBuilder">
+            <summary>
+            Fluent builder for <see cref="T:Tracto.Contract.Models.Envelope.StepDefinition"/> with per-field overrides.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.#ctor(System.String,System.String)">
+            <param name="stepId">The unique step identifier within the envelope.</param>
+            <param name="action">The action token (e.g. "click", "navigate", "service.invoke").</param>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.WithTimeout(System.Int32)">
+            <summary>Set a per-step timeout in milliseconds.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.WithRetryClass(Tracto.Contract.Models.RetryClass)">
+            <summary>Set the retry class for this step.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.WithOutputBinding(System.String,System.String)">
+            <summary>
+            Add an output binding that maps a step output field to a script variable.
+            </summary>
+            <param name="varName">The script variable that receives the value.</param>
+            <param name="stepOutputField">The field name produced by the step's output.</param>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.WithInput(System.String,System.Text.Json.JsonElement)">
+            <summary>Add a raw JSON input element.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Testing.StepDefinitionBuilder.Build">
+            <summary>Build and return the configured <see cref="T:Tracto.Contract.Models.Envelope.StepDefinition"/>.</summary>
+        </member>
+    </members>
+</doc>

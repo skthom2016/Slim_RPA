@@ -1,0 +1,367 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.AppLifecycle</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.AppLifecycle.AppAttachOptions">
+            <summary>
+            Options for attaching to a running application via <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)"/>.
+            At least one of <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName"/> or <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId"/> must be supplied.
+            </summary>
+            <param name="ProcessName">
+            Process image name to search for (case-insensitive, without extension).
+            When both <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName"/> and <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId"/> are set the PID is the primary discriminator.
+            </param>
+            <param name="ProcessId">OS process identifier. Uniquely identifies a process when provided.</param>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.AppAttachOptions.#ctor(System.String,System.Nullable{System.Int32})">
+            <summary>
+            Options for attaching to a running application via <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)"/>.
+            At least one of <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName"/> or <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId"/> must be supplied.
+            </summary>
+            <param name="ProcessName">
+            Process image name to search for (case-insensitive, without extension).
+            When both <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName"/> and <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId"/> are set the PID is the primary discriminator.
+            </param>
+            <param name="ProcessId">OS process identifier. Uniquely identifies a process when provided.</param>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName">
+            <summary>
+            Process image name to search for (case-insensitive, without extension).
+            When both <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessName"/> and <see cref="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId"/> are set the PID is the primary discriminator.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppAttachOptions.ProcessId">
+            <summary>OS process identifier. Uniquely identifies a process when provided.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.AppHandle">
+            <summary>
+            Represents a running application process and its primary window.
+            </summary>
+            <param name="ProcessId">OS process identifier.</param>
+            <param name="ProcessName">Process image name (without extension), e.g. "notepad".</param>
+            <param name="MainWindowHandle">Win32 HWND of the process's main window; <see cref="F:System.IntPtr.Zero"/> if the process has no visible window.</param>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.AppHandle.#ctor(System.Int32,System.String,System.IntPtr)">
+            <summary>
+            Represents a running application process and its primary window.
+            </summary>
+            <param name="ProcessId">OS process identifier.</param>
+            <param name="ProcessName">Process image name (without extension), e.g. "notepad".</param>
+            <param name="MainWindowHandle">Win32 HWND of the process's main window; <see cref="F:System.IntPtr.Zero"/> if the process has no visible window.</param>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppHandle.ProcessId">
+            <summary>OS process identifier.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppHandle.ProcessName">
+            <summary>Process image name (without extension), e.g. "notepad".</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppHandle.MainWindowHandle">
+            <summary>Win32 HWND of the process's main window; <see cref="F:System.IntPtr.Zero"/> if the process has no visible window.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.AppLaunchOptions">
+            <summary>
+            Options for launching an application via <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)"/>.
+            The executable must be on the policy allowlist before launch is attempted.
+            </summary>
+            <param name="ExecutablePath">Full path to the executable or shortcut.</param>
+            <param name="Args">Command-line arguments to pass to the process.</param>
+            <param name="LaunchTimeoutMs">Maximum time in milliseconds to wait for the process to enter an idle state after start.</param>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.AppLaunchOptions.#ctor(System.String,System.String[],System.Int32)">
+            <summary>
+            Options for launching an application via <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)"/>.
+            The executable must be on the policy allowlist before launch is attempted.
+            </summary>
+            <param name="ExecutablePath">Full path to the executable or shortcut.</param>
+            <param name="Args">Command-line arguments to pass to the process.</param>
+            <param name="LaunchTimeoutMs">Maximum time in milliseconds to wait for the process to enter an idle state after start.</param>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppLaunchOptions.ExecutablePath">
+            <summary>Full path to the executable or shortcut.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppLaunchOptions.Args">
+            <summary>Command-line arguments to pass to the process.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.AppLaunchOptions.LaunchTimeoutMs">
+            <summary>Maximum time in milliseconds to wait for the process to enter an idle state after start.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.DesktopActionError">
+            <summary>
+            Exception raised when a desktop automation action cannot be completed.
+            Maps to CEC v1.0.1 error categories and desktop-specific detail codes.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.DesktopActionError.ErrorCategory">
+            <summary>CEC v1.0.1 errorCategory string, e.g. "ENVIRONMENT", "TARGET_NOT_FOUND".</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.DesktopActionError.DetailCode">
+            <summary>Optional desktop-specific detailCode, e.g. "desktop.appCrash".</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.DesktopActionError.Description">
+            <summary>Human-readable description of the error; must not contain secret values.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.IAppLifecycleManager">
+            <summary>
+            Manages the lifecycle of Windows application processes: launch, attach, close and crash detection.
+            Retry class for launch and attach is NEVER — uncertain operations yield UNKNOWN, never a blind retry.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)">
+            <summary>
+            Launches the executable described by <paramref name="options"/>, waits for the process to become
+            idle, verifies that it is still alive and returns its <see cref="T:Tracto.Desktop.AppLifecycle.AppHandle"/>.
+            </summary>
+            <param name="options">Launch parameters. The executable must be on the policy allowlist.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>An <see cref="T:Tracto.Desktop.AppLifecycle.AppHandle"/> describing the running process.</returns>
+            <exception cref="T:Tracto.Desktop.AppLifecycle.DesktopActionError">
+            Thrown with appropriate <see cref="P:Tracto.Desktop.AppLifecycle.DesktopActionError.ErrorCategory"/> when the launch fails.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)">
+            <summary>
+            Attaches to a running process that matches <paramref name="options"/>.
+            </summary>
+            <param name="options">Attach discriminators. At least one field must be set.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns>An <see cref="T:Tracto.Desktop.AppLifecycle.AppHandle"/> for the matched process.</returns>
+            <exception cref="T:Tracto.Desktop.AppLifecycle.DesktopActionError">
+            Thrown with <c>TARGET_NOT_FOUND</c> when no process matches, or <c>TARGET_AMBIGUOUS</c> when
+            more than one process matches without a unique discriminator.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.CloseAsync(Tracto.Desktop.AppLifecycle.AppHandle,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Sends a close signal to the process identified by <paramref name="handle"/> and waits up to
+            <paramref name="gracefulTimeoutMs"/> milliseconds for it to exit.
+            </summary>
+            <param name="handle">Handle returned by <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)"/> or <see cref="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)"/>.</param>
+            <param name="gracefulTimeoutMs">Milliseconds to wait for a clean exit before giving up.</param>
+            <param name="cancellationToken">Cancellation token.</param>
+            <returns><c>true</c> when the process exited within the timeout; <c>false</c> otherwise.</returns>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IAppLifecycleManager.MonitorForExit(Tracto.Desktop.AppLifecycle.AppHandle,System.Action{Tracto.Desktop.AppLifecycle.DesktopActionError})">
+            <summary>
+            Subscribes to unexpected process exit for the process described by <paramref name="handle"/>.
+            When the process terminates, <paramref name="onExit"/> is invoked with a
+            <see cref="T:Tracto.Desktop.AppLifecycle.DesktopActionError"/> whose category is <c>ENVIRONMENT</c> and detail code is
+            <c>desktop.appCrash</c>.
+            </summary>
+            <param name="handle">Handle of the process to monitor.</param>
+            <param name="onExit">Callback invoked on unexpected exit. Must not throw.</param>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.IWindowEnumerator">
+            <summary>
+            Enumerates top-level Windows windows and detects unexpected modals above a given target.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IWindowEnumerator.EnumerateTopLevel">
+            <summary>Returns all visible top-level windows on the current desktop.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IWindowEnumerator.FindByTitle(System.String,System.Int32)">
+            <summary>
+            Returns windows whose title contains <paramref name="titleFragment"/> (case-insensitive)
+            and belong to the process identified by <paramref name="processId"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.IWindowEnumerator.HasUnexpectedModal(System.IntPtr)">
+            <summary>
+            Returns <c>true</c> when there is a visible top-level window above
+            <paramref name="targetHandle"/> that does not belong to the same process and is
+            therefore an unexpected modal that would block input.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager">
+            <summary>
+            Injectable test double for <see cref="T:Tracto.Desktop.AppLifecycle.IAppLifecycleManager"/>.
+            Records every call and returns pre-configured results.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.LaunchResult">
+            <summary>Handle to return from <see cref="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)"/>. Set before calling.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.LaunchException">
+            <summary>Exception to throw from <see cref="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)"/>. Takes priority over <see cref="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.LaunchResult"/>.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.AttachResult">
+            <summary>Handle to return from <see cref="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)"/>. Set before calling.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.AttachException">
+            <summary>Exception to throw from <see cref="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)"/>. Takes priority over <see cref="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.AttachResult"/>.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.CloseResult">
+            <summary>Value to return from <see cref="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.CloseAsync(Tracto.Desktop.AppLifecycle.AppHandle,System.Int32,System.Threading.CancellationToken)"/>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.MockAppLifecycleManager.SimulateProcessExit(System.String,System.Int32)">
+            <summary>
+            Simulates a process exit by invoking the last registered exit callback with
+            <c>errorCategory=ENVIRONMENT</c>, <c>detailCode=desktop.appCrash</c>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.MockWindowEnumerator">
+            <summary>
+            Injectable test double for <see cref="T:Tracto.Desktop.AppLifecycle.IWindowEnumerator"/>.
+            Allows tests to control which windows are "visible" and whether a modal is detected.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.TopLevelWindows">
+            <summary>Windows returned by <see cref="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.EnumerateTopLevel"/> and used by <see cref="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.FindByTitle(System.String,System.Int32)"/>.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.HasUnexpectedModalOverride">
+            <summary>
+            When set, <see cref="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.HasUnexpectedModal(System.IntPtr)"/> returns this value regardless of the window list.
+            When <c>null</c>, the method falls back to simple list-based detection logic.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.EnumerateTopLevel">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.FindByTitle(System.String,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.MockWindowEnumerator.HasUnexpectedModal(System.IntPtr)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.ModalBlocker">
+            <summary>
+            Detects unexpected modal windows positioned above a target application window.
+            When <see cref="M:Tracto.Desktop.AppLifecycle.ModalBlocker.CheckForUnexpectedModal(System.IntPtr)"/> returns a result with
+            <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> = <c>true</c>, the calling action MUST be withheld.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.ModalBlocker.CheckForUnexpectedModal(System.IntPtr)">
+            <summary>
+            Checks whether an unexpected window is covering <paramref name="expectedWindow"/>.
+            </summary>
+            <param name="expectedWindow">HWND of the window that should be in the foreground.</param>
+            <returns>
+            A <see cref="T:Tracto.Desktop.AppLifecycle.ModalBlockResult"/> describing whether the action must be withheld.
+            </returns>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.ModalBlocker.Sanitize(System.String)">
+            <summary>Truncates the title so that extremely long titles do not fill logs.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.ModalBlockResult">
+            <summary>
+            Result of a modal-blocking check performed by <see cref="T:Tracto.Desktop.AppLifecycle.ModalBlocker"/>.
+            When <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> is <c>true</c> the caller MUST withhold the pending action.
+            </summary>
+            <param name="IsBlocked">
+            <c>true</c> when an unexpected window is positioned above the target window, blocking input.
+            </param>
+            <param name="ModalTitle">
+            Sanitized title of the blocking window, or <c>null</c> when <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> is <c>false</c>.
+            Secret values are never included in this field.
+            </param>
+            <param name="Evidence">
+            Human-readable description of the blocking condition for diagnostics.
+            Must not contain any secret input or step variable plaintext.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.ModalBlockResult.#ctor(System.Boolean,System.String,System.String)">
+            <summary>
+            Result of a modal-blocking check performed by <see cref="T:Tracto.Desktop.AppLifecycle.ModalBlocker"/>.
+            When <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> is <c>true</c> the caller MUST withhold the pending action.
+            </summary>
+            <param name="IsBlocked">
+            <c>true</c> when an unexpected window is positioned above the target window, blocking input.
+            </param>
+            <param name="ModalTitle">
+            Sanitized title of the blocking window, or <c>null</c> when <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> is <c>false</c>.
+            Secret values are never included in this field.
+            </param>
+            <param name="Evidence">
+            Human-readable description of the blocking condition for diagnostics.
+            Must not contain any secret input or step variable plaintext.
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked">
+            <summary>
+            <c>true</c> when an unexpected window is positioned above the target window, blocking input.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.ModalTitle">
+            <summary>
+            Sanitized title of the blocking window, or <c>null</c> when <see cref="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.IsBlocked"/> is <c>false</c>.
+            Secret values are never included in this field.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.ModalBlockResult.Evidence">
+            <summary>
+            Human-readable description of the blocking condition for diagnostics.
+            Must not contain any secret input or step variable plaintext.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.WindowInfo">
+            <summary>
+            Snapshot of a top-level window's identity and ownership at enumeration time.
+            </summary>
+            <param name="Handle">Win32 HWND.</param>
+            <param name="Title">Window title text (may be empty).</param>
+            <param name="ClassName">Win32 window class name.</param>
+            <param name="ProcessId">OS PID of the owning process.</param>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowInfo.#ctor(System.IntPtr,System.String,System.String,System.Int32)">
+            <summary>
+            Snapshot of a top-level window's identity and ownership at enumeration time.
+            </summary>
+            <param name="Handle">Win32 HWND.</param>
+            <param name="Title">Window title text (may be empty).</param>
+            <param name="ClassName">Win32 window class name.</param>
+            <param name="ProcessId">OS PID of the owning process.</param>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.WindowInfo.Handle">
+            <summary>Win32 HWND.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.WindowInfo.Title">
+            <summary>Window title text (may be empty).</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.WindowInfo.ClassName">
+            <summary>Win32 window class name.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.AppLifecycle.WindowInfo.ProcessId">
+            <summary>OS PID of the owning process.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager">
+            <summary>
+            Windows implementation of <see cref="T:Tracto.Desktop.AppLifecycle.IAppLifecycleManager"/> that uses
+            <see cref="T:System.Diagnostics.Process"/> to launch, attach and monitor processes.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.#ctor">
+            <summary>Initialises with the production process factory.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.#ctor(System.Func{System.String,System.String[],System.Diagnostics.Process})">
+            <summary>Initialises with a custom process factory (for testing).</summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.LaunchAsync(Tracto.Desktop.AppLifecycle.AppLaunchOptions,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.AttachAsync(Tracto.Desktop.AppLifecycle.AppAttachOptions,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.CloseAsync(Tracto.Desktop.AppLifecycle.AppHandle,System.Int32,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsAppLifecycleManager.MonitorForExit(Tracto.Desktop.AppLifecycle.AppHandle,System.Action{Tracto.Desktop.AppLifecycle.DesktopActionError})">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.AppLifecycle.WindowsWindowEnumerator">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.AppLifecycle.IWindowEnumerator"/> that uses Win32 P/Invoke
+            (EnumWindows, GetWindowText, GetClassName, IsWindowVisible, GetWindowThreadProcessId).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsWindowEnumerator.EnumerateTopLevel">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsWindowEnumerator.FindByTitle(System.String,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.AppLifecycle.WindowsWindowEnumerator.HasUnexpectedModal(System.IntPtr)">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

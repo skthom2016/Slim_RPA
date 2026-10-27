@@ -1,0 +1,816 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Contract.Models</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Contract.Models.Envelope.TypedRef">
+            <summary>Reference pattern: {"ref":"inputs.x"}.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Models.Envelope.TypedRef.#ctor(System.String)">
+            <summary>Reference pattern: {"ref":"inputs.x"}.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Envelope.VarDeclaration">
+            <summary>Script-scoped variable declaration (C1 decision).</summary>
+        </member>
+        <member name="M:Tracto.Contract.Models.Envelope.VarDeclaration.#ctor(System.String,System.Nullable{System.Boolean},System.Nullable{System.Text.Json.JsonElement},System.String)">
+            <summary>Script-scoped variable declaration (C1 decision).</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.AdvertisedCapabilities">
+            <summary>Namespace-pattern declaration of all action and predicate namespaces this worker supports, plus runtime limits.</summary>
+            <param name="ActionNamespaces">Glob-style namespace patterns covering all action types the worker can execute.</param>
+            <param name="PredicateNamespaces">Glob-style namespace patterns covering all predicate namespaces the worker can evaluate.</param>
+            <param name="MaxIterations">Maximum iteration count the worker enforces for control.repeatBounded steps.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.AdvertisedCapabilities.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Int32)">
+            <summary>Namespace-pattern declaration of all action and predicate namespaces this worker supports, plus runtime limits.</summary>
+            <param name="ActionNamespaces">Glob-style namespace patterns covering all action types the worker can execute.</param>
+            <param name="PredicateNamespaces">Glob-style namespace patterns covering all predicate namespaces the worker can evaluate.</param>
+            <param name="MaxIterations">Maximum iteration count the worker enforces for control.repeatBounded steps.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.AdvertisedCapabilities.ActionNamespaces">
+            <summary>Glob-style namespace patterns covering all action types the worker can execute.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.AdvertisedCapabilities.PredicateNamespaces">
+            <summary>Glob-style namespace patterns covering all predicate namespaces the worker can evaluate.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.AdvertisedCapabilities.MaxIterations">
+            <summary>Maximum iteration count the worker enforces for control.repeatBounded steps.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.BusinessCallback">
+            <summary>Inbound async callback message delivered by an external service after an async service.invoke step.</summary>
+            <param name="EventId">Globally unique identifier for this callback event; used for deduplication.</param>
+            <param name="SourceRunId">Run identifier of the execution that initiated the service.invoke step this callback answers.</param>
+            <param name="SourceStepId">Step identifier of the service.invoke step this callback answers.</param>
+            <param name="Nonce">Single-use token from the original callbackConfig.nonce; validators must verify this to prevent replay.</param>
+            <param name="Timestamp">ISO 8601 timestamp at which the external service produced this callback.</param>
+            <param name="ServiceOutcome">The outcome reported by the external service for the invoked operation.</param>
+            <param name="Signature">Optional cryptographic signature over the callback payload produced by the external service.</param>
+            <param name="Payload">Arbitrary structured data returned by the external service.</param>
+            <param name="Authenticated">Must not be accepted as a self-assertion of authentication status; validators must ignore or reject this field.</param>
+            <param name="ContinuationRuleId">Optional identifier of the static continuation rule to activate upon receipt of this callback.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.BusinessCallback.#ctor(System.String,System.String,System.String,System.String,System.DateTimeOffset,Tracto.Contract.Models.ServiceOutcome,System.String,System.Nullable{System.Text.Json.JsonElement},System.Nullable{System.Boolean},System.String)">
+            <summary>Inbound async callback message delivered by an external service after an async service.invoke step.</summary>
+            <param name="EventId">Globally unique identifier for this callback event; used for deduplication.</param>
+            <param name="SourceRunId">Run identifier of the execution that initiated the service.invoke step this callback answers.</param>
+            <param name="SourceStepId">Step identifier of the service.invoke step this callback answers.</param>
+            <param name="Nonce">Single-use token from the original callbackConfig.nonce; validators must verify this to prevent replay.</param>
+            <param name="Timestamp">ISO 8601 timestamp at which the external service produced this callback.</param>
+            <param name="ServiceOutcome">The outcome reported by the external service for the invoked operation.</param>
+            <param name="Signature">Optional cryptographic signature over the callback payload produced by the external service.</param>
+            <param name="Payload">Arbitrary structured data returned by the external service.</param>
+            <param name="Authenticated">Must not be accepted as a self-assertion of authentication status; validators must ignore or reject this field.</param>
+            <param name="ContinuationRuleId">Optional identifier of the static continuation rule to activate upon receipt of this callback.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.EventId">
+            <summary>Globally unique identifier for this callback event; used for deduplication.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.SourceRunId">
+            <summary>Run identifier of the execution that initiated the service.invoke step this callback answers.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.SourceStepId">
+            <summary>Step identifier of the service.invoke step this callback answers.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.Nonce">
+            <summary>Single-use token from the original callbackConfig.nonce; validators must verify this to prevent replay.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.Timestamp">
+            <summary>ISO 8601 timestamp at which the external service produced this callback.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.ServiceOutcome">
+            <summary>The outcome reported by the external service for the invoked operation.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.Signature">
+            <summary>Optional cryptographic signature over the callback payload produced by the external service.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.Payload">
+            <summary>Arbitrary structured data returned by the external service.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.Authenticated">
+            <summary>Must not be accepted as a self-assertion of authentication status; validators must ignore or reject this field.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.BusinessCallback.ContinuationRuleId">
+            <summary>Optional identifier of the static continuation rule to activate upon receipt of this callback.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.CallbackConfig">
+            <summary>Configuration for async callback delivery on a service.invoke step.</summary>
+            <param name="TimeoutMs">Maximum milliseconds to wait for the async callback before timing out.</param>
+            <param name="Nonce">Single-use token embedded in the callback request to prevent replay.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.CallbackConfig.#ctor(System.Int32,System.String)">
+            <summary>Configuration for async callback delivery on a service.invoke step.</summary>
+            <param name="TimeoutMs">Maximum milliseconds to wait for the async callback before timing out.</param>
+            <param name="Nonce">Single-use token embedded in the callback request to prevent replay.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CallbackConfig.TimeoutMs">
+            <summary>Maximum milliseconds to wait for the async callback before timing out.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CallbackConfig.Nonce">
+            <summary>Single-use token embedded in the callback request to prevent replay.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.CancelRequest">
+            <summary>Sent by the orchestrator to request cancellation of an active run.</summary>
+            <param name="LeaseId">The lease identifier of the run to be cancelled.</param>
+            <param name="RequestedAt">ISO 8601 UTC timestamp at which the cancellation was requested.</param>
+            <param name="Reason">Human-readable reason for the cancellation, or null if not provided.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.CancelRequest.#ctor(System.String,System.DateTimeOffset,System.String)">
+            <summary>Sent by the orchestrator to request cancellation of an active run.</summary>
+            <param name="LeaseId">The lease identifier of the run to be cancelled.</param>
+            <param name="RequestedAt">ISO 8601 UTC timestamp at which the cancellation was requested.</param>
+            <param name="Reason">Human-readable reason for the cancellation, or null if not provided.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CancelRequest.LeaseId">
+            <summary>The lease identifier of the run to be cancelled.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CancelRequest.RequestedAt">
+            <summary>ISO 8601 UTC timestamp at which the cancellation was requested.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CancelRequest.Reason">
+            <summary>Human-readable reason for the cancellation, or null if not provided.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.CancelRequest.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.FinalResult">
+            <summary>Sent by the worker when the run has reached a terminal state; carries the full run result.</summary>
+            <param name="LeaseId">The lease identifier this result closes.</param>
+            <param name="WorkerId">Stable unique identity of the worker reporting the result.</param>
+            <param name="Result">The final run result.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.FinalResult.#ctor(System.String,System.String,Tracto.Contract.Models.Execution.RunResult)">
+            <summary>Sent by the worker when the run has reached a terminal state; carries the full run result.</summary>
+            <param name="LeaseId">The lease identifier this result closes.</param>
+            <param name="WorkerId">Stable unique identity of the worker reporting the result.</param>
+            <param name="Result">The final run result.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.FinalResult.LeaseId">
+            <summary>The lease identifier this result closes.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.FinalResult.WorkerId">
+            <summary>Stable unique identity of the worker reporting the result.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.FinalResult.Result">
+            <summary>The final run result.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.FinalResult.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.Heartbeat">
+            <summary>Sent periodically by the worker to renew its lease and report current execution status.</summary>
+            <param name="LeaseId">The lease identifier being renewed.</param>
+            <param name="WorkerId">Stable unique identity of the worker sending the heartbeat.</param>
+            <param name="SequenceNumber">Monotonically increasing counter for this lease's heartbeat sequence; starts at 0.</param>
+            <param name="Timestamp">ISO 8601 UTC timestamp at which this heartbeat was sent.</param>
+            <param name="CurrentStepId">Identifier of the step currently executing, or null if between steps.</param>
+            <param name="CurrentRunState">The run state as known by the worker at the time of this heartbeat.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.Heartbeat.#ctor(System.String,System.String,System.Int32,System.DateTimeOffset,System.String,Tracto.Contract.Models.RunState)">
+            <summary>Sent periodically by the worker to renew its lease and report current execution status.</summary>
+            <param name="LeaseId">The lease identifier being renewed.</param>
+            <param name="WorkerId">Stable unique identity of the worker sending the heartbeat.</param>
+            <param name="SequenceNumber">Monotonically increasing counter for this lease's heartbeat sequence; starts at 0.</param>
+            <param name="Timestamp">ISO 8601 UTC timestamp at which this heartbeat was sent.</param>
+            <param name="CurrentStepId">Identifier of the step currently executing, or null if between steps.</param>
+            <param name="CurrentRunState">The run state as known by the worker at the time of this heartbeat.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.LeaseId">
+            <summary>The lease identifier being renewed.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.WorkerId">
+            <summary>Stable unique identity of the worker sending the heartbeat.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.SequenceNumber">
+            <summary>Monotonically increasing counter for this lease's heartbeat sequence; starts at 0.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.Timestamp">
+            <summary>ISO 8601 UTC timestamp at which this heartbeat was sent.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.CurrentStepId">
+            <summary>Identifier of the step currently executing, or null if between steps.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.CurrentRunState">
+            <summary>The run state as known by the worker at the time of this heartbeat.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.Heartbeat.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.HeartbeatAck">
+            <summary>Sent by the orchestrator to acknowledge a Heartbeat and optionally signal cancellation.</summary>
+            <param name="LeaseId">The lease identifier being acknowledged.</param>
+            <param name="SequenceNumber">Echo of the sequenceNumber from the Heartbeat being acknowledged.</param>
+            <param name="CancellationRequested">When true, the orchestrator is requesting the worker cancel the current run gracefully.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.HeartbeatAck.#ctor(System.String,System.Int32,System.Boolean)">
+            <summary>Sent by the orchestrator to acknowledge a Heartbeat and optionally signal cancellation.</summary>
+            <param name="LeaseId">The lease identifier being acknowledged.</param>
+            <param name="SequenceNumber">Echo of the sequenceNumber from the Heartbeat being acknowledged.</param>
+            <param name="CancellationRequested">When true, the orchestrator is requesting the worker cancel the current run gracefully.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.HeartbeatAck.LeaseId">
+            <summary>The lease identifier being acknowledged.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.HeartbeatAck.SequenceNumber">
+            <summary>Echo of the sequenceNumber from the Heartbeat being acknowledged.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.HeartbeatAck.CancellationRequested">
+            <summary>When true, the orchestrator is requesting the worker cancel the current run gracefully.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.HeartbeatAck.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.LeaseAccepted">
+            <summary>Sent by the worker to confirm receipt and acceptance of a LeaseGranted message.</summary>
+            <param name="LeaseId">The lease identifier from the corresponding LeaseGranted message.</param>
+            <param name="WorkerId">Stable unique identity of the worker accepting the lease.</param>
+            <param name="AcceptedAt">ISO 8601 UTC timestamp at which the worker accepted the lease.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.LeaseAccepted.#ctor(System.String,System.String,System.DateTimeOffset)">
+            <summary>Sent by the worker to confirm receipt and acceptance of a LeaseGranted message.</summary>
+            <param name="LeaseId">The lease identifier from the corresponding LeaseGranted message.</param>
+            <param name="WorkerId">Stable unique identity of the worker accepting the lease.</param>
+            <param name="AcceptedAt">ISO 8601 UTC timestamp at which the worker accepted the lease.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseAccepted.LeaseId">
+            <summary>The lease identifier from the corresponding LeaseGranted message.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseAccepted.WorkerId">
+            <summary>Stable unique identity of the worker accepting the lease.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseAccepted.AcceptedAt">
+            <summary>ISO 8601 UTC timestamp at which the worker accepted the lease.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseAccepted.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.LeaseGranted">
+            <summary>Sent by the orchestrator to assign a job lease to the requesting worker.</summary>
+            <param name="LeaseId">Unique identifier for this lease.</param>
+            <param name="RunId">Identifier of the run this lease is for.</param>
+            <param name="AttemptId">Identifier of this specific attempt within the run.</param>
+            <param name="ArtifactUrl">URL from which the worker must download the automation artifact.</param>
+            <param name="ArtifactDigest">SHA-256 digest of the artifact; worker must verify before execution.</param>
+            <param name="LeaseDurationMs">Duration of the lease in milliseconds; worker must renew via Heartbeat before expiry.</param>
+            <param name="JobSchemaVersion">Schema version of the job artifact.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.LeaseGranted.#ctor(System.String,System.String,System.String,System.String,System.String,System.Int32,System.String)">
+            <summary>Sent by the orchestrator to assign a job lease to the requesting worker.</summary>
+            <param name="LeaseId">Unique identifier for this lease.</param>
+            <param name="RunId">Identifier of the run this lease is for.</param>
+            <param name="AttemptId">Identifier of this specific attempt within the run.</param>
+            <param name="ArtifactUrl">URL from which the worker must download the automation artifact.</param>
+            <param name="ArtifactDigest">SHA-256 digest of the artifact; worker must verify before execution.</param>
+            <param name="LeaseDurationMs">Duration of the lease in milliseconds; worker must renew via Heartbeat before expiry.</param>
+            <param name="JobSchemaVersion">Schema version of the job artifact.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.LeaseId">
+            <summary>Unique identifier for this lease.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.RunId">
+            <summary>Identifier of the run this lease is for.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.AttemptId">
+            <summary>Identifier of this specific attempt within the run.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.ArtifactUrl">
+            <summary>URL from which the worker must download the automation artifact.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.ArtifactDigest">
+            <summary>SHA-256 digest of the artifact; worker must verify before execution.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.LeaseDurationMs">
+            <summary>Duration of the lease in milliseconds; worker must renew via Heartbeat before expiry.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.JobSchemaVersion">
+            <summary>Schema version of the job artifact.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.LeaseGranted.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.NoJobAvailable">
+            <summary>Sent by the orchestrator when no suitable job is currently available for the requesting worker.</summary>
+            <param name="RetryAfterMs">Milliseconds the worker should wait before sending another PullJobRequest.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.NoJobAvailable.#ctor(System.Int32)">
+            <summary>Sent by the orchestrator when no suitable job is currently available for the requesting worker.</summary>
+            <param name="RetryAfterMs">Milliseconds the worker should wait before sending another PullJobRequest.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.NoJobAvailable.RetryAfterMs">
+            <summary>Milliseconds the worker should wait before sending another PullJobRequest.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.NoJobAvailable.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.PullJobRequest">
+            <summary>Sent by a worker to request the next available job from the orchestrator.</summary>
+            <param name="WorkerId">Stable unique identity of the requesting worker.</param>
+            <param name="LastSeenAttemptId">The attemptId of the last job the worker saw; null on first pull.</param>
+            <param name="RequestedAt">ISO 8601 UTC timestamp at which the worker sent this request.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.PullJobRequest.#ctor(System.String,System.String,System.DateTimeOffset)">
+            <summary>Sent by a worker to request the next available job from the orchestrator.</summary>
+            <param name="WorkerId">Stable unique identity of the requesting worker.</param>
+            <param name="LastSeenAttemptId">The attemptId of the last job the worker saw; null on first pull.</param>
+            <param name="RequestedAt">ISO 8601 UTC timestamp at which the worker sent this request.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.PullJobRequest.WorkerId">
+            <summary>Stable unique identity of the requesting worker.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.PullJobRequest.LastSeenAttemptId">
+            <summary>The attemptId of the last job the worker saw; null on first pull.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.PullJobRequest.RequestedAt">
+            <summary>ISO 8601 UTC timestamp at which the worker sent this request.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.PullJobRequest.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.ReconcileRequest">
+            <summary>Sent by the worker when it needs the orchestrator to determine the authoritative disposition of a run.</summary>
+            <param name="LeaseId">The lease identifier being reconciled.</param>
+            <param name="WorkerId">Stable unique identity of the worker requesting reconciliation.</param>
+            <param name="LastKnownStepId">The last step identifier the worker had observed, or null if no step was reached.</param>
+            <param name="LastKnownRunState">The last run state the worker had observed, or null if unknown.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.ReconcileRequest.#ctor(System.String,System.String,System.String,System.String)">
+            <summary>Sent by the worker when it needs the orchestrator to determine the authoritative disposition of a run.</summary>
+            <param name="LeaseId">The lease identifier being reconciled.</param>
+            <param name="WorkerId">Stable unique identity of the worker requesting reconciliation.</param>
+            <param name="LastKnownStepId">The last step identifier the worker had observed, or null if no step was reached.</param>
+            <param name="LastKnownRunState">The last run state the worker had observed, or null if unknown.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileRequest.LeaseId">
+            <summary>The lease identifier being reconciled.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileRequest.WorkerId">
+            <summary>Stable unique identity of the worker requesting reconciliation.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileRequest.LastKnownStepId">
+            <summary>The last step identifier the worker had observed, or null if no step was reached.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileRequest.LastKnownRunState">
+            <summary>The last run state the worker had observed, or null if unknown.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileRequest.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.ReconcileResponse">
+            <summary>Sent by the orchestrator in response to a ReconcileRequest, providing the authoritative disposition.</summary>
+            <param name="LeaseId">The lease identifier being reconciled.</param>
+            <param name="Disposition">The orchestrator's authoritative reconciliation verdict for this lease.</param>
+            <param name="FinalRunState">The definitive terminal run state if known, or null when disposition is Unknown.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.ReconcileResponse.#ctor(System.String,Tracto.Contract.Models.ReconcileDisposition,System.Nullable{Tracto.Contract.Models.RunState})">
+            <summary>Sent by the orchestrator in response to a ReconcileRequest, providing the authoritative disposition.</summary>
+            <param name="LeaseId">The lease identifier being reconciled.</param>
+            <param name="Disposition">The orchestrator's authoritative reconciliation verdict for this lease.</param>
+            <param name="FinalRunState">The definitive terminal run state if known, or null when disposition is Unknown.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileResponse.LeaseId">
+            <summary>The lease identifier being reconciled.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileResponse.Disposition">
+            <summary>The orchestrator's authoritative reconciliation verdict for this lease.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileResponse.FinalRunState">
+            <summary>The definitive terminal run state if known, or null when disposition is Unknown.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ReconcileResponse.MessageType">
+            <summary>Discriminator value identifying this message type.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.ServiceInvokeRequest">
+            <summary>Parameters for invoking a service operation from a service.invoke step.</summary>
+            <param name="ServiceRef">Stable logical identifier for the target service.</param>
+            <param name="OperationRef">Identifies the operation to invoke on the target service.</param>
+            <param name="Inputs">Key-value map of inputs passed to the service operation.</param>
+            <param name="TimeoutMs">Maximum milliseconds to wait for the service operation to complete.</param>
+            <param name="RetryClass">Declares the retry semantics for this invocation.</param>
+            <param name="IdempotencyKey">Unique key used by the service to deduplicate repeated invocations.</param>
+            <param name="CallbackConfig">Configuration for async callback delivery; required when the operation does not return a synchronous response.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.Text.Json.JsonElement},System.Nullable{System.Int32},System.Nullable{Tracto.Contract.Models.RetryClass},System.String,Tracto.Contract.Models.Protocol.CallbackConfig)">
+            <summary>Parameters for invoking a service operation from a service.invoke step.</summary>
+            <param name="ServiceRef">Stable logical identifier for the target service.</param>
+            <param name="OperationRef">Identifies the operation to invoke on the target service.</param>
+            <param name="Inputs">Key-value map of inputs passed to the service operation.</param>
+            <param name="TimeoutMs">Maximum milliseconds to wait for the service operation to complete.</param>
+            <param name="RetryClass">Declares the retry semantics for this invocation.</param>
+            <param name="IdempotencyKey">Unique key used by the service to deduplicate repeated invocations.</param>
+            <param name="CallbackConfig">Configuration for async callback delivery; required when the operation does not return a synchronous response.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.ServiceRef">
+            <summary>Stable logical identifier for the target service.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.OperationRef">
+            <summary>Identifies the operation to invoke on the target service.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.Inputs">
+            <summary>Key-value map of inputs passed to the service operation.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.TimeoutMs">
+            <summary>Maximum milliseconds to wait for the service operation to complete.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.RetryClass">
+            <summary>Declares the retry semantics for this invocation.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.IdempotencyKey">
+            <summary>Unique key used by the service to deduplicate repeated invocations.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeRequest.CallbackConfig">
+            <summary>Configuration for async callback delivery; required when the operation does not return a synchronous response.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.ServiceInvokeResponse">
+            <summary>Response returned from a service operation invocation.</summary>
+            <param name="ServiceOutcome">The outcome reported by the service for the invoked operation.</param>
+            <param name="ActionCode">Service-specific action or rejection code, if provided.</param>
+            <param name="Payload">Structured data returned by the service; schema is service-specific.</param>
+            <param name="ErrorDetail">Stable detail code describing a failure, if applicable.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.ServiceInvokeResponse.#ctor(Tracto.Contract.Models.ServiceOutcome,System.String,System.Nullable{System.Text.Json.JsonElement},System.String)">
+            <summary>Response returned from a service operation invocation.</summary>
+            <param name="ServiceOutcome">The outcome reported by the service for the invoked operation.</param>
+            <param name="ActionCode">Service-specific action or rejection code, if provided.</param>
+            <param name="Payload">Structured data returned by the service; schema is service-specific.</param>
+            <param name="ErrorDetail">Stable detail code describing a failure, if applicable.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeResponse.ServiceOutcome">
+            <summary>The outcome reported by the service for the invoked operation.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeResponse.ActionCode">
+            <summary>Service-specific action or rejection code, if provided.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeResponse.Payload">
+            <summary>Structured data returned by the service; schema is service-specific.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.ServiceInvokeResponse.ErrorDetail">
+            <summary>Stable detail code describing a failure, if applicable.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.WorkerHealth">
+            <summary>Current health status reported by the worker at registration time.</summary>
+            <param name="Status">Coarse health status of the worker.</param>
+            <param name="Detail">Optional human-readable description of the health status.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.WorkerHealth.#ctor(Tracto.Contract.Models.WorkerHealthStatus,System.String)">
+            <summary>Current health status reported by the worker at registration time.</summary>
+            <param name="Status">Coarse health status of the worker.</param>
+            <param name="Detail">Optional human-readable description of the health status.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerHealth.Status">
+            <summary>Coarse health status of the worker.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerHealth.Detail">
+            <summary>Optional human-readable description of the health status.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Models.Protocol.WorkerRegistration">
+            <summary>Capability advertisement message sent by a worker at registration.</summary>
+            <param name="WorkerId">Stable unique identity of the worker.</param>
+            <param name="RuntimeType">Runtime environment the worker operates in.</param>
+            <param name="WorkerVersion">Semantic version of the worker software.</param>
+            <param name="ProtocolVersion">Wire protocol version in major.minor form.</param>
+            <param name="SupportedSchemaMajors">List of contract schema major versions this worker supports.</param>
+            <param name="CapabilityDigest">SHA-256 integrity hint computed over key worker fields and capabilities.</param>
+            <param name="HostClass">Whether the worker operates in an interactive desktop session or a headless environment.</param>
+            <param name="InteractiveSessionId">Session identifier for the interactive desktop session; null when headless.</param>
+            <param name="AdvertisedCapabilities">Full capability advertisement for this worker.</param>
+            <param name="Health">Current health status of the worker.</param>
+        </member>
+        <member name="M:Tracto.Contract.Models.Protocol.WorkerRegistration.#ctor(System.String,Tracto.Contract.Models.RuntimeType,System.String,System.String,System.Collections.Generic.IReadOnlyList{System.Int32},System.String,Tracto.Contract.Models.HostClass,System.String,Tracto.Contract.Models.Protocol.AdvertisedCapabilities,Tracto.Contract.Models.Protocol.WorkerHealth)">
+            <summary>Capability advertisement message sent by a worker at registration.</summary>
+            <param name="WorkerId">Stable unique identity of the worker.</param>
+            <param name="RuntimeType">Runtime environment the worker operates in.</param>
+            <param name="WorkerVersion">Semantic version of the worker software.</param>
+            <param name="ProtocolVersion">Wire protocol version in major.minor form.</param>
+            <param name="SupportedSchemaMajors">List of contract schema major versions this worker supports.</param>
+            <param name="CapabilityDigest">SHA-256 integrity hint computed over key worker fields and capabilities.</param>
+            <param name="HostClass">Whether the worker operates in an interactive desktop session or a headless environment.</param>
+            <param name="InteractiveSessionId">Session identifier for the interactive desktop session; null when headless.</param>
+            <param name="AdvertisedCapabilities">Full capability advertisement for this worker.</param>
+            <param name="Health">Current health status of the worker.</param>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.WorkerId">
+            <summary>Stable unique identity of the worker.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.RuntimeType">
+            <summary>Runtime environment the worker operates in.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.WorkerVersion">
+            <summary>Semantic version of the worker software.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.ProtocolVersion">
+            <summary>Wire protocol version in major.minor form.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.SupportedSchemaMajors">
+            <summary>List of contract schema major versions this worker supports.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.CapabilityDigest">
+            <summary>SHA-256 integrity hint computed over key worker fields and capabilities.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.HostClass">
+            <summary>Whether the worker operates in an interactive desktop session or a headless environment.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.InteractiveSessionId">
+            <summary>Session identifier for the interactive desktop session; null when headless.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.AdvertisedCapabilities">
+            <summary>Full capability advertisement for this worker.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.Protocol.WorkerRegistration.Health">
+            <summary>Current health status of the worker.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.Boolean">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableBoolean">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringJsonElement">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringInputDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringOutputDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringTargetDefinition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringVarDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyDictionaryStringString">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyListStepDefinition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyListEvidenceRef">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyListStepResult">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyListEvidenceEntry">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.IReadOnlyListString">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.DateTimeOffset">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableDateTimeOffset">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.JsonElement">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableJsonElement">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.AutomationEnvelope">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.InputDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.OnFailureConfig">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.OutputDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.StepDefinition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TargetDefinition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TargetMap">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TypedRef">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.VarDeclaration">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.ErrorCategory">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableErrorCategory">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.EvidenceClassification">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.AttemptCheckpoint">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.EvidenceRef">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.RunResult">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.StateTransition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.StepResult">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TransitionResult">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.HostClass">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.ReconcileDisposition">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.RetryClass">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableRetryClass">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.RunState">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableRunState">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.RuntimeType">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.ServiceOutcome">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.StepState">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableStepState">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.EvidenceEntry">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.EvidenceManifest">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TelemetryEvent">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.TelemetryEventType">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.WorkerHealthStatus">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.Int32">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableInt32">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.Int64">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.NullableInt64">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.String">
+            <summary>
+            Defines the source generated JSON serialization contract metadata for a given type.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.Default">
+            <summary>
+            The default <see cref="T:System.Text.Json.Serialization.JsonSerializerContext"/> associated with a default <see cref="T:System.Text.Json.JsonSerializerOptions"/> instance.
+            </summary>
+        </member>
+        <member name="P:Tracto.Contract.Models.TractoContractModelsSerializerContext.GeneratedSerializerOptions">
+            <summary>
+            The source-generated options associated with this context.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Models.TractoContractModelsSerializerContext.#ctor">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Contract.Models.TractoContractModelsSerializerContext.#ctor(System.Text.Json.JsonSerializerOptions)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Contract.Models.TractoContractModelsSerializerContext.GetTypeInfo(System.Type)">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

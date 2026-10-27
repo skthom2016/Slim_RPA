@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "dgSpecHash": "lb6tcjahrdw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\santh\\Downloads\\New-NeeliRPA\\tracto-desktop-runtime\\src\\Tracto.Desktop.Protocol\\Tracto.Desktop.Protocol.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\santh\\.nuget\\packages\\fluentassertions\\7.0.0\\fluentassertions.7.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\json.more.net\\2.1.0\\json.more.net.2.1.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\jsonpointer.net\\5.1.0\\jsonpointer.net.5.1.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\jsonschema.net\\7.3.1\\jsonschema.net.7.3.1.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\9.0.0\\microsoft.extensions.dependencyinjection.abstractions.9.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\9.0.0\\microsoft.extensions.logging.abstractions.9.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.extensions.timeprovider.testing\\9.0.0\\microsoft.extensions.timeprovider.testing.9.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.win32.systemevents\\6.0.0\\microsoft.win32.systemevents.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\system.configuration.configurationmanager\\6.0.0\\system.configuration.configurationmanager.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\system.drawing.common\\6.0.0\\system.drawing.common.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\system.security.cryptography.protecteddata\\6.0.0\\system.security.cryptography.protecteddata.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\system.security.permissions\\6.0.0\\system.security.permissions.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\system.windows.extensions\\6.0.0\\system.windows.extensions.6.0.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit\\2.9.3\\xunit.2.9.3.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.abstractions\\2.0.3\\xunit.abstractions.2.0.3.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.analyzers\\1.18.0\\xunit.analyzers.1.18.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.assert\\2.9.3\\xunit.assert.2.9.3.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.core\\2.9.3\\xunit.core.2.9.3.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.extensibility.core\\2.9.3\\xunit.extensibility.core.2.9.3.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\xunit.extensibility.execution\\2.9.3\\xunit.extensibility.execution.2.9.3.nupkg.sha512"
+  ],
+  "logs": []
+}

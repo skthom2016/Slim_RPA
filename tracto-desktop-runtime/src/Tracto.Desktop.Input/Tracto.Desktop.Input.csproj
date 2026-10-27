@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../tracto-contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Element/Tracto.Desktop.Element.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,448 @@
+{ "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/pull-lease-protocol.schema.json",
+  "title": "PullLeaseProtocol",
+  "description": "Discriminated-union schema for all messages exchanged on the pull-lease channel between worker and orchestrator.",
+  "oneOf": [
+    { "$ref": "#/$defs/PullJobRequest" },
+    { "$ref": "#/$defs/NoJobAvailable" },
+    { "$ref": "#/$defs/LeaseGranted" },
+    { "$ref": "#/$defs/LeaseAccepted" },
+    { "$ref": "#/$defs/Heartbeat" },
+    { "$ref": "#/$defs/HeartbeatAck" },
+    { "$ref": "#/$defs/FinalResult" },
+    { "$ref": "#/$defs/CancelRequest" },
+    { "$ref": "#/$defs/ReconcileRequest" },
+    { "$ref": "#/$defs/ReconcileResponse" }
+  ],
+  "$defs": {
+    "PullJobRequest": {
+      "title": "PullJobRequest",
+      "description": "Sent by a worker to request the next available job from the orchestrator.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "workerId", "lastSeenAttemptId", "requestedAt"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "PullJobRequest"
+        },
+        "workerId": {
+          "type": "string",
+          "description": "Stable unique identity of the requesting worker."
+        },
+        "lastSeenAttemptId": {
+          "type": ["string", "null"],
+          "description": "The attemptId of the last job the worker saw; used by the orchestrator for reconciliation. Null on first pull."
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp at which the worker sent this request."
+        }
+      }
+    },
+    "NoJobAvailable": {
+      "title": "NoJobAvailable",
+      "description": "Sent by the orchestrator when no suitable job is currently available for the requesting worker.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "retryAfterMs"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "NoJobAvailable"
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "description": "Number of milliseconds the worker should wait before sending another PullJobRequest.",
+          "minimum": 0
+        }
+      }
+    },
+    "LeaseGranted": {
+      "title": "LeaseGranted",
+      "description": "Sent by the orchestrator to assign a job lease to the requesting worker.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "messageType",
+        "leaseId",
+        "runId",
+        "attemptId",
+        "artifactUrl",
+        "artifactDigest",
+        "leaseDurationMs",
+        "jobSchemaVersion"
+      ],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "LeaseGranted"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "Unique identifier for this lease."
+        },
+        "runId": {
+          "type": "string",
+          "description": "Identifier of the run this lease is for."
+        },
+        "attemptId": {
+          "type": "string",
+          "description": "Identifier of this specific attempt within the run."
+        },
+        "artifactUrl": {
+          "type": "string",
+          "description": "URL from which the worker must download the automation artifact."
+        },
+        "artifactDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "SHA-256 digest of the artifact in the format sha256:<64 hex chars>. Worker must verify before execution."
+        },
+        "leaseDurationMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Duration of the lease in milliseconds. Worker must renew via Heartbeat before expiry."
+        },
+        "jobSchemaVersion": {
+          "type": "string",
+          "description": "Schema version of the job artifact (e.g. '1.0')."
+        }
+      }
+    },
+    "LeaseAccepted": {
+      "title": "LeaseAccepted",
+      "description": "Sent by the worker to confirm receipt and acceptance of a LeaseGranted message.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "workerId", "acceptedAt"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "LeaseAccepted"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier from the corresponding LeaseGranted message."
+        },
+        "workerId": {
+          "type": "string",
+          "description": "Stable unique identity of the worker accepting the lease."
+        },
+        "acceptedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp at which the worker accepted the lease."
+        }
+      }
+    },
+    "Heartbeat": {
+      "title": "Heartbeat",
+      "description": "Sent periodically by the worker to renew its lease and report current execution status.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "messageType",
+        "leaseId",
+        "workerId",
+        "sequenceNumber",
+        "timestamp",
+        "currentStepId",
+        "currentRunState"
+      ],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "Heartbeat"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier being renewed."
+        },
+        "workerId": {
+          "type": "string",
+          "description": "Stable unique identity of the worker sending the heartbeat."
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonically increasing counter for this lease's heartbeat sequence. Starts at 0."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp at which this heartbeat was sent."
+        },
+        "currentStepId": {
+          "type": ["string", "null"],
+          "description": "Identifier of the step currently executing, or null if between steps or not yet started."
+        },
+        "currentRunState": {
+          "type": "string",
+          "enum": ["CREATED", "QUEUED", "LEASED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "CANCELLED", "HANDED_OFF"],
+          "description": "The run state as known by the worker at the time of this heartbeat."
+        }
+      }
+    },
+    "HeartbeatAck": {
+      "title": "HeartbeatAck",
+      "description": "Sent by the orchestrator to acknowledge a Heartbeat and optionally signal cancellation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "sequenceNumber", "cancellationRequested"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "HeartbeatAck"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier being acknowledged."
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "description": "Echo of the sequenceNumber from the Heartbeat being acknowledged."
+        },
+        "cancellationRequested": {
+          "type": "boolean",
+          "description": "When true, the orchestrator is requesting the worker cancel the current run gracefully."
+        }
+      }
+    },
+    "FinalResult": {
+      "title": "FinalResult",
+      "description": "Sent by the worker when the run has reached a terminal state. Carries the full run result.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "workerId", "result"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "FinalResult"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier this result closes."
+        },
+        "workerId": {
+          "type": "string",
+          "description": "Stable unique identity of the worker reporting the result."
+        },
+        "result": {
+          "$ref": "#/$defs/RunResult",
+          "description": "The final run result."
+        }
+      }
+    },
+    "CancelRequest": {
+      "title": "CancelRequest",
+      "description": "Sent by the orchestrator (or relayed from an external cancellation source) to request cancellation of an active run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "requestedAt", "reason"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "CancelRequest"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier of the run to be cancelled."
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp at which the cancellation was requested."
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Human-readable reason for the cancellation, or null if not provided."
+        }
+      }
+    },
+    "ReconcileRequest": {
+      "title": "ReconcileRequest",
+      "description": "Sent by the worker when it needs the orchestrator to determine the authoritative disposition of a run (e.g. after connectivity loss or uncertainty about commit status).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "workerId", "lastKnownStepId", "lastKnownRunState"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "ReconcileRequest"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier being reconciled."
+        },
+        "workerId": {
+          "type": "string",
+          "description": "Stable unique identity of the worker requesting reconciliation."
+        },
+        "lastKnownStepId": {
+          "type": ["string", "null"],
+          "description": "The last step identifier the worker had observed, or null if no step was reached."
+        },
+        "lastKnownRunState": {
+          "type": ["string", "null"],
+          "description": "The last run state the worker had observed, or null if unknown."
+        }
+      }
+    },
+    "ReconcileResponse": {
+      "title": "ReconcileResponse",
+      "description": "Sent by the orchestrator in response to a ReconcileRequest, providing the authoritative disposition.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageType", "leaseId", "disposition", "finalRunState"],
+      "properties": {
+        "messageType": {
+          "type": "string",
+          "const": "ReconcileResponse"
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "The lease identifier being reconciled."
+        },
+        "disposition": {
+          "type": "string",
+          "enum": ["SAFE_TO_REQUEUE", "UNKNOWN", "ALREADY_TERMINAL"],
+          "description": "The orchestrator's authoritative reconciliation verdict for this lease."
+        },
+        "finalRunState": {
+          "type": ["string", "null"],
+          "enum": ["CREATED", "QUEUED", "LEASED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "CANCELLED", "HANDED_OFF", null],
+          "description": "The definitive terminal run state if known, or null when disposition is Unknown."
+        }
+      }
+    },
+    "RunResult": {
+      "title": "RunResult",
+      "description": "The final outcome of a run attempt, carried inside FinalResult.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "attemptId",
+        "leaseId",
+        "workerId",
+        "runState",
+        "startedAt",
+        "completedAt",
+        "durationMs",
+        "stepResults"
+      ],
+      "properties": {
+        "runId": {
+          "type": "string",
+          "description": "Identifier of the run."
+        },
+        "attemptId": {
+          "type": "string",
+          "description": "Identifier of this attempt."
+        },
+        "runState": {
+          "type": "string",
+          "enum": ["CREATED", "QUEUED", "LEASED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "CANCELLED", "HANDED_OFF"],
+          "description": "The terminal run state."
+        },
+        "needsAttention": {
+          "type": "boolean",
+          "description": "True when the run terminated in Unknown or in a Failed state that requires operator review. Per C3: always true when runState=Unknown."
+        },
+        "unknownReason": {
+          "type": ["string", "null"],
+          "description": "Stable string describing what could not be confirmed. Populated when runState=Unknown. Per C3 decision."
+        },
+        "errorCategory": {
+          "type": ["string", "null"],
+          "enum": ["VALIDATION", "TIMEOUT", "POLICY_DENIED", "TRUST_FAILURE", "TRANSPORT", "EXECUTION", "CONCURRENCY", "RESOURCE", "SECURITY", "CANCELLED", "UNKNOWN", null],
+          "description": "Category of the error that caused the run to fail, if applicable."
+        },
+        "errorDetail": {
+          "type": ["string", "null"],
+          "description": "Stable detail code for the error (e.g. 'action.executionTimeout', 'action.commitUncertain'). Per C3 decision."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when execution began."
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when the run reached its terminal state."
+        },
+        "durationMs": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Wall-clock duration of the run in milliseconds, measured with a monotonic clock. Per REF-10."
+        },
+        "outputs": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "description": "Key/value map of declared output values. Sensitive outputs must be redacted per evidence classification rules."
+        },
+        "stepResults": {
+          "type": "array",
+          "description": "Ordered list of step result records for this run attempt.",
+          "items": {
+            "$ref": "#/$defs/StepResult"
+          }
+        }
+      }
+    },
+    "StepResult": {
+      "title": "StepResult",
+      "description": "The outcome of a single step execution within a run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "stepState"],
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "description": "Identifier of the step as declared in the automation script."
+        },
+        "stepState": {
+          "type": "string",
+          "enum": ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "SKIPPED", "CANCELLED"],
+          "description": "Terminal state of this step."
+        },
+        "errorCategory": {
+          "type": ["string", "null"],
+          "enum": ["VALIDATION", "TIMEOUT", "POLICY_DENIED", "TRUST_FAILURE", "TRANSPORT", "EXECUTION", "CONCURRENCY", "RESOURCE", "SECURITY", "CANCELLED", "UNKNOWN", null],
+          "description": "Error category if this step failed."
+        },
+        "errorDetail": {
+          "type": ["string", "null"],
+          "description": "Stable detail code for the step error."
+        },
+        "needsAttention": {
+          "type": ["boolean", "null"],
+          "description": "True when this step terminated in Unknown or requires operator review. Per C3 decision."
+        },
+        "startedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when this step began execution."
+        },
+        "completedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when this step reached its terminal state."
+        },
+        "durationMs": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Wall-clock duration of this step in milliseconds, measured with a monotonic clock."
+        },
+        "outputs": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "description": "Key/value map of this step's output values."
+        }
+      }
+    }
+  }
+}

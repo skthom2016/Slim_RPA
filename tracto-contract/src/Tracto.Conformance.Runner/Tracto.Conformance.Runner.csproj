@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Conformance.Runner</PackageId>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.Mock.Orchestrator\Tracto.Mock.Orchestrator.csproj" />
+    <ProjectReference Include="..\Tracto.Mock.BusinessService\Tracto.Mock.BusinessService.csproj" />
+    <ProjectReference Include="..\Tracto.Conformance.Fixtures\Tracto.Conformance.Fixtures.csproj" />
+  </ItemGroup>
+</Project>

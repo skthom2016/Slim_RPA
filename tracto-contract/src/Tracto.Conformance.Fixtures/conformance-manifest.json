@@ -1,0 +1,10 @@
+{
+  "contractVersion": "1.0.1",
+  "fixtureVersion": "1.0.0",
+  "schemaVersionTested": "1.0",
+  "storyIds": ["ST1-14", "ST1-15"],
+  "leadArchitect": "CONTRACT-OWNER-ROLE",
+  "hostSupervisorOwner": "HOST-SUPERVISOR-ROLE",
+  "fixtureMaintainer": "FIXTURE-MAINTAINER-ROLE",
+  "notes": "Named roles are placeholders pending individual assignment (ST1-15-AC05). Contract version 1.0.1 — Stage 1 complete. 165+ tests passing. Q9 APPROVED 2026-10-23 (maxIterations=100). C1/C3/C4/Q9 all approved."
+}

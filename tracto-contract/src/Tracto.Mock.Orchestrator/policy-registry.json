@@ -1,0 +1,22 @@
+[
+  {
+    "policyRef": "security.no-sensitive-output",
+    "permissions": ["telemetry.write"],
+    "description": "Permits telemetry write; prohibits outputting sensitive business data without SANITIZED_EVIDENCE classification."
+  },
+  {
+    "policyRef": "ui.interactive-allowed",
+    "permissions": ["desktop.window", "desktop.element", "browser.tab"],
+    "description": "Permits interactive UI automation actions."
+  },
+  {
+    "policyRef": "api.service-invoke-allowed",
+    "permissions": ["service.invoke"],
+    "description": "Permits outbound service invocations to registered services."
+  },
+  {
+    "policyRef": "control.repeat-allowed",
+    "permissions": ["control.repeatBounded"],
+    "description": "Permits bounded repeat loops (max 100 iterations — planning assumption, Q9)."
+  }
+]

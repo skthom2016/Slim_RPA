@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/worker-registration.schema.json",
+  "title": "WorkerRegistration",
+  "description": "Tracto Common Execution Contract v1.0.1 — capability advertisement message sent by a worker at registration (C4 decision). The capabilityDigest is an integrity hint only; it is not cryptographic proof of worker authenticity — authentication is established via the mutual-TLS or token-authenticated registration channel.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workerId",
+    "runtimeType",
+    "workerVersion",
+    "protocolVersion",
+    "supportedSchemaMajors",
+    "capabilityDigest",
+    "hostClass",
+    "interactiveSessionId",
+    "advertisedCapabilities",
+    "health"
+  ],
+  "properties": {
+    "workerId": {
+      "type": "string",
+      "description": "Stable unique identity of the worker. Must not change across restarts of the same logical worker instance."
+    },
+    "runtimeType": {
+      "type": "string",
+      "description": "Runtime environment the worker operates in. Must be consistent with the namespace prefixes declared in advertisedCapabilities.",
+      "enum": [
+        "desktop",
+        "browser",
+        "terminal"
+      ]
+    },
+    "workerVersion": {
+      "type": "string",
+      "description": "Semantic version of the worker software (e.g. 1.2.3).",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "protocolVersion": {
+      "type": "string",
+      "description": "Wire protocol version in major.minor form (e.g. 1.0).",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "supportedSchemaMajors": {
+      "type": "array",
+      "description": "List of contract schema major versions this worker supports. Must include the current and/or previous major. Workers supporting only outdated majors will be rejected.",
+      "minItems": 1,
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "capabilityDigest": {
+      "type": "string",
+      "description": "SHA-256 integrity hint computed over workerId, runtimeType, workerVersion and canonicalized advertisedCapabilities. This is NOT an authentication proof — it is a mutation-detection hint only (see C4 decision, ST1-09-AC03).",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hostClass": {
+      "type": "string",
+      "description": "Whether the worker operates in an interactive desktop session or a headless environment.",
+      "enum": [
+        "interactive",
+        "headless"
+      ]
+    },
+    "interactiveSessionId": {
+      "type": ["string", "null"],
+      "description": "Session identifier for the interactive desktop session. Must be a non-null, non-empty string when hostClass=interactive. Must be null when hostClass=headless (see C4 decision, runtime-type compatibility check 3)."
+    },
+    "advertisedCapabilities": {
+      "$ref": "#/$defs/AdvertisedCapabilities"
+    },
+    "health": {
+      "$ref": "#/$defs/WorkerHealth"
+    }
+  },
+  "$defs": {
+    "AdvertisedCapabilities": {
+      "type": "object",
+      "title": "AdvertisedCapabilities",
+      "description": "Namespace-pattern declaration of all action and predicate namespaces this worker supports, plus runtime limits.",
+      "additionalProperties": false,
+      "required": [
+        "actionNamespaces",
+        "predicateNamespaces",
+        "maxIterations"
+      ],
+      "properties": {
+        "actionNamespaces": {
+          "type": "array",
+          "description": "Glob-style namespace patterns covering all action types the worker can execute (e.g. desktop.*, control.*, service.*, value.*). Must be consistent with runtimeType — a browser worker must not declare desktop.* namespaces.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "predicateNamespaces": {
+          "type": "array",
+          "description": "Glob-style namespace patterns covering all technical-condition predicate namespaces the worker can evaluate (e.g. desktop.*, api.*).",
+          "minItems": 0,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "maxIterations": {
+          "type": "integer",
+          "description": "Maximum iteration count the worker enforces for control.repeatBounded steps. Jobs requiring a higher iteration count will not be dispatched to this worker.",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      }
+    },
+    "WorkerHealth": {
+      "type": "object",
+      "title": "WorkerHealth",
+      "description": "Current health status reported by the worker at registration time.",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Coarse health status of the worker.",
+          "enum": [
+            "READY",
+            "DEGRADED",
+            "UNAVAILABLE"
+          ]
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "Optional human-readable description of the health status, e.g. reason for DEGRADED or UNAVAILABLE state."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Mock.Orchestrator</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Mock.Orchestrator.LeaseRecord">
+            <summary>Tracks the full state of one active lease within the mock orchestrator.</summary>
+        </member>
+        <member name="T:Tracto.Mock.Orchestrator.MockJob">
+            <summary>Represents a job enqueued in the mock orchestrator for dispatch to a matching worker.</summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockJob.#ctor(System.String,System.String,System.Int32,System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.String,System.String,System.String,System.Int32)">
+            <summary>Represents a job enqueued in the mock orchestrator for dispatch to a matching worker.</summary>
+        </member>
+        <member name="T:Tracto.Mock.Orchestrator.MockOrchestrator">
+            <summary>
+            In-process mock implementation of <see cref="T:Tracto.Contract.Orchestrator.IOrchestratorServer"/> for use in tests
+            and local integration harnesses. Thread-safe; all collections delegate to
+            <see cref="T:Tracto.Mock.Orchestrator.MockOrchestratorCore"/> which uses ConcurrentDictionary throughout.
+            </summary>
+        </member>
+        <member name="F:Tracto.Mock.Orchestrator.MockOrchestrator._registrationValidator">
+            <summary>
+            Optional validator; when null, schema/capability validation is skipped and only
+            the interactive-session-id guard (C4 Rule 4) is enforced inline.
+            </summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestrator.#ctor(Tracto.Contract.Validation.WorkerRegistrationValidator,System.TimeProvider)">
+            <param name="registrationValidator">
+              Pre-initialised validator; pass <c>null</c> to skip schema validation (useful
+              for tests that do not want to load JSON schema resources).
+              Use <see cref="M:Tracto.Contract.Validation.WorkerRegistrationValidator.CreateAsync(System.Threading.CancellationToken)"/> to create a fully
+              initialised instance when validation is required.
+            </param>
+            <param name="clock">Replaceable clock; defaults to <see cref="P:System.TimeProvider.System"/>.</param>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestrator.EnqueueJob(Tracto.Mock.Orchestrator.MockJob)">
+            <summary>Enqueues a job so that a matching worker may pull it.</summary>
+            <remarks>
+            <see cref="T:Tracto.Mock.Orchestrator.MockJob"/> is internal to this assembly; callers in other assemblies
+            require an <c>InternalsVisibleTo</c> entry in the project file.
+            </remarks>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestrator.RequestCancellation(System.String,System.String)">
+            <summary>Requests cancellation of a running lease.</summary>
+        </member>
+        <member name="T:Tracto.Mock.Orchestrator.MockOrchestratorCore">
+            <summary>
+            Core state holder and job-routing logic for the mock orchestrator.
+            All collections are thread-safe; no external locking is required by callers.
+            </summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestratorCore.EnqueueJob(Tracto.Mock.Orchestrator.MockJob)">
+            <summary>Adds a job to the internal queue for dispatch.</summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestratorCore.RequestCancellation(System.String,System.String)">
+            <summary>
+            Sets the cancellation flag on the matching lease and queues a
+            <see cref="T:Tracto.Contract.Models.Protocol.CancelRequest"/> for delivery on the next heartbeat acknowledgement.
+            </summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestratorCore.TryDequeueMatchingJob(Tracto.Contract.Models.Protocol.WorkerRegistration,Tracto.Mock.Orchestrator.MockJob@)">
+            <summary>
+            Inspects the queue and returns the first job whose requirements are fully
+            satisfied by <paramref name="worker"/>. Returns <c>false</c> when no
+            matching job exists; does not remove non-matching jobs from the queue.
+            </summary>
+        </member>
+        <member name="M:Tracto.Mock.Orchestrator.MockOrchestratorCore.IsNamespaceCovered(System.String,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Returns true when <paramref name="required"/> is covered by at least one
+            pattern in <paramref name="patterns"/> using exact match or prefix-glob
+            (e.g. "actions.ui.*" covers "actions.ui.click").
+            </summary>
+        </member>
+        <member name="T:Tracto.Mock.Orchestrator.WorkerState">
+            <summary>Tracks a registered worker's current state within the mock orchestrator.</summary>
+        </member>
+    </members>
+</doc>

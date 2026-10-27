@@ -1,0 +1,23 @@
+{
+  "fixtureId": "CF-08",
+  "title": "Security: plaintext secret detected in envelope field",
+  "acIds": ["ST1-14-AC08"],
+  "category": "security",
+  "description": "An envelope field contains a plaintext secret (e.g. a credential string). Worker registration is accepted by the transport layer, but envelope validation must reject the envelope. The security violation is caught at the envelope validation layer, not at registration.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf08",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "hasPlaintextSecret": true,
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": null,
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": false,
+  "expectedEnvelopeValid": false,
+  "notes": "Registration succeeds (transport-layer concern). Envelope validation must fail due to the plaintext secret. No job may be dispatched on an invalid envelope."
+}

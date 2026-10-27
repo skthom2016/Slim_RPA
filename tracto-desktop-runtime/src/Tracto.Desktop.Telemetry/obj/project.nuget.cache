@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "qd2UBu4Ht5k=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\santh\\Downloads\\New-NeeliRPA\\tracto-desktop-runtime\\src\\Tracto.Desktop.Telemetry\\Tracto.Desktop.Telemetry.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\santh\\.nuget\\packages\\system.drawing.common\\8.0.0\\system.drawing.common.8.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,147 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Element</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Element.CoordinateValidator">
+            <summary>
+            Guards against absolute screen-coordinate targeting, which is explicitly prohibited by the
+            UIA-first policy (DT-05-AC06 / DT-05-AC08).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.CoordinateValidator.RejectCoordinate(System.Nullable{System.Double},System.String)">
+            <summary>
+            Throws <see cref="T:System.ArgumentException"/> if <paramref name="value"/> represents a raw screen
+            coordinate that has been passed where a UIA selector is expected.
+            Call this in any public API that accepts a numeric value that could be misused as a pixel offset.
+            </summary>
+            <exception cref="T:System.ArgumentException">
+            Thrown when a non-null, finite coordinate value is detected, indicating an attempt to use
+            screen coordinates instead of a <see cref="T:Tracto.Desktop.Element.ElementSelector"/>.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Element.CoordinateValidator.ValidateSelector(Tracto.Desktop.Element.ElementSelector)">
+            <summary>
+            Throws <see cref="T:System.ArgumentException"/> if the selector contains any fields that look like
+            absolute screen coordinates smuggled as strings. Extension point for future validation.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.DesktopActionError">
+            <summary>
+            Exception raised by element-finder operations to convey structured error codes
+            to the step executor (TARGET_NOT_FOUND, TARGET_AMBIGUOUS, etc.).
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.DesktopActionError.ErrorCode">
+            <summary>
+            Machine-readable error code, e.g. "TARGET_NOT_FOUND" or "TARGET_AMBIGUOUS".
+            Maps to the desktop errorCategory/detailCode scheme.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.ElementFindOptions">
+            <summary>
+            Options controlling element-find behaviour (timeout, scroll, enabled-state validation).
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementFindOptions.TimeoutMs">
+            <summary>Total milliseconds to poll before giving up with TARGET_NOT_FOUND.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementFindOptions.ScrollIntoView">
+            <summary>When true, attempt to scroll the element into the visible viewport after finding it.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementFindOptions.ValidateEnabled">
+            <summary>When true, verify that the resolved element is enabled before returning it.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.ElementRef">
+            <summary>
+            Holds a located AutomationElement alongside the selector that produced it.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementRef.IsAlive">
+            <summary>
+            Returns true when the underlying AutomationElement is still available in the UIA tree.
+            Catches ElementNotAvailableException to detect stale references.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.ElementSelector">
+            <summary>
+            Immutable selector describing how to locate a UIA element by stable properties.
+            No screen-coordinate fields are present; coordinate-based targeting is rejected at validation time.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementSelector.Parent">
+            <summary>
+            Optional ancestor element that scopes the search. The element is searched within this ancestor's subtree.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Element.ElementSelector.IndexInParent">
+            <summary>
+            When multiple elements match all other properties, select the one at this zero-based index among siblings.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.IElementFinder">
+            <summary>
+            Finds and re-resolves UIA elements by selector.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.IElementFinder.FindAsync(Tracto.Desktop.Element.ElementSelector,Tracto.Desktop.Element.ElementFindOptions,System.Threading.CancellationToken)">
+            <summary>
+            Finds an element matching <paramref name="sel"/> within the timeout specified by <paramref name="opts"/>.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            ErrorCode="TARGET_NOT_FOUND" when no matching element is found within the timeout.
+            ErrorCode="TARGET_AMBIGUOUS" when more than one matching element exists and no disambiguation is available.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Element.IElementFinder.ReResolveAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Element.ElementFindOptions,System.Threading.CancellationToken)">
+            <summary>
+            Re-runs the original selector from scratch, never using the cached RuntimeId of <paramref name="stale"/>.
+            Use this when <see cref="P:Tracto.Desktop.Element.ElementRef.IsAlive"/> returns false.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            ErrorCode="TARGET_NOT_FOUND" when the element can no longer be located.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Element.IUiaProvider">
+            <summary>
+            Abstracts AutomationElement tree traversal to enable deterministic unit testing
+            without requiring a live Windows UI Automation session or real WPF windows.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.IUiaProvider.FindFirst(System.Windows.Automation.TreeScope,System.Windows.Automation.Condition)">
+            <summary>
+            Returns the first AutomationElement in the given scope that satisfies <paramref name="cond"/>,
+            or null if no element matches.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.IUiaProvider.FindAll(System.Windows.Automation.TreeScope,System.Windows.Automation.Condition)">
+            <summary>
+            Returns all AutomationElements in the given scope that satisfy <paramref name="cond"/>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Element.UiaElementFinder">
+            <summary>
+            Implements <see cref="T:Tracto.Desktop.Element.IElementFinder"/> using Windows UI Automation via <see cref="T:Tracto.Desktop.Element.IUiaProvider"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.UiaElementFinder.FindAsync(Tracto.Desktop.Element.ElementSelector,Tracto.Desktop.Element.ElementFindOptions,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Element.UiaElementFinder.ReResolveAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Element.ElementFindOptions,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Element.UiaElementFinder.TryResolve(Tracto.Desktop.Element.ElementSelector)">
+            <summary>
+            Attempts to resolve <paramref name="sel"/> once. Returns null when not found yet;
+            throws <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> on ambiguity.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Element.UiaElementFinder.BuildCondition(Tracto.Desktop.Element.ElementSelector)">
+            <summary>
+            Builds a UIA <see cref="T:System.Windows.Automation.Condition"/> from the non-null selector fields.
+            Each non-null field becomes a <see cref="T:System.Windows.Automation.PropertyCondition"/>; multiple fields are combined with <see cref="T:System.Windows.Automation.AndCondition"/>.
+            </summary>
+        </member>
+    </members>
+</doc>

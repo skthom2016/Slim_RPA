@@ -1,0 +1,167 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Security</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Security.DpapiSecretResolver">
+            <summary>
+            Resolves a <see cref="T:Tracto.Desktop.Security.SecretRef"/> by fetching an encrypted blob from
+            <see cref="T:Tracto.Desktop.Security.ICredentialStore"/> and decrypting it with DPAPI
+            (scoped to the current user).  The plaintext is placed in a
+            <see cref="T:Tracto.Desktop.Input.ClearableBuffer"/> and NEVER materialised as a managed string.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.DpapiSecretResolver.ResolveAsync(Tracto.Desktop.Security.SecretRef,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Security.EvidenceSanitizer">
+            <summary>
+            Sanitises evidence strings (logs, screenshots) by detecting and redacting known secret patterns.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.EvidenceSanitizer.ContainsPattern(System.String,System.String)">
+            <summary>
+            Returns <c>true</c> when <paramref name="text"/> contains any substring that matches
+            <paramref name="knownPattern"/> using ordinal comparison.
+            </summary>
+            <param name="text">The text to inspect.</param>
+            <param name="knownPattern">The pattern (literal substring) to search for.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Security.EvidenceSanitizer.Redact(System.String,System.String)">
+            <summary>
+            Replaces all occurrences of <paramref name="knownPattern"/> in <paramref name="text"/>
+            with <c>"***"</c> using ordinal comparison.
+            </summary>
+            <param name="text">The text to sanitise.</param>
+            <param name="knownPattern">The pattern (literal substring) to redact.</param>
+            <returns>The sanitised string with all occurrences replaced.</returns>
+        </member>
+        <member name="T:Tracto.Desktop.Security.ICredentialStore">
+            <summary>
+            Provides access to encrypted credential blobs stored in the OS credential store.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.ICredentialStore.GetEncryptedBlob(System.String)">
+            <summary>
+            Returns the encrypted blob for the given key.
+            </summary>
+            <param name="key">The credential key name.</param>
+            <returns>The encrypted byte array for the secret.</returns>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException">Thrown when no credential exists for <paramref name="key"/>.</exception>
+        </member>
+        <member name="T:Tracto.Desktop.Security.ISecretResolver">
+            <summary>
+            Resolves a <see cref="T:Tracto.Desktop.Security.SecretRef"/> to its decrypted plaintext in a <see cref="T:Tracto.Desktop.Input.ClearableBuffer"/>.
+            The buffer MUST be disposed by the caller after use.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.ISecretResolver.ResolveAsync(Tracto.Desktop.Security.SecretRef,System.Threading.CancellationToken)">
+            <summary>
+            Resolves the secret identified by <paramref name="secretRef"/> and returns its plaintext
+            in a <see cref="T:Tracto.Desktop.Input.ClearableBuffer"/> that the caller is responsible for disposing.
+            </summary>
+            <param name="secretRef">The secret reference to resolve.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>A <see cref="T:Tracto.Desktop.Input.ClearableBuffer"/> containing the plaintext characters.</returns>
+        </member>
+        <member name="T:Tracto.Desktop.Security.MockCredentialStore">
+            <summary>
+            Configurable in-memory credential store for testing and development.
+            Returns mock encrypted blobs keyed by name.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.MockCredentialStore.#ctor">
+            <summary>
+            Initialises a mock store with an empty set of credentials.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.MockCredentialStore.#ctor(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Byte[]})">
+            <summary>
+            Initialises a mock store with the provided credential map.
+            </summary>
+            <param name="blobs">A map of key → encrypted blob to pre-populate the store.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Security.MockCredentialStore.SetBlob(System.String,System.Byte[])">
+            <summary>Adds or replaces an entry in the mock store.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.MockCredentialStore.SetPlaintext(System.String,System.String)">
+            <summary>Adds a plaintext value by UTF-8-encoding it (for testing only).</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.MockCredentialStore.GetEncryptedBlob(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Security.ScreenshotMasker">
+            <summary>
+            Masks sensitive regions in screenshot bitmaps to prevent credential exposure in evidence.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.ScreenshotMasker.MaskRegion(System.Drawing.Bitmap,System.Drawing.Rectangle)">
+            <summary>
+            Blacks out the given <paramref name="region"/> in <paramref name="bmp"/> in place.
+            No-op when <see cref="M:Tracto.Desktop.Security.ScreenshotMasker.CanMask(System.Drawing.Rectangle,System.Drawing.Size)"/> returns false for the region.
+            </summary>
+            <param name="bmp">The bitmap to modify in place.</param>
+            <param name="region">The rectangular region to black out.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Security.ScreenshotMasker.CanMask(System.Drawing.Rectangle,System.Drawing.Size)">
+            <summary>
+            Returns <c>true</c> when <paramref name="sensitiveRegion"/> lies entirely within the
+            bounds of an image with size <paramref name="imageSize"/> and has positive area.
+            </summary>
+            <param name="sensitiveRegion">The region to test.</param>
+            <param name="imageSize">The dimensions of the image.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Security.SecretApplicationBridge">
+            <summary>
+            Bridges secret resolution to keyboard delivery.
+            The resolved plaintext is typed into the target element and NEVER
+            returned to callers or materialised beyond the scope of this method.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.SecretApplicationBridge.ApplySecretAsync(Tracto.Desktop.Security.SecretRef,Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Input.IKeyboardInputEngine,Tracto.Desktop.Security.ISecretResolver,System.Threading.CancellationToken)">
+            <summary>
+            Resolves <paramref name="secret"/>, types the plaintext into <paramref name="target"/>,
+            and disposes the buffer regardless of outcome.
+            The resolved secret value is NEVER returned to callers.
+            </summary>
+            <param name="secret">The secret reference to resolve.</param>
+            <param name="target">The UI element that receives the typed input.</param>
+            <param name="kb">The keyboard engine used to deliver the input.</param>
+            <param name="resolver">The resolver that decrypts the secret.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Security.SecretRef">
+            <summary>
+            A typed reference to a named secret in the credential store.
+            Canonical JSON form: {"ref":"secrets.keyName"}
+            </summary>
+            <param name="Key">The key name used to look up the secret in the credential store.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Security.SecretRef.#ctor(System.String)">
+            <summary>
+            A typed reference to a named secret in the credential store.
+            Canonical JSON form: {"ref":"secrets.keyName"}
+            </summary>
+            <param name="Key">The key name used to look up the secret in the credential store.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Security.SecretRef.Key">
+            <summary>The key name used to look up the secret in the credential store.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Security.SessionBoundaryGuard">
+            <summary>
+            Utility guard that enforces interactive-session policy.
+            Throw <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> with POLICY_DENIED when the session
+            is not interactive; a no-op otherwise.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Security.SessionBoundaryGuard.ThrowIfNotInteractive(Tracto.Desktop.Session.ISessionStateProvider)">
+            <summary>
+            Throws <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> with code <c>POLICY_DENIED</c>
+            if the current session state is not <see cref="F:Tracto.Desktop.Session.SessionState.Interactive"/>.
+            </summary>
+            <param name="provider">The session state provider to query.</param>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">Thrown when the session is not interactive.</exception>
+        </member>
+    </members>
+</doc>

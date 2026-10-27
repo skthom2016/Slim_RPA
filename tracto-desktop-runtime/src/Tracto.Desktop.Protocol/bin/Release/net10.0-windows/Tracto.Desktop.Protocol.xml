@@ -1,0 +1,267 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Protocol</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Protocol.CapabilityDigestCalculator">
+            <summary>
+            Computes the SHA-256 capability digest sent at worker registration.
+            The digest is an integrity hint only — it is not an authentication proof (CEC C4 constraint).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.CapabilityDigestCalculator.Compute(Tracto.Desktop.Protocol.WorkerCapabilities)">
+            <summary>
+            Computes a lowercase hex SHA-256 digest over the JSON-serialised representation of
+            <paramref name="capabilities"/>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.CapabilityNamespaceGuard">
+            <summary>
+            Validates that all action namespaces in a job are compatible with the Desktop Runtime's capabilities.
+            Rejects jobs that contain browser.* or terminal.* actions before AcceptLease is called.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.CapabilityNamespaceGuard.ValidateJob(System.String[])">
+            <summary>
+            Validates that none of the supplied action namespaces target a non-desktop environment.
+            </summary>
+            <param name="actionNamespaces">Action namespace strings from the job script.</param>
+            <exception cref="T:Tracto.Desktop.Protocol.DesktopActionError">
+            Thrown with errorCode "ENVIRONMENT" when any action namespace starts with a disallowed prefix.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.DesktopActionError">
+            <summary>
+            Thrown when a Desktop Runtime action is rejected due to environment, policy or capability constraints.
+            The <see cref="P:Tracto.Desktop.Protocol.DesktopActionError.ErrorCode"/> maps to a CEC v1.0.1 errorCategory value.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.DesktopActionError.ErrorCode">
+            <summary>CEC v1.0.1 errorCategory string (e.g. "ENVIRONMENT", "POLICY_DENIED").</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.DesktopWorkerRegistrar">
+            <summary>
+            Registers the Desktop Runtime worker with the Orchestrator at startup.
+            Sends a <see cref="T:Tracto.Contract.Models.Protocol.WorkerRegistration"/> with runtimeType=desktop and the computed capabilityDigest.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.DesktopWorkerRegistrar.#ctor(System.String,System.String,System.String,Tracto.Desktop.Protocol.WorkerCapabilities)">
+            <summary>
+            Creates a new registrar.
+            </summary>
+            <param name="workerId">Stable unique identity of this worker.</param>
+            <param name="workerVersion">Semantic version of this worker binary.</param>
+            <param name="interactiveSessionId">Windows interactive session identifier (required for desktop workers).</param>
+            <param name="capabilities">Capability advertisement; defaults to <see cref="T:Tracto.Desktop.Protocol.WorkerCapabilities"/> defaults.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.DesktopWorkerRegistrar.RegisterAsync(Tracto.Contract.Orchestrator.IOrchestratorServer,System.Threading.CancellationToken)">
+            <summary>
+            Sends a RegisterWorker message to the Orchestrator and returns the registration result.
+            Throws <see cref="T:System.InvalidOperationException"/> when registration is refused.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.FinalResultSubmitter">
+            <summary>
+            Submits the final execution result to the Orchestrator and releases the lease.
+            UNKNOWN results carry unknownReason and needsAttention=true per CEC v1.0.1.
+            HANDED_OFF sets run state to HandedOff and releases the lease; no further polling.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.FinalResultSubmitter.SubmitAsync(Tracto.Contract.Orchestrator.IOrchestratorServer,Tracto.Desktop.Protocol.JobContext,Tracto.Contract.Models.RunState,System.Collections.Generic.IReadOnlyList{Tracto.Contract.Models.Execution.StepResult},System.String,System.Nullable{Tracto.Contract.Models.ErrorCategory},System.String,System.Nullable{System.DateTimeOffset},System.Threading.CancellationToken)">
+            <summary>
+            Submits the final result envelope to the Orchestrator.
+            </summary>
+            <param name="orch">The Orchestrator server.</param>
+            <param name="context">The active job context containing leaseId and attemptId.</param>
+            <param name="state">The terminal run state.</param>
+            <param name="steps">Step results from this run.</param>
+            <param name="unknownReason">Required when <paramref name="state"/> is <see cref="F:Tracto.Contract.Models.RunState.Unknown"/>.</param>
+            <param name="errorCategory">Optional error category.</param>
+            <param name="errorDetail">Optional stable error detail code.</param>
+            <param name="startedAt">When execution started.</param>
+            <param name="ct">Cancellation token.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.HeartbeatLoop">
+            <summary>
+            Sends periodic heartbeats to the Orchestrator for an active lease.
+            A gap greater than the configured interval causes the Orchestrator to expire the lease.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.HeartbeatLoop.RunAsync(Tracto.Contract.Orchestrator.IOrchestratorServer,System.String,System.String,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Runs the heartbeat loop, sending ProcessHeartbeat at the given interval until cancellation.
+            The loop exits cleanly when <paramref name="ct"/> is cancelled.
+            </summary>
+            <param name="orch">The Orchestrator server.</param>
+            <param name="workerId">Worker identifier included in heartbeat messages.</param>
+            <param name="leaseId">The active lease identifier to renew.</param>
+            <param name="intervalMs">Interval between heartbeats in milliseconds.</param>
+            <param name="ct">Cancellation token; cancellation stops the loop.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.IServiceRegistry">
+            <summary>
+            Allowlist of registered serviceRef keys approved for invocation by the Desktop Runtime.
+            Only serviceRef values present in the registry may be invoked; all others trigger a policy violation.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.IServiceRegistry.IsRegistered(System.String)">
+            <summary>Returns true when <paramref name="serviceRef"/> is registered and approved.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.IServiceRegistry.RegisteredKeys">
+            <summary>Returns all registered serviceRef keys.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.JobContext">
+            <summary>
+            Holds the identifiers established when the Desktop Runtime accepts a lease.
+            Created by <see cref="T:Tracto.Desktop.Protocol.JobPullLoop"/> when a JobOffered response is received and AcceptLease has been called.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.LeaseId">
+            <summary>The lease identifier assigned by the Orchestrator.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.AttemptId">
+            <summary>The attempt identifier for this execution.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.RunId">
+            <summary>The run identifier.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.ArtifactUrl">
+            <summary>URL from which to download the automation artifact.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.ArtifactDigest">
+            <summary>SHA-256 digest of the artifact for integrity verification.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JobContext.LeaseDurationMs">
+            <summary>Lease duration in milliseconds; heartbeats must be sent within this interval.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.JobPullLoop">
+            <summary>
+            Implements the job-pull loop: requests a job from the Orchestrator, accepts the lease,
+            and returns a populated <see cref="T:Tracto.Desktop.Protocol.JobContext"/>. Handles NoPendingJob with a configurable delay.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.JobPullLoop.#ctor(System.String,System.Int32)">
+            <summary>
+            Creates a new pull loop.
+            </summary>
+            <param name="workerId">Worker identifier used in pull requests.</param>
+            <param name="pollIntervalMs">Milliseconds to wait when no job is available before retrying.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.JobPullLoop.PullJobAsync(Tracto.Contract.Orchestrator.IOrchestratorServer,System.Threading.CancellationToken)">
+            <summary>
+            Pulls the next available job. Retries with a delay on NoPendingJob.
+            Calls AcceptLease once a job is offered and records leaseId + attemptId in the returned <see cref="T:Tracto.Desktop.Protocol.JobContext"/>.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.JournalStore">
+            <summary>
+            In-process journal store that records step outcomes for reconciliation.
+            Used by <see cref="T:Tracto.Desktop.Protocol.ReconcileHandler"/> to provide evidence to the Orchestrator.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.JournalStore.Record(System.String,System.String)">
+            <summary>Records a step outcome in the journal.</summary>
+            <param name="stepId">Step identifier.</param>
+            <param name="outcome">Serialised outcome summary.</param>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JournalStore.Entries">
+            <summary>Returns all recorded entries as an ordered sequence (by insertion order, best-effort).</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.JournalStore.LastStepId">
+            <summary>Returns the last recorded step identifier, or null if no entries.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.MockServiceRegistry">
+            <summary>
+            In-process mock implementation of <see cref="T:Tracto.Desktop.Protocol.IServiceRegistry"/> used in tests and local harnesses.
+            Accepts a fixed set of approved serviceRef keys at construction time.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.MockServiceRegistry.#ctor(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Creates a registry with the given approved serviceRef keys.
+            </summary>
+            <param name="approvedServiceRefs">Approved serviceRef strings; comparison is ordinal case-sensitive.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.MockServiceRegistry.IsRegistered(System.String)">
+            <inheritdoc />
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.MockServiceRegistry.RegisteredKeys">
+            <inheritdoc />
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.PolicyViolationException">
+            <summary>
+            Thrown when a service invocation references a serviceRef not present in the approved service registry.
+            No network call is made when this exception is thrown.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.PolicyViolationException.ServiceRef">
+            <summary>The serviceRef that was rejected.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.ReconcileHandler">
+            <summary>
+            Handles the reconciliation flow when the Desktop Runtime reconnects after a network disconnect.
+            Sends Reconcile RPC with journal evidence; never re-executes side-effectful actions regardless of outcome.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.ReconcileHandler.ReconcileAsync(Tracto.Contract.Orchestrator.IOrchestratorServer,System.String,Tracto.Desktop.Protocol.JournalStore,System.Threading.CancellationToken)">
+            <summary>
+            Sends a ReconcileRequest to the Orchestrator and returns the Orchestrator's disposition.
+            The caller must not re-execute any side-effectful action regardless of the response —
+            reconciliation is observational only; only resumption from the journal-confirmed safe point is permitted.
+            </summary>
+            <param name="orch">The Orchestrator server.</param>
+            <param name="leaseId">The lease identifier being reconciled.</param>
+            <param name="journal">Journal store with evidence of steps already executed.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The <see cref="T:Tracto.Contract.Models.Protocol.ReconcileResponse"/> from the Orchestrator.</returns>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.ServiceInvokeRouter">
+            <summary>
+            Routes service.invoke actions through the approved service registry.
+            serviceRef not in the registry → throws <see cref="T:Tracto.Desktop.Protocol.PolicyViolationException"/> (no network call made).
+            Maps all 5 <see cref="T:Tracto.Contract.Models.ServiceOutcome"/> values from <see cref="T:Tracto.Mock.BusinessService.MockBusinessService"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.ServiceInvokeRouter.#ctor(Tracto.Mock.BusinessService.MockBusinessService)">
+            <summary>
+            Creates a router backed by the given mock business service.
+            In production the mock is replaced by the real service adapter.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Protocol.ServiceInvokeRouter.InvokeAsync(System.String,System.String,Tracto.Desktop.Protocol.IServiceRegistry,System.Threading.CancellationToken)">
+            <summary>
+            Invokes the named service operation after validating that <paramref name="serviceRef"/> is registered.
+            </summary>
+            <param name="serviceRef">Logical service identifier.</param>
+            <param name="operationRef">Operation to invoke on the service.</param>
+            <param name="registry">Approved service registry.</param>
+            <param name="ct">Cancellation token.</param>
+            <returns>The <see cref="T:Tracto.Contract.Models.Protocol.ServiceInvokeResponse"/> from the service.</returns>
+            <exception cref="T:Tracto.Desktop.Protocol.PolicyViolationException">
+            Thrown when <paramref name="serviceRef"/> is not in the approved registry.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Protocol.WorkerCapabilities">
+            <summary>
+            Describes the static capability advertisement for the Desktop Runtime worker.
+            RuntimeType is always "desktop"; Namespaces covers the desktop.* action namespace.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.WorkerCapabilities.RuntimeType">
+            <summary>Fixed runtime type identifier for the Desktop Runtime.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.WorkerCapabilities.ActionNamespaces">
+            <summary>Glob-style namespace patterns covering all action types the Desktop worker can execute.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.WorkerCapabilities.PredicateNamespaces">
+            <summary>Glob-style namespace patterns covering all predicate namespaces the Desktop worker evaluates.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.WorkerCapabilities.MaxIterations">
+            <summary>Maximum iteration count the worker enforces for control.repeatBounded steps.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Protocol.WorkerCapabilities.SupportedSchemaMajors">
+            <summary>Schema major versions supported by this worker.</summary>
+        </member>
+    </members>
+</doc>

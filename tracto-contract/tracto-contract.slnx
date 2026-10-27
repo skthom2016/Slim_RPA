@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tracto.Conformance.Fixtures/Tracto.Conformance.Fixtures.csproj" />
+    <Project Path="src/Tracto.Conformance.Runner/Tracto.Conformance.Runner.csproj" />
+    <Project Path="src/Tracto.Contract.Execution/Tracto.Contract.Execution.csproj" />
+    <Project Path="src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <Project Path="src/Tracto.Contract.Orchestrator/Tracto.Contract.Orchestrator.csproj" />
+    <Project Path="src/Tracto.Contract.Schemas/Tracto.Contract.Schemas.csproj" />
+    <Project Path="src/Tracto.Contract.Telemetry/Tracto.Contract.Telemetry.csproj" />
+    <Project Path="src/Tracto.Contract.Testing/Tracto.Contract.Testing.csproj" />
+    <Project Path="src/Tracto.Contract.Validation/Tracto.Contract.Validation.csproj" />
+    <Project Path="src/Tracto.Mock.BusinessService/Tracto.Mock.BusinessService.csproj" />
+    <Project Path="src/Tracto.Mock.Orchestrator/Tracto.Mock.Orchestrator.csproj" />
+    <Project Path="src/Tracto.Reference.Adapter/Tracto.Reference.Adapter.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tracto.Contract.Execution.Tests/Tracto.Contract.Execution.Tests.csproj" />
+    <Project Path="tests/Tracto.Contract.Models.Tests/Tracto.Contract.Models.Tests.csproj" />
+    <Project Path="tests/Tracto.Contract.Orchestrator.Tests/Tracto.Contract.Orchestrator.Tests.csproj" />
+    <Project Path="tests/Tracto.Contract.Schemas.Tests/Tracto.Contract.Schemas.Tests.csproj" />
+    <Project Path="tests/Tracto.Contract.Telemetry.Tests/Tracto.Contract.Telemetry.Tests.csproj" />
+    <Project Path="tests/Tracto.Contract.Validation.Tests/Tracto.Contract.Validation.Tests.csproj" />
+  </Folder>
+</Solution>

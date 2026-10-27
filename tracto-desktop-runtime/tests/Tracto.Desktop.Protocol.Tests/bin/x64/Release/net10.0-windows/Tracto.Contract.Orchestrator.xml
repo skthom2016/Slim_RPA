@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Contract.Orchestrator</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Contract.Orchestrator.InteractiveLeaseEnforcer">
+            <summary>
+            Enforces C4 rule: at most one concurrent interactive lease per interactiveSessionId.
+            All operations are thread-safe via ConcurrentDictionary.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.InteractiveLeaseEnforcer.TryAcquire(System.String,System.String)">
+            <summary>
+            Returns true and records leaseId when sessionId is not currently held.
+            Returns false when sessionId is already held by a different leaseId.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.InteractiveLeaseEnforcer.Release(System.String,System.String)">
+            <summary>
+            Releases the lease for sessionId ONLY if current leaseId matches.
+            No-ops silently when leaseId does not match or session is not held.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.InteractiveLeaseEnforcer.IsHeld(System.String)">
+            <summary>
+            True when sessionId is currently held by any lease.
+            </summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.IOrchestratorClient">
+            <summary>
+            Client-side abstraction for the orchestrator, mirroring <see cref="T:Tracto.Contract.Orchestrator.IOrchestratorServer"/>.
+            Lets tests swap between in-process and HTTP transport without changing protocol code.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.RegisterWorkerAsync(Tracto.Contract.Models.Protocol.WorkerRegistration,System.Threading.CancellationToken)">
+            <summary>Registers a worker with the orchestrator.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.PullJobAsync(Tracto.Contract.Models.Protocol.PullJobRequest,System.Threading.CancellationToken)">
+            <summary>Attempts to pull the next available job for a worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.AcceptLeaseAsync(Tracto.Contract.Models.Protocol.LeaseAccepted,System.Threading.CancellationToken)">
+            <summary>Acknowledges that the worker has accepted the granted lease.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.ProcessHeartbeatAsync(Tracto.Contract.Models.Protocol.Heartbeat,System.Threading.CancellationToken)">
+            <summary>Processes a heartbeat from an active worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.ProcessFinalResultAsync(Tracto.Contract.Models.Protocol.FinalResult,System.Threading.CancellationToken)">
+            <summary>Records the final execution result for a completed job.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorClient.ReconcileAsync(Tracto.Contract.Models.Protocol.ReconcileRequest,System.Threading.CancellationToken)">
+            <summary>Reconciles worker state with the orchestrator's view.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.IOrchestratorServer">
+            <summary>
+            Server-side contract for the orchestrator: what the Mock implements and what transport adapters call into.
+            </summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.RegisterWorkerAsync(Tracto.Contract.Models.Protocol.WorkerRegistration,System.Threading.CancellationToken)">
+            <summary>Registers a worker with the orchestrator.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.PullJobAsync(Tracto.Contract.Models.Protocol.PullJobRequest,System.Threading.CancellationToken)">
+            <summary>Attempts to pull the next available job for a worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.AcceptLeaseAsync(Tracto.Contract.Models.Protocol.LeaseAccepted,System.Threading.CancellationToken)">
+            <summary>Acknowledges that the worker has accepted the granted lease.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.ProcessHeartbeatAsync(Tracto.Contract.Models.Protocol.Heartbeat,System.Threading.CancellationToken)">
+            <summary>Processes a heartbeat from an active worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.ProcessFinalResultAsync(Tracto.Contract.Models.Protocol.FinalResult,System.Threading.CancellationToken)">
+            <summary>Records the final execution result for a completed job.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.IOrchestratorServer.ReconcileAsync(Tracto.Contract.Models.Protocol.ReconcileRequest,System.Threading.CancellationToken)">
+            <summary>Reconciles worker state with the orchestrator's view.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.PullJobResponse">
+            <summary>Discriminated union returned by the orchestrator in response to a pull-job request.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.JobOffered">
+            <summary>A job is available and the lease has been granted to the requesting worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.JobOffered.#ctor(Tracto.Contract.Models.Protocol.LeaseGranted)">
+            <summary>A job is available and the lease has been granted to the requesting worker.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.NoPendingJob">
+            <summary>No job is currently pending for the requesting worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.NoPendingJob.#ctor(Tracto.Contract.Models.Protocol.NoJobAvailable)">
+            <summary>No job is currently pending for the requesting worker.</summary>
+        </member>
+        <member name="T:Tracto.Contract.Orchestrator.RegistrationResult">
+            <summary>Result returned by the orchestrator when a worker attempts to register.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Orchestrator.RegistrationResult.IsAccepted">
+            <summary>Whether the registration was accepted.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Orchestrator.RegistrationResult.WorkerId">
+            <summary>The registered worker identifier; non-null when <see cref="P:Tracto.Contract.Orchestrator.RegistrationResult.IsAccepted"/> is <c>true</c>.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Orchestrator.RegistrationResult.ErrorCode">
+            <summary>Short error code when registration was refused; <c>null</c> when accepted.</summary>
+        </member>
+        <member name="P:Tracto.Contract.Orchestrator.RegistrationResult.Message">
+            <summary>Human-readable message when registration was refused; <c>null</c> when accepted.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.RegistrationResult.Accepted(System.String)">
+            <summary>Creates an accepted registration result for the given worker.</summary>
+        </member>
+        <member name="M:Tracto.Contract.Orchestrator.RegistrationResult.Refused(System.String,System.String)">
+            <summary>Creates a refused registration result with an error code and message.</summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,23 @@
+{
+  "fixtureId": "cf-ext-response-schema-mismatch",
+  "title": "Negative: ONCE_ONLY retryClass is not in approved allowlist for service.invoke",
+  "acIds": [],
+  "category": "negative",
+  "description": "ONCE_ONLY retryClass is not in approved allowlist for service.invoke. A service invocation envelope that specifies the ONCE_ONLY retryClass must be rejected at service validation because that class is not on the approved allowlist.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf-ext-rsm",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "serviceRetryClass": "ONCE_ONLY",
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": null,
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": false,
+  "expectedServiceValidationPassed": false,
+  "notes": "Extension negative fixture. ONCE_ONLY is not a permitted retryClass for service.invoke. Validation must fail before dispatch."
+}

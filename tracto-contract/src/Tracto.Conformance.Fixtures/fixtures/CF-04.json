@@ -1,0 +1,21 @@
+{
+  "fixtureId": "CF-04",
+  "title": "Duplicate heartbeat: worker sends a repeated heartbeat sequence number",
+  "acIds": ["ST1-14-AC04"],
+  "category": "fault-tolerance",
+  "description": "Worker sends 3 heartbeats but one is an exact duplicate (same sequence number). The orchestrator must accept the duplicate idempotently and allow the job to complete successfully.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf04",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "isInteractiveJob": true,
+  "heartbeatCount": 3,
+  "injectCancellation": false,
+  "injectFault": "duplicate-heartbeat",
+  "finalRunState": "SUCCEEDED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Duplicate heartbeats must be handled idempotently. The job must not be terminated or faulted solely because a heartbeat sequence number was repeated."
+}

@@ -1,0 +1,22 @@
+{
+  "fixtureId": "cf-ext-continuation-negative",
+  "title": "Negative: continuation from a terminal SUCCEEDED state is rejected",
+  "acIds": [],
+  "category": "negative",
+  "description": "Continuation from SUCCEEDED terminal state is rejected. Once a job has reached the SUCCEEDED terminal state, any attempt to continue execution from that state must be refused by the orchestrator.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf-ext-cn",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "attemptContinuationFromTerminal": true,
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "SUCCEEDED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": false,
+  "notes": "Extension negative fixture. Terminal states are immutable. The continuation request must be rejected with an appropriate error; the original SUCCEEDED state must remain unchanged."
+}

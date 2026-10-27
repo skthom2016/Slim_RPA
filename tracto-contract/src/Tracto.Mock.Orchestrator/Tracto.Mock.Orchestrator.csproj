@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Mock.Orchestrator</PackageId>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.Contract.Orchestrator\Tracto.Contract.Orchestrator.csproj" />
+    <ProjectReference Include="..\Tracto.Contract.Testing\Tracto.Contract.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tracto.Contract.Orchestrator.Tests" />
+    <InternalsVisibleTo Include="Tracto.Conformance.Runner" />
+    <InternalsVisibleTo Include="Tracto.Contract.Schemas.Tests" />
+    <InternalsVisibleTo Include="Tracto.Desktop.Protocol.Tests" />
+  </ItemGroup>
+</Project>

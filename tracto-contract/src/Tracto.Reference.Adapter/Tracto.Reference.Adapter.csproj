@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Reference.Adapter</PackageId>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.Contract.Execution\Tracto.Contract.Execution.csproj" />
+    <ProjectReference Include="..\Tracto.Contract.Orchestrator\Tracto.Contract.Orchestrator.csproj" />
+  </ItemGroup>
+</Project>

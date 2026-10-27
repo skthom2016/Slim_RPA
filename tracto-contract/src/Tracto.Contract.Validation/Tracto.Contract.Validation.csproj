@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Contract.Validation</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.Contract.Schemas\Tracto.Contract.Schemas.csproj" />
+    <ProjectReference Include="..\Tracto.Contract.Models\Tracto.Contract.Models.csproj" />
+    <PackageReference Include="JsonSchema.Net" Version="7.3.1" />
+  </ItemGroup>
+</Project>

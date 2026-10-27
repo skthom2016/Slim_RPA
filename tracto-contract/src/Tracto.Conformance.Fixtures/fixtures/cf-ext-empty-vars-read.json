@@ -1,0 +1,22 @@
+{
+  "fixtureId": "cf-ext-empty-vars-read",
+  "title": "Negative: reading an uninitialized variable raises a VariableSpaceException",
+  "acIds": [],
+  "category": "negative",
+  "description": "Reading an uninitialized variable raises a VariableSpaceException. Any attempt by a job step to read a variable that has not been initialized in the variable space must raise a VariableSpaceException rather than returning null or an empty value silently.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf-ext-evr",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "readUninitializedVar": true,
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "FAILED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Extension negative fixture. Silent null returns for uninitialized variables hide bugs. The VariableSpaceException must be raised and propagated, causing the job to reach FAILED."
+}

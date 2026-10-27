@@ -1,0 +1,22 @@
+{
+  "fixtureId": "CF-07",
+  "title": "Service outcome TRANSIENT_FAILURE: normalized service call returns TRANSIENT_FAILURE",
+  "acIds": ["ST1-14-AC07"],
+  "category": "service-outcomes",
+  "description": "Worker executes a service invocation that returns the normalized outcome TRANSIENT_FAILURE. The job must transition to FAILED run state because no retry policy is configured for this fixture.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf07",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "serviceOutcome": "TRANSIENT_FAILURE",
+  "isInteractiveJob": true,
+  "heartbeatCount": 1,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "FAILED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "TRANSIENT_FAILURE from a service call without a configured retry policy must cause the job to fail. Validates the failure propagation path."
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Controls.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Controls.Tests.ControlInteractionTests">
+            <summary>DT-12 — Core Control Interaction Surface unit tests.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.ControlInteractionTests.MakeElement">
+            <summary>Creates an ElementRef backed by the UIA desktop root or an uninitialised sentinel.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.Tests.MockKeyboardEngine">
+            <summary>
+            Minimal recording stub for <see cref="T:Tracto.Desktop.Input.IKeyboardInputEngine"/> used by Controls tests.
+            Does not require a live UIA session.
+            </summary>
+        </member>
+    </members>
+</doc>

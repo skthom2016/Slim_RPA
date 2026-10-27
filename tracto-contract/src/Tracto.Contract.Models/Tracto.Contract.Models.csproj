@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Contract.Models</PackageId>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Contract.Schemas</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="schemas\**\*.json" />
+    <EmbeddedResource Include="schema-version-catalogue.json" />
+  </ItemGroup>
+</Project>

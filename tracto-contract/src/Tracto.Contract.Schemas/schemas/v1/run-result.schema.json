@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/run-result.schema.json",
+  "title": "RunResult",
+  "description": "Tracto Common Execution Contract v1.0.1 — terminal result envelope emitted by the worker when a run attempt completes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "attemptId",
+    "leaseId",
+    "workerId",
+    "runState",
+    "startedAt",
+    "completedAt",
+    "durationMs",
+    "stepResults"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "description": "Stable identifier for the run (shared across all attempts)."
+    },
+    "attemptId": {
+      "type": "string",
+      "description": "Identifier unique to this attempt of the run."
+    },
+    "leaseId": {
+      "type": "string",
+      "description": "Lease token that was held during this attempt."
+    },
+    "workerId": {
+      "type": "string",
+      "description": "Stable identity of the worker that executed this attempt."
+    },
+    "runState": {
+      "type": "string",
+      "description": "Terminal run state. Only terminal states are valid in a run result (see C3 decision).",
+      "enum": [
+        "SUCCEEDED",
+        "FAILED",
+        "TIMED_OUT",
+        "UNKNOWN",
+        "CANCELLED",
+        "HANDED_OFF"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the attempt began executing."
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the attempt reached a terminal state."
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock duration of the attempt in milliseconds (monotonic timing per REF-10)."
+    },
+    "lastHeartbeatAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of the last heartbeat emitted by the worker, or null if none was sent."
+    },
+    "stepResults": {
+      "type": "array",
+      "description": "Ordered list of step results produced during this attempt.",
+      "items": {
+        "$ref": "#/$defs/StepResult"
+      }
+    },
+    "errorCategory": {
+      "type": "string",
+      "description": "Top-level error category for the run, populated when runState is FAILED, TIMED_OUT or UNKNOWN.",
+      "enum": [
+        "VALIDATION",
+        "TIMEOUT",
+        "POLICY_DENIED",
+        "TRUST_FAILURE",
+        "TRANSPORT",
+        "EXECUTION",
+        "CONCURRENCY",
+        "RESOURCE",
+        "SECURITY",
+        "CANCELLED",
+        "UNKNOWN"
+      ]
+    },
+    "errorDetail": {
+      "type": "string",
+      "description": "Stable dot-separated detail code qualifying errorCategory (e.g. action.commitUncertain)."
+    },
+    "needsAttention": {
+      "type": "boolean",
+      "description": "True when the run terminated in UNKNOWN, or when a FAILED run requires operator review (see C3 decision, REF-06). Must be true whenever runState=UNKNOWN."
+    },
+    "unknownReason": {
+      "type": "string",
+      "description": "Stable string describing what could not be confirmed. Required when runState=UNKNOWN (see C3 decision)."
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "description": "References to evidence records attached to this run.",
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      }
+    },
+    "continuationTriggered": {
+      "type": "boolean",
+      "description": "True when a static continuation rule fired and a successor run was enqueued. Must not be true for HANDED_OFF, FAILED, UNKNOWN or CANCELLED without an explicit continuation rule (see REF-04)."
+    }
+  },
+  "$defs": {
+    "StepResult": {
+      "type": "object",
+      "title": "StepResult",
+      "description": "Result record for a single step executed during the attempt.",
+      "additionalProperties": false,
+      "required": [
+        "stepId",
+        "stepState",
+        "startedAt",
+        "completedAt",
+        "durationMs"
+      ],
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "description": "Identifier of the step as declared in the automation script."
+        },
+        "stepState": {
+          "type": "string",
+          "description": "Terminal or intermediate state of this step (see C3 decision for TIMED_OUT vs UNKNOWN vs FAILED semantics).",
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "SUCCEEDED",
+            "FAILED",
+            "TIMED_OUT",
+            "UNKNOWN",
+            "SKIPPED",
+            "CANCELLED"
+          ]
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp when the step began executing."
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp when the step reached a terminal state."
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wall-clock duration of the step in milliseconds (monotonic timing per REF-10)."
+        },
+        "outputs": {
+          "type": "object",
+          "description": "Key-value map of named outputs produced by the step. Keys are output field names declared in the script.",
+          "additionalProperties": true
+        },
+        "errorCategory": {
+          "type": "string",
+          "description": "Error category for this step, populated when stepState is FAILED, TIMED_OUT or UNKNOWN.",
+          "enum": [
+            "VALIDATION",
+            "TIMEOUT",
+            "POLICY_DENIED",
+            "TRUST_FAILURE",
+            "TRANSPORT",
+            "EXECUTION",
+            "CONCURRENCY",
+            "RESOURCE",
+            "SECURITY",
+            "CANCELLED",
+            "UNKNOWN"
+          ]
+        },
+        "errorDetail": {
+          "type": "string",
+          "description": "Stable dot-separated detail code qualifying errorCategory (e.g. action.commitUncertain, precondition.waitTimeout)."
+        },
+        "needsAttention": {
+          "type": "boolean",
+          "description": "True when this step reached UNKNOWN or when a FAILED step requires operator review (see C3 decision)."
+        },
+        "unknownReason": {
+          "type": "string",
+          "description": "Stable string describing what could not be confirmed. Populated when stepState=UNKNOWN."
+        }
+      }
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "title": "EvidenceRef",
+      "description": "Reference to an evidence record associated with the run or a specific step.",
+      "additionalProperties": false,
+      "required": [
+        "evidenceRef",
+        "classification"
+      ],
+      "properties": {
+        "evidenceRef": {
+          "type": "string",
+          "description": "Opaque reference handle to the stored evidence artifact."
+        },
+        "classification": {
+          "type": "string",
+          "description": "Evidence classification indicating the nature and handling requirements of the evidence.",
+          "enum": [
+            "TECHNICAL_METADATA",
+            "BUSINESS_REFERENCE",
+            "UI_ASSERTION",
+            "SANITIZED_EVIDENCE"
+          ]
+        },
+        "stepId": {
+          "type": ["string", "null"],
+          "description": "Step this evidence is scoped to, or null if the evidence is run-level."
+        }
+      }
+    }
+  }
+}

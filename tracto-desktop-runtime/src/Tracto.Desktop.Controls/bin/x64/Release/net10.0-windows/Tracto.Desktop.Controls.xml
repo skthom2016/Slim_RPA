@@ -1,0 +1,775 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Controls</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Controls.ConfirmDialogHandler">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.IConfirmDialogHandler"/>.
+            Clicks an allowed button in a confirm dialog; unapproved dismiss actions raise
+            <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> with code <c>"POLICY_DENIED"</c>.
+            </summary>
+        </member>
+        <member name="F:Tracto.Desktop.Controls.ConfirmDialogHandler.AllowedConfirmButtons">
+            <summary>
+            Buttons whose names are unconditionally permitted as confirm actions.
+            </summary>
+        </member>
+        <member name="F:Tracto.Desktop.Controls.ConfirmDialogHandler.AllowedDenyButtons">
+            <summary>
+            Buttons whose names are unconditionally permitted as deny/dismiss actions.
+            Any button not in this list — or any undeclared dismiss — raises POLICY_DENIED.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ConfirmDialogHandler.ConfirmAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ConfirmDialogHandler.DenyAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.ControlInteractionEngine">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.IControlInteractionEngine"/>.
+            Uses <see cref="T:Tracto.Desktop.Controls.IUiaPatternProvider"/> for pattern queries and operations,
+            and falls back to <see cref="T:Tracto.Desktop.Input.IKeyboardInputEngine"/> for keystroke entry.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlInteractionEngine.SetValueAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlInteractionEngine.SetCheckboxAsync(Tracto.Desktop.Element.ElementRef,System.Boolean,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlInteractionEngine.SelectRadioAsync(Tracto.Desktop.Element.ElementRef,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlInteractionEngine.SelectComboItemAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Nullable{System.Int32},System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlInteractionEngine.SetDateAsync(Tracto.Desktop.Element.ElementRef,System.DateOnly,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.ControlReadback">
+            <summary>
+            Reads the current display value of a UIA control.
+            Tries <c>ValuePattern</c> first; falls back to the UIA <c>Name</c> property.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlReadback.ReadValueAsync(Tracto.Desktop.Element.ElementRef,System.Threading.CancellationToken)">
+            <summary>
+            Returns the current text value of <paramref name="el"/>, or <c>null</c> when neither
+            ValuePattern nor a non-empty Name property is available.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.ControlValueResult">
+            <summary>
+            Outcome produced by <see cref="T:Tracto.Desktop.Controls.IControlInteractionEngine"/> control-interaction methods.
+            </summary>
+            <param name="Changed">
+            True when the engine actively changed the control's value or state.
+            False when the control was already in the desired state (idempotent no-op).
+            </param>
+            <param name="Strategy">
+            Human-readable strategy token used to apply the change, e.g. "ValuePattern", "Keystroke",
+            "Toggle", "SelectionItemPattern". Useful for diagnostics and evidence (DT-12-AC08).
+            </param>
+            <param name="ReadbackValue">
+            Value read back from the control after the operation, or null when readback was not performed.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ControlValueResult.#ctor(System.Boolean,System.String,System.String)">
+            <summary>
+            Outcome produced by <see cref="T:Tracto.Desktop.Controls.IControlInteractionEngine"/> control-interaction methods.
+            </summary>
+            <param name="Changed">
+            True when the engine actively changed the control's value or state.
+            False when the control was already in the desired state (idempotent no-op).
+            </param>
+            <param name="Strategy">
+            Human-readable strategy token used to apply the change, e.g. "ValuePattern", "Keystroke",
+            "Toggle", "SelectionItemPattern". Useful for diagnostics and evidence (DT-12-AC08).
+            </param>
+            <param name="ReadbackValue">
+            Value read back from the control after the operation, or null when readback was not performed.
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.ControlValueResult.Changed">
+            <summary>
+            True when the engine actively changed the control's value or state.
+            False when the control was already in the desired state (idempotent no-op).
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.ControlValueResult.Strategy">
+            <summary>
+            Human-readable strategy token used to apply the change, e.g. "ValuePattern", "Keystroke",
+            "Toggle", "SelectionItemPattern". Useful for diagnostics and evidence (DT-12-AC08).
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.ControlValueResult.ReadbackValue">
+            <summary>
+            Value read back from the control after the operation, or null when readback was not performed.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.FileDialogHandler">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.IFileDialogHandler"/>.
+            Finds the open/save file dialog by Win32 class "32770", types into the filename
+            Edit control and invokes the confirm/cancel button.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.FileDialogHandler.TypeFilePathAsync(System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.FileDialogHandler.ConfirmAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.FileDialogHandler.CancelAsync(System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.GridInteractionEngine">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.IGridInteractionEngine"/>.
+            Uses <see cref="T:Tracto.Desktop.Controls.IUiaPatternProvider"/> to interact with Windows DataGrid and
+            DataGridView controls via GridPattern, TablePattern and VirtualizedItemPattern.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.GridInteractionEngine.SelectRowAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.GridRowSelector,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.GridInteractionEngine.EditCellAsync(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32,System.String,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.GridInteractionEngine.ScrollToRowAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.GridRowSelector,System.TimeSpan,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.GridInteractionEngine.ResolveRowIndex(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.GridRowSelector)">
+            <summary>
+            Resolves the zero-based row index for <paramref name="selector"/>.
+            Prefers content-based matching over ordinal index.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.GridRowSelector">
+            <summary>
+            Identifies a grid row by stable content-based identity or by row index.
+            Content-based selection (MatchCellValue / ColumnName) is preferred because it
+            survives sort and filter operations; ordinal RowIndex is a last-resort fallback.
+            </summary>
+            <param name="MatchCellValue">
+            A cell value in the key column used to uniquely identify the target row.
+            When supplied, the engine locates the row whose cell in <paramref name="ColumnName"/>
+            equals this value regardless of current visual order.
+            </param>
+            <param name="ColumnName">
+            The column header name in which <paramref name="MatchCellValue"/> is searched.
+            Ignored when <paramref name="MatchCellValue"/> is null.
+            </param>
+            <param name="RowIndex">
+            Zero-based ordinal row index used when <paramref name="MatchCellValue"/> is null.
+            This is position-dependent and may break after sort; prefer content-based targeting.
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.GridRowSelector.#ctor(System.String,System.String,System.Nullable{System.Int32})">
+            <summary>
+            Identifies a grid row by stable content-based identity or by row index.
+            Content-based selection (MatchCellValue / ColumnName) is preferred because it
+            survives sort and filter operations; ordinal RowIndex is a last-resort fallback.
+            </summary>
+            <param name="MatchCellValue">
+            A cell value in the key column used to uniquely identify the target row.
+            When supplied, the engine locates the row whose cell in <paramref name="ColumnName"/>
+            equals this value regardless of current visual order.
+            </param>
+            <param name="ColumnName">
+            The column header name in which <paramref name="MatchCellValue"/> is searched.
+            Ignored when <paramref name="MatchCellValue"/> is null.
+            </param>
+            <param name="RowIndex">
+            Zero-based ordinal row index used when <paramref name="MatchCellValue"/> is null.
+            This is position-dependent and may break after sort; prefer content-based targeting.
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.GridRowSelector.MatchCellValue">
+            <summary>
+            A cell value in the key column used to uniquely identify the target row.
+            When supplied, the engine locates the row whose cell in <paramref name="ColumnName"/>
+            equals this value regardless of current visual order.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.GridRowSelector.ColumnName">
+            <summary>
+            The column header name in which <paramref name="MatchCellValue"/> is searched.
+            Ignored when <paramref name="MatchCellValue"/> is null.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.GridRowSelector.RowIndex">
+            <summary>
+            Zero-based ordinal row index used when <paramref name="MatchCellValue"/> is null.
+            This is position-dependent and may break after sort; prefer content-based targeting.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IConfirmDialogHandler">
+            <summary>
+            Handles Windows confirm/prompt dialogs — clicking an approved button or
+            raising <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> when the requested action is not permitted.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IConfirmDialogHandler.ConfirmAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Clicks the button whose name matches <paramref name="buttonName"/> in the dialog
+            rooted at <paramref name="dialogEl"/> — e.g. "Save", "OK", "Yes".
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when the button is not found.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IConfirmDialogHandler.DenyAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Denies (dismisses without executing) the dialog by clicking <paramref name="buttonName"/>.
+            Any attempt to dismiss a dialog in a way that was not explicitly declared as a "deny"
+            action must raise <see cref="T:Tracto.Desktop.Element.DesktopActionError"/> with <c>"POLICY_DENIED"</c>.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"POLICY_DENIED"</c> when the deny action is not permitted by policy,
+            or <c>"TARGET_NOT_FOUND"</c> when the button is not found.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IControlInteractionEngine">
+            <summary>
+            Provides high-level control interaction operations — set text fields, toggle checkboxes,
+            select radio buttons, choose combo items and set date pickers — using the best available
+            UIA pattern and recording the strategy used in <see cref="T:Tracto.Desktop.Controls.ControlValueResult"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IControlInteractionEngine.SetValueAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Sets the text value of <paramref name="el"/>.
+            Tries ValuePattern first; falls back to clear + keystroke via <c>IKeyboardInputEngine</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IControlInteractionEngine.SetCheckboxAsync(Tracto.Desktop.Element.ElementRef,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Sets the checked state of a checkbox or radio button.
+            Reads current TogglePattern state and toggles only when the state does not already match
+            <paramref name="targetChecked"/>; if it already matches, returns <c>Changed=false</c>
+            without sending any toggle event (idempotent).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IControlInteractionEngine.SelectRadioAsync(Tracto.Desktop.Element.ElementRef,System.Threading.CancellationToken)">
+            <summary>
+            Selects a radio button by invoking SelectionItemPattern or TogglePattern.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IControlInteractionEngine.SelectComboItemAsync(Tracto.Desktop.Element.ElementRef,System.String,System.Nullable{System.Int32},System.Threading.CancellationToken)">
+            <summary>
+            Selects a combo-box item by text and/or zero-based index.
+            Expands the combo, finds matching items, and throws <see cref="T:Tracto.Desktop.Element.DesktopActionError"/>
+            with code <c>"TARGET_AMBIGUOUS"</c> when more than one item matches
+            <paramref name="optionText"/> and no <paramref name="index"/> is provided.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IControlInteractionEngine.SetDateAsync(Tracto.Desktop.Element.ElementRef,System.DateOnly,System.Threading.CancellationToken)">
+            <summary>
+            Sets a date-picker control to <paramref name="date"/>.
+            Uses ValuePattern when available; otherwise navigates sub-fields via keyboard.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IFileDialogHandler">
+            <summary>
+            Handles Windows file picker dialogs — typing an approved path into the filename
+            field, confirming and cancelling.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IFileDialogHandler.TypeFilePathAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Locates the open/save file dialog (Win32 class "32770"), types <paramref name="filePath"/>
+            into the filename Edit control using the approved keyboard procedure.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when no file dialog is currently visible.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IFileDialogHandler.ConfirmAsync(System.Threading.CancellationToken)">
+            <summary>
+            Clicks the Open or Save button to confirm the dialog selection.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when the confirm button is not found.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IFileDialogHandler.CancelAsync(System.Threading.CancellationToken)">
+            <summary>
+            Clicks the Cancel button to dismiss the dialog without selecting a file.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IGridInteractionEngine">
+            <summary>
+            Provides grid and list interaction operations — row selection, cell editing and
+            programmatic scrolling — over Windows UI Automation grid/table patterns.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IGridInteractionEngine.SelectRowAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.GridRowSelector,System.Threading.CancellationToken)">
+            <summary>
+            Selects the row identified by <paramref name="selector"/> within <paramref name="gridEl"/>.
+            Row identity is resolved by cell content when <see cref="P:Tracto.Desktop.Controls.GridRowSelector.MatchCellValue"/>
+            is set, making selection stable across sort and filter operations.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when no row matches the selector,
+            or <c>"ENVIRONMENT"</c> when the grid does not expose the required UIA patterns.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IGridInteractionEngine.EditCellAsync(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Enters edit mode on the cell at (<paramref name="row"/>, <paramref name="column"/>),
+            sets <paramref name="newValue"/> and confirms the edit.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"ENVIRONMENT"</c> when the cell is read-only.
+            </exception>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IGridInteractionEngine.ScrollToRowAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.GridRowSelector,System.TimeSpan,System.Threading.CancellationToken)">
+            <summary>
+            Scrolls the grid to make the row identified by <paramref name="selector"/> visible,
+            realizing virtualized rows via <c>VirtualizedItemPattern</c> where needed.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TIMEOUT"</c> when realization exceeds the bounded timeout,
+            or <c>"ENVIRONMENT"</c> with <c>detailCode=desktop.unsupportedControl</c> when the
+            grid does not support programmatic scrolling.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IMenuNavigator">
+            <summary>
+            Provides hierarchical menu navigation — walking a menu path by invoking each
+            item in sequence via <c>InvokePattern</c> or hover-to-expand.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IMenuNavigator.NavigateAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.MenuPath,System.Threading.CancellationToken)">
+            <summary>
+            Navigates the menu rooted at <paramref name="menuRoot"/> following the steps
+            in <paramref name="path"/>, invoking each entry in sequence.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when a step name has no matching menu item.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.ITabNavigator">
+            <summary>
+            Provides tab-strip navigation — selecting a named tab within a tab control.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ITabNavigator.SelectTabAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.TabSelector,System.Threading.CancellationToken)">
+            <summary>
+            Selects the tab identified by <paramref name="tab"/> within <paramref name="tabStrip"/>.
+            The operation is idempotent: if the tab is already selected no further event is sent.
+            </summary>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"TARGET_NOT_FOUND"</c> when no tab with the given name exists.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.ITreeInteractionEngine">
+            <summary>
+            Provides tree-control interaction — expand and collapse nodes — using
+            Windows UI Automation <c>ExpandCollapsePattern</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.ITreeInteractionEngine.ExpandAsync(Tracto.Desktop.Element.ElementRef,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Expands or collapses the tree node represented by <paramref name="el"/> to match
+            <paramref name="expanded"/>. The operation is idempotent: if the node is already
+            in the target state no UIA event is sent.
+            </summary>
+            <param name="el">The tree node element to expand or collapse.</param>
+            <param name="expanded">
+            <c>true</c> to expand; <c>false</c> to collapse.
+            </param>
+            <param name="ct">Cancellation token.</param>
+            <exception cref="T:Tracto.Desktop.Element.DesktopActionError">
+            Thrown with <c>"ENVIRONMENT"</c> when the element does not support
+            <c>ExpandCollapsePattern</c>.
+            </exception>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.IUiaPatternProvider">
+            <summary>
+            Abstracts UIA pattern access and pattern-level operations for testability.
+            Production implementations delegate to the live Windows UI Automation COM layer;
+            test doubles configure availability and record operation calls without a real desktop.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetPattern``1(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the pattern instance for <typeparamref name="T"/> if the element supports it,
+            or <c>null</c> when the pattern is not available.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetToggleState(Tracto.Desktop.Element.ElementRef)">
+            <summary>Returns the current <see cref="T:System.Windows.Automation.ToggleState"/> of the element.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.Toggle(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Calls <c>TogglePattern.Toggle()</c> on the element — must be called only when
+            <see cref="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetPattern``1(Tracto.Desktop.Element.ElementRef)"/> returns non-null for <c>TogglePattern</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.SetValue(Tracto.Desktop.Element.ElementRef,System.String)">
+            <summary>
+            Calls <c>ValuePattern.SetValue(value)</c> on the element — must be called only when
+            <see cref="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetPattern``1(Tracto.Desktop.Element.ElementRef)"/> returns non-null for <c>ValuePattern</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetValue(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Reads the current value via <c>ValuePattern.Current.Value</c>.
+            Returns <c>null</c> when ValuePattern is unavailable.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.Expand(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Calls <c>ExpandCollapsePattern.Expand()</c> — must be called only when the pattern is available.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetComboItemNames(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the Name of each item exposed as a child of the container element.
+            Used to locate items for <c>SelectComboItemAsync</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.SelectComboItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <summary>
+            Selects the combo item at zero-based <paramref name="index"/> within the container.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetName(Tracto.Desktop.Element.ElementRef)">
+            <summary>Returns the UIA Name property of the element; empty string when unavailable.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetExpandCollapseState(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the current <see cref="T:System.Windows.Automation.ExpandCollapseState"/> of the element.
+            Must be called only when <c>ExpandCollapsePattern</c> is available.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.Collapse(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Calls <c>ExpandCollapsePattern.Collapse()</c> — must be called only when the pattern is available.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetGridRowCount(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the number of rows in the grid element.
+            Returns 0 when the element does not support GridPattern.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetGridCellValue(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32)">
+            <summary>
+            Returns the text of the cell at (<paramref name="row"/>, <paramref name="column"/>).
+            Returns null when the pattern is unavailable or the cell cannot be read.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetGridColumnNames(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the column names (headers) for the grid element.
+            Returns an empty list when the element does not expose column headers.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.SelectGridRow(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <summary>
+            Selects the grid row at zero-based <paramref name="rowIndex"/>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.IsCellReadOnly(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32)">
+            <summary>
+            Returns true when the cell at (<paramref name="row"/>, <paramref name="column"/>) is read-only.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.SetCellValue(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32,System.String)">
+            <summary>
+            Enters edit mode on the cell at (<paramref name="row"/>, <paramref name="column"/>) and
+            sets <paramref name="value"/>. Throws <see cref="T:Tracto.Desktop.Element.DesktopActionError"/>
+            with code <c>"ENVIRONMENT"</c> when the cell is read-only.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.TryRealizeRow(Tracto.Desktop.Element.ElementRef,System.Int32,System.TimeSpan)">
+            <summary>
+            Attempts to realize a virtualized row at <paramref name="rowIndex"/> within
+            <paramref name="timeout"/>. Returns true on success, false on timeout / unsupported.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.GetSelectionItemNames(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the names of each selectable item in a container (tab strip, list).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.SelectItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <summary>
+            Calls <c>SelectionItemPattern.Select()</c> on the item at <paramref name="index"/>
+            within the container.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.InvokeElement(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Calls <c>InvokePattern.Invoke()</c> on the element.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.FindChildrenByName(Tracto.Desktop.Element.ElementRef,System.String)">
+            <summary>
+            Returns the child elements of <paramref name="el"/> whose Name matches
+            <paramref name="name"/> (case-insensitive).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.FindWindowByClass(System.String)">
+            <summary>
+            Finds the topmost dialog window with the given Win32 class name (e.g. "32770").
+            Returns null when no such window is found.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.FindFirstEdit(Tracto.Desktop.Element.ElementRef)">
+            <summary>
+            Returns the first Edit control inside <paramref name="container"/>.
+            Returns null when none is found.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.IUiaPatternProvider.FindButtonByName(Tracto.Desktop.Element.ElementRef,System.String)">
+            <summary>
+            Finds a button inside <paramref name="container"/> whose Name matches
+            <paramref name="name"/> (case-insensitive). Returns null when not found.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.MenuNavigator">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.IMenuNavigator"/>.
+            Walks a menu hierarchy by name, invoking each step via <c>InvokePattern.Invoke()</c>.
+            When a step exposes <c>ExpandCollapsePattern</c> instead of <c>InvokePattern</c> (e.g.
+            a submenu header) the engine expands it to reveal the next level.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MenuNavigator.NavigateAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.MenuPath,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.MenuPath">
+            <summary>
+            Represents a sequence of menu item names that forms a navigation path through
+            a hierarchical menu structure (e.g. File → Save As → PDF).
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MenuPath.Steps">
+            <summary>
+            Ordered array of accessible item names, from the top-level menu entry to the
+            terminal command. Contains at least one element.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MenuPath.#ctor(System.String[])">
+            <summary>Initialises a <see cref="T:Tracto.Desktop.Controls.MenuPath"/> with the given steps.</summary>
+            <param name="steps">At least one step is required.</param>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.MockUiaPatternProvider">
+            <summary>
+            Configurable in-process test double for <see cref="T:Tracto.Desktop.Controls.IUiaPatternProvider"/>.
+            Does not require a live Windows UI Automation session.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.ToggleCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Toggle(Tracto.Desktop.Element.ElementRef)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.ExpandCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Expand(Tracto.Desktop.Element.ElementRef)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectComboItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.LastSelectedIndex">
+            <summary>Zero-based index of the last item selected, or null if none yet.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithToggle(System.Boolean,System.Windows.Automation.ToggleState)">
+            <summary>Configure whether the element exposes <c>TogglePattern</c>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithValue(System.Boolean,System.String)">
+            <summary>Configure whether the element exposes <c>ValuePattern</c>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithExpandCollapse(System.Boolean)">
+            <summary>Configure whether the element exposes <c>ExpandCollapsePattern</c>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithSelectionItem(System.Boolean)">
+            <summary>Configure whether the element exposes <c>SelectionItemPattern</c>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithComboItems(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Set the items that will be returned by <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetComboItemNames(Tracto.Desktop.Element.ElementRef)"/>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithName(System.String)">
+            <summary>Set the UIA Name property returned by <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetName(Tracto.Desktop.Element.ElementRef)"/>.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetPattern``1(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetToggleState(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Toggle(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SetValue(Tracto.Desktop.Element.ElementRef,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetValue(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Expand(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetComboItemNames(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectComboItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetName(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.CollapseCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Collapse(Tracto.Desktop.Element.ElementRef)"/> was called.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithExpandCollapseState(System.Windows.Automation.ExpandCollapseState)">
+            <summary>Configure the initial ExpandCollapse state and pattern availability.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetExpandCollapseState(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.Collapse(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectGridRowCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectGridRow(Tracto.Desktop.Element.ElementRef,System.Int32)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.SetCellValueCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SetCellValue(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32,System.String)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.TryRealizeRowCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.TryRealizeRow(Tracto.Desktop.Element.ElementRef,System.Int32,System.TimeSpan)"/> was called.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithGridRowCount(System.Int32)">
+            <summary>Configure the grid row count.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithCellValue(System.Int32,System.Int32,System.String)">
+            <summary>Configure a cell value.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithCellReadOnly(System.Int32,System.Int32,System.Boolean)">
+            <summary>Configure a cell as read-only.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithGridColumnNames(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Configure column names.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithRealizeRowResult(System.Boolean)">
+            <summary>Configure what TryRealizeRow returns.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithRealizeRowTimeout">
+            <summary>Configure TryRealizeRow to simulate timeout (return false).</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetGridRowCount(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetGridCellValue(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetGridColumnNames(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectGridRow(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.IsCellReadOnly(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SetCellValue(Tracto.Desktop.Element.ElementRef,System.Int32,System.Int32,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.TryRealizeRow(Tracto.Desktop.Element.ElementRef,System.Int32,System.TimeSpan)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectItemAtCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)"/> was called.</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.LastSelectedItemIndex">
+            <summary>Zero-based index of the last item selected via SelectItemAt.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithSelectionItems(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Configure the selectable items (tab names etc.).</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.GetSelectionItemNames(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.SelectItemAt(Tracto.Desktop.Element.ElementRef,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.MockUiaPatternProvider.InvokeCallCount">
+            <summary>Number of times <see cref="M:Tracto.Desktop.Controls.MockUiaPatternProvider.InvokeElement(Tracto.Desktop.Element.ElementRef)"/> was called.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithChildren(System.Collections.Generic.IEnumerable{Tracto.Desktop.Element.ElementRef})">
+            <summary>Configure child elements returned by FindChildrenByName.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.InvokeElement(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.FindChildrenByName(Tracto.Desktop.Element.ElementRef,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithDialogWindow(Tracto.Desktop.Element.ElementRef)">
+            <summary>Configure the dialog window returned by FindWindowByClass.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithEditControl(Tracto.Desktop.Element.ElementRef)">
+            <summary>Configure the Edit control returned by FindFirstEdit.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.WithButton(System.String,Tracto.Desktop.Element.ElementRef)">
+            <summary>Configure a button returned by FindButtonByName.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.FindWindowByClass(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.FindFirstEdit(Tracto.Desktop.Element.ElementRef)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.MockUiaPatternProvider.FindButtonByName(Tracto.Desktop.Element.ElementRef,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.TabNavigator">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.ITabNavigator"/>.
+            Locates a tab item by name within a tab strip and invokes
+            <c>SelectionItemPattern.Select()</c> on the matching item.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.TabNavigator.SelectTabAsync(Tracto.Desktop.Element.ElementRef,Tracto.Desktop.Controls.TabSelector,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.TabSelector">
+            <summary>
+            Identifies a tab in a tab strip by its display name.
+            </summary>
+            <param name="TabName">
+            The accessible name of the tab to select (case-insensitive match).
+            </param>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.TabSelector.#ctor(System.String)">
+            <summary>
+            Identifies a tab in a tab strip by its display name.
+            </summary>
+            <param name="TabName">
+            The accessible name of the tab to select (case-insensitive match).
+            </param>
+        </member>
+        <member name="P:Tracto.Desktop.Controls.TabSelector.TabName">
+            <summary>
+            The accessible name of the tab to select (case-insensitive match).
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.TreeInteractionEngine">
+            <summary>
+            Production implementation of <see cref="T:Tracto.Desktop.Controls.ITreeInteractionEngine"/>.
+            Uses <see cref="T:Tracto.Desktop.Controls.IUiaPatternProvider"/> to expand and collapse WPF/WinForms
+            TreeView nodes via <c>ExpandCollapsePattern</c>.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.TreeInteractionEngine.ExpandAsync(Tracto.Desktop.Element.ElementRef,System.Boolean,System.Threading.CancellationToken)">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

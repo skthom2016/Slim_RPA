@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Ipc.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Ipc.Tests.IpcProtocolTests">
+            <summary>
+            DT-04 acceptance tests for the Supervisor/Executor named-pipe IPC layer.
+            All pipe names are unique per test to allow parallel execution.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Ipc.Tests.SupervisorStub">
+            <summary>
+            In-process test helper that starts a <see cref="T:Tracto.Desktop.Ipc.SupervisorPipeServer"/> in a background task
+            and automatically completes the IPC handshake when an Executor client connects.
+            Dispose to shut down the background server cleanly.
+            </summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.Tests.SupervisorStub.PipeName">
+            <summary>Unique pipe name generated for this stub instance (avoids collision between parallel tests).</summary>
+        </member>
+        <member name="P:Tracto.Desktop.Ipc.Tests.SupervisorStub.Endpoint">
+            <summary>The <see cref="T:Tracto.Desktop.Ipc.OrchestratorEndpoint"/> this stub will advertise to the connecting Executor.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.Tests.SupervisorStub.#ctor(Tracto.Desktop.Ipc.OrchestratorEndpoint)">
+            <summary>
+            Initialises and starts the background server.
+            </summary>
+            <param name="endpoint">Endpoint to advertise; defaults to a local test endpoint if <see langword="null"/>.</param>
+        </member>
+        <member name="M:Tracto.Desktop.Ipc.Tests.SupervisorStub.DisposeAsync">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

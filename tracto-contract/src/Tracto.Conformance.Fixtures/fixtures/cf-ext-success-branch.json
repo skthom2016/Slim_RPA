@@ -1,0 +1,22 @@
+{
+  "fixtureId": "cf-ext-success-branch",
+  "title": "Extension: SUCCESS is among the 5 normalized service outcomes",
+  "acIds": ["ST1-14-AC06"],
+  "category": "service-outcomes",
+  "description": "Verifies that SUCCESS is correctly listed among the 5 normalized service outcomes and that a job using the SUCCESS outcome branch reaches SUCCEEDED run state.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf-ext-sb",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "serviceOutcome": "SUCCESS",
+  "isInteractiveJob": true,
+  "heartbeatCount": 1,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "SUCCEEDED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Extension fixture. Exercises the SUCCESS branch of the normalized outcome enumeration to confirm it is recognised and handled correctly by the conformance runner."
+}

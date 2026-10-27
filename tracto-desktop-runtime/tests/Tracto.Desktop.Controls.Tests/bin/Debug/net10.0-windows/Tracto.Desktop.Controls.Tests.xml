@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Tracto.Desktop.Controls.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:Tracto.Desktop.Controls.Tests.AdvancedControlsTests">
+            <summary>
+            DT-13 and DT-14 advanced control interaction unit tests.
+            All tests use mock providers — no live Windows desktop required.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.AdvancedControlsTests.TreeExpandAsync_AlreadyExpanded_NoSecondExpandCall">
+            <summary>
+            When a tree node is already Expanded and ExpandAsync is called with expanded=true,
+            no second ExpandCollapsePattern call must be sent (idempotent).
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.AdvancedControlsTests.GridEditCellAsync_ReadOnlyCell_ThrowsEnvironmentError">
+            <summary>
+            EditCellAsync on a read-only grid cell must throw DesktopActionError("ENVIRONMENT")
+            and must not call SetCellValue.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.AdvancedControlsTests.GridScrollToRowAsync_RealizeTimesOut_ThrowsTimeoutError">
+            <summary>
+            ScrollToRowAsync must throw DesktopActionError("TIMEOUT") when TryRealizeRow
+            returns false (simulating a timeout). The error must not be suppressed.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.AdvancedControlsTests.TabSelectAsync_FindsTabByName_SelectCalled">
+            <summary>
+            SelectTabAsync must locate the tab named "Settings" (case-insensitive) and call
+            SelectionItemPattern.Select() exactly once on the matching item.
+            </summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.AdvancedControlsTests.ConfirmDialogDenyAsync_UnapprovedButton_ThrowsPolicyDenied">
+            <summary>
+            DenyAsync with a button name that is not on the approved deny list must throw
+            DesktopActionError("POLICY_DENIED") before any UI interaction occurs.
+            </summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.Tests.ControlInteractionTests">
+            <summary>DT-12 — Core Control Interaction Surface unit tests.</summary>
+        </member>
+        <member name="M:Tracto.Desktop.Controls.Tests.ControlInteractionTests.MakeElement">
+            <summary>Creates an ElementRef backed by the UIA desktop root or an uninitialised sentinel.</summary>
+        </member>
+        <member name="T:Tracto.Desktop.Controls.Tests.MockKeyboardEngine">
+            <summary>
+            Minimal recording stub for <see cref="T:Tracto.Desktop.Input.IKeyboardInputEngine"/> used by Controls tests.
+            Does not require a live UIA session.
+            </summary>
+        </member>
+    </members>
+</doc>

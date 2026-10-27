@@ -1,0 +1,22 @@
+TRACTO v1.2A / FUNCTIONAL DOCUMENT UPDATE REGISTER — 22 OCT 2026
+
+FROZEN AND UNCHANGED:
+- Tracto_Architecture_v1_2A_Independent_Runtime_Amendment.docx (not regenerated)
+- Tracto_RPA_Architecture_v1_2_Revised_Architect_Review.docx (not regenerated)
+
+REVISED IN THIS PACKAGE:
+1. Common Execution & Orchestrator Interface Contract v1.0: service.invoke limited to registered custom business services, bounded technical control flow, preconditions, typed refs/targets, outcome convention, error categories, protocol/telemetry, single-source shared HOST requirements and conformance fixtures.
+2. Desktop Runtime Functional Spec v1.0: references shared host requirements; action catalogue, selector schema, timing defaults, evidence/elevation, additional acceptance tests; no third-party API calls.
+3. Browser Runtime Functional Spec v1.0: references shared host requirements; no direct business APIs, script-supplied JS, secret storageState, offline browsers, additional tests.
+4. Terminal Runtime Functional Spec v1.0: references shared host requirements; command policy and explicit third-party API/database integration prohibition; no new signed-template product, separate WSL worker, additional tests.
+5. Sequence Deliverable Register v0.2: reflects revised versions and review next steps.
+
+ARCHITECTURAL PRINCIPLES PRESERVED:
+- Exactly Designer + Runtime Family + Orchestrator comprise Tracto.
+- Three independent .NET runtime applications.
+- Custom business services independently developed outside Tracto; third-party business integrations reside there.
+- No business calculation or decision inside RPA; deterministic authored scripts.
+- Orchestrator only technical scheduling, dispatch and continuation.
+- Connected/isolated deployment architecture unchanged; conditional PoC freeze remains.
+
+STATUS: FUNCTIONAL SPECIFICATIONS FOR REVIEW, NOT IMPLEMENTATION CERTIFICATION.

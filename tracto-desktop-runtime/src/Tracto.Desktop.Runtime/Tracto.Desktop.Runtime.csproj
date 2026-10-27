@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../tracto-contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Session/Tracto.Desktop.Session.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Ipc/Tracto.Desktop.Ipc.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.AppLifecycle/Tracto.Desktop.AppLifecycle.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Element/Tracto.Desktop.Element.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Input/Tracto.Desktop.Input.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Security/Tracto.Desktop.Security.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Controls/Tracto.Desktop.Controls.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Recovery/Tracto.Desktop.Recovery.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Protocol/Tracto.Desktop.Protocol.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Telemetry/Tracto.Desktop.Telemetry.csproj" />
+  </ItemGroup>
+</Project>

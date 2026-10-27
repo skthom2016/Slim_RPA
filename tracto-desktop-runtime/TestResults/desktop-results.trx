@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="550e0844-3bc4-4738-b97e-1e0010f001cf" name="santh@SANTHOSH-LAPTOP 2026-10-23 15:46:50" runUser="SANTHOSH-LAPTOP\santh" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-23T15:46:50.2064317+05:30" queuing="2026-10-23T15:46:50.2064320+05:30" start="2026-10-23T15:46:47.7795078+05:30" finish="2026-10-23T15:46:50.6691926+05:30" />
+  <TestSettings name="default" id="53cd4741-8b5e-4168-b66c-05192d0c15bd">
+    <Deployment runDeploymentRoot="santh_SANTHOSH-LAPTOP_2026-10-23_15_46_50" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="d935b4c8-a50b-41e0-9964-dcd8ced69821" testId="404b1084-fff3-949e-555a-8338998f6247" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_BrowserNamespaceInJob_GuardRejectsBeforeAcceptLease" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0010923" startTime="2026-10-23T15:46:50.2583113+05:30" endTime="2026-10-23T15:46:50.2593251+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d935b4c8-a50b-41e0-9964-dcd8ced69821" />
+    <UnitTestResult executionId="9fc777d4-4d40-426b-865e-04603327810c" testId="76eb3535-0e68-e8ca-5de2-066249fba9e0" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC01_RegisterAsync_MockAccepts_DigestIsHexSha256" computerName="SANTHOSH-LAPTOP" duration="00:00:00.2964430" startTime="2026-10-23T15:46:49.9539300+05:30" endTime="2026-10-23T15:46:50.2489573+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9fc777d4-4d40-426b-865e-04603327810c" />
+    <UnitTestResult executionId="244b2d2e-f3cf-4f65-9577-d0ad74c7760a" testId="8f48cf86-a7e8-2d1b-e843-a782e02c9f2c" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DigestCalculator_SameInput_ReturnsSameDigest" computerName="SANTHOSH-LAPTOP" duration="00:00:00.2635418" startTime="2026-10-23T15:46:49.3626237+05:30" endTime="2026-10-23T15:46:49.6352542+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="244b2d2e-f3cf-4f65-9577-d0ad74c7760a" />
+    <UnitTestResult executionId="28391a75-9ef6-44fe-a472-7bac1b5a73bf" testId="dfdd959d-d693-9a5b-b6a7-881d1889d252" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC04_SubmitUnknown_UnknownReasonAndNeedsAttentionPresent" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0028680" startTime="2026-10-23T15:46:50.2639959+05:30" endTime="2026-10-23T15:46:50.2666512+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="28391a75-9ef6-44fe-a472-7bac1b5a73bf" />
+    <UnitTestResult executionId="de71bf65-e9ce-426d-abd6-7b12ad90504d" testId="40f4d762-323a-19ef-d8a6-fb1500e53fa5" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_BusinessRejection_Mapped" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0005858" startTime="2026-10-23T15:46:49.9537520+05:30" endTime="2026-10-23T15:46:49.9538203+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="de71bf65-e9ce-426d-abd6-7b12ad90504d" />
+    <UnitTestResult executionId="f19adf94-771b-4702-917e-823f0fc36767" testId="fe973903-46a7-8407-1be1-f07c68836380" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_TechnicalFailure_Mapped" computerName="SANTHOSH-LAPTOP" duration="00:00:00.3164154" startTime="2026-10-23T15:46:49.6437603+05:30" endTime="2026-10-23T15:46:49.9518137+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f19adf94-771b-4702-917e-823f0fc36767" />
+    <UnitTestResult executionId="5e2c34a6-461c-48b3-b6f3-a121483af220" testId="0704e3d1-1a2d-c70c-2bc0-f8c1adc188b8" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_TerminalNamespaceInJob_GuardRejects" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0006803" startTime="2026-10-23T15:46:50.5882482+05:30" endTime="2026-10-23T15:46:50.5889204+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e2c34a6-461c-48b3-b6f3-a121483af220" />
+    <UnitTestResult executionId="b88a15aa-6bc1-4d7f-a875-dc025fc0b9ee" testId="08957b00-5c43-173e-6d89-5eafebab8afe" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_ReturnsServiceOutcome" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0004755" startTime="2026-10-23T15:46:50.2577988+05:30" endTime="2026-10-23T15:46:50.2581846+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b88a15aa-6bc1-4d7f-a875-dc025fc0b9ee" />
+    <UnitTestResult executionId="33abd6c6-6f37-4943-8ea8-58069f2f6df0" testId="54563658-fea9-a5cb-3bd2-b5d0c120a768" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC02_NoPendingJob_NoException_LoopContinues" computerName="SANTHOSH-LAPTOP" duration="00:00:00.3162841" startTime="2026-10-23T15:46:50.2668712+05:30" endTime="2026-10-23T15:46:50.5867339+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="33abd6c6-6f37-4943-8ea8-58069f2f6df0" />
+    <UnitTestResult executionId="8ddb440c-94bc-4f4e-a9b5-bbfb1a671019" testId="4913f962-2311-ad81-f5d9-902ed11a08eb" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_DesktopOnlyNamespaces_GuardPasses" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0013956" startTime="2026-10-23T15:46:50.2564122+05:30" endTime="2026-10-23T15:46:50.2576619+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8ddb440c-94bc-4f4e-a9b5-bbfb1a671019" />
+    <UnitTestResult executionId="6bdbbe49-e6b0-4a1d-a0a5-0b66c69f8ba4" testId="5a26a380-00df-09b3-96cb-fb7ab2634575" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC04_SubmitUnknown_MissingUnknownReason_Throws" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0071833" startTime="2026-10-23T15:46:50.2493898+05:30" endTime="2026-10-23T15:46:50.2562134+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6bdbbe49-e6b0-4a1d-a0a5-0b66c69f8ba4" />
+    <UnitTestResult executionId="19795059-8403-4a18-af86-c7308d4e9dc2" testId="be6c3d4b-fc7f-d7c7-f6fa-c470f8bc3f21" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC02_JobOffered_AcceptLeaseCalled_ContextHasLeaseAndAttemptId" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0042803" startTime="2026-10-23T15:46:50.2594337+05:30" endTime="2026-10-23T15:46:50.2637249+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="19795059-8403-4a18-af86-c7308d4e9dc2" />
+    <UnitTestResult executionId="30e4c48e-7071-4500-848c-d52c61157ac3" testId="3f3310fd-3d6e-f175-0567-7fb13e2cdd27" testName="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC12_UnregisteredServiceRef_ThrowsPolicyViolation_NoNetworkCall" computerName="SANTHOSH-LAPTOP" duration="00:00:00.0075340" startTime="2026-10-23T15:46:50.5918035+05:30" endTime="2026-10-23T15:46:50.5965698+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="30e4c48e-7071-4500-848c-d52c61157ac3" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_TerminalNamespaceInJob_GuardRejects" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="0704e3d1-1a2d-c70c-2bc0-f8c1adc188b8">
+      <Execution id="5e2c34a6-461c-48b3-b6f3-a121483af220" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC08_TerminalNamespaceInJob_GuardRejects" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC12_UnregisteredServiceRef_ThrowsPolicyViolation_NoNetworkCall" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="3f3310fd-3d6e-f175-0567-7fb13e2cdd27">
+      <Execution id="30e4c48e-7071-4500-848c-d52c61157ac3" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC12_UnregisteredServiceRef_ThrowsPolicyViolation_NoNetworkCall" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC02_JobOffered_AcceptLeaseCalled_ContextHasLeaseAndAttemptId" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="be6c3d4b-fc7f-d7c7-f6fa-c470f8bc3f21">
+      <Execution id="19795059-8403-4a18-af86-c7308d4e9dc2" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC02_JobOffered_AcceptLeaseCalled_ContextHasLeaseAndAttemptId" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DigestCalculator_SameInput_ReturnsSameDigest" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="8f48cf86-a7e8-2d1b-e843-a782e02c9f2c">
+      <Execution id="244b2d2e-f3cf-4f65-9577-d0ad74c7760a" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DigestCalculator_SameInput_ReturnsSameDigest" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_BrowserNamespaceInJob_GuardRejectsBeforeAcceptLease" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="404b1084-fff3-949e-555a-8338998f6247">
+      <Execution id="d935b4c8-a50b-41e0-9964-dcd8ced69821" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC08_BrowserNamespaceInJob_GuardRejectsBeforeAcceptLease" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_BusinessRejection_Mapped" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="40f4d762-323a-19ef-d8a6-fb1500e53fa5">
+      <Execution id="de71bf65-e9ce-426d-abd6-7b12ad90504d" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC09_RegisteredServiceRef_BusinessRejection_Mapped" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC04_SubmitUnknown_MissingUnknownReason_Throws" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="5a26a380-00df-09b3-96cb-fb7ab2634575">
+      <Execution id="6bdbbe49-e6b0-4a1d-a0a5-0b66c69f8ba4" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC04_SubmitUnknown_MissingUnknownReason_Throws" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC02_NoPendingJob_NoException_LoopContinues" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="54563658-fea9-a5cb-3bd2-b5d0c120a768">
+      <Execution id="33abd6c6-6f37-4943-8ea8-58069f2f6df0" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC02_NoPendingJob_NoException_LoopContinues" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_ReturnsServiceOutcome" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="08957b00-5c43-173e-6d89-5eafebab8afe">
+      <Execution id="b88a15aa-6bc1-4d7f-a875-dc025fc0b9ee" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC09_RegisteredServiceRef_ReturnsServiceOutcome" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC04_SubmitUnknown_UnknownReasonAndNeedsAttentionPresent" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="dfdd959d-d693-9a5b-b6a7-881d1889d252">
+      <Execution id="28391a75-9ef6-44fe-a472-7bac1b5a73bf" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC04_SubmitUnknown_UnknownReasonAndNeedsAttentionPresent" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC09_RegisteredServiceRef_TechnicalFailure_Mapped" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="fe973903-46a7-8407-1be1-f07c68836380">
+      <Execution id="f19adf94-771b-4702-917e-823f0fc36767" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC09_RegisteredServiceRef_TechnicalFailure_Mapped" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC01_RegisterAsync_MockAccepts_DigestIsHexSha256" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="76eb3535-0e68-e8ca-5de2-066249fba9e0">
+      <Execution id="9fc777d4-4d40-426b-865e-04603327810c" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC01_RegisterAsync_MockAccepts_DigestIsHexSha256" />
+    </UnitTest>
+    <UnitTest name="Tracto.Desktop.Protocol.Tests.ProtocolTests.DT18_AC08_DesktopOnlyNamespaces_GuardPasses" storage="c:\users\santh\downloads\new-neelirpa\tracto-desktop-runtime\tests\tracto.desktop.protocol.tests\bin\x64\release\net10.0-windows\tracto.desktop.protocol.tests.dll" id="4913f962-2311-ad81-f5d9-902ed11a08eb">
+      <Execution id="8ddb440c-94bc-4f4e-a9b5-bbfb1a671019" />
+      <TestMethod codeBase="C:\Users\santh\Downloads\New-NeeliRPA\tracto-desktop-runtime\tests\Tracto.Desktop.Protocol.Tests\bin\x64\Release\net10.0-windows\Tracto.Desktop.Protocol.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Tracto.Desktop.Protocol.Tests.ProtocolTests" name="DT18_AC08_DesktopOnlyNamespaces_GuardPasses" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="404b1084-fff3-949e-555a-8338998f6247" executionId="d935b4c8-a50b-41e0-9964-dcd8ced69821" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="76eb3535-0e68-e8ca-5de2-066249fba9e0" executionId="9fc777d4-4d40-426b-865e-04603327810c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8f48cf86-a7e8-2d1b-e843-a782e02c9f2c" executionId="244b2d2e-f3cf-4f65-9577-d0ad74c7760a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dfdd959d-d693-9a5b-b6a7-881d1889d252" executionId="28391a75-9ef6-44fe-a472-7bac1b5a73bf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40f4d762-323a-19ef-d8a6-fb1500e53fa5" executionId="de71bf65-e9ce-426d-abd6-7b12ad90504d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fe973903-46a7-8407-1be1-f07c68836380" executionId="f19adf94-771b-4702-917e-823f0fc36767" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0704e3d1-1a2d-c70c-2bc0-f8c1adc188b8" executionId="5e2c34a6-461c-48b3-b6f3-a121483af220" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="08957b00-5c43-173e-6d89-5eafebab8afe" executionId="b88a15aa-6bc1-4d7f-a875-dc025fc0b9ee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="54563658-fea9-a5cb-3bd2-b5d0c120a768" executionId="33abd6c6-6f37-4943-8ea8-58069f2f6df0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4913f962-2311-ad81-f5d9-902ed11a08eb" executionId="8ddb440c-94bc-4f4e-a9b5-bbfb1a671019" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5a26a380-00df-09b3-96cb-fb7ab2634575" executionId="6bdbbe49-e6b0-4a1d-a0a5-0b66c69f8ba4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="be6c3d4b-fc7f-d7c7-f6fa-c470f8bc3f21" executionId="19795059-8403-4a18-af86-c7308d4e9dc2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3f3310fd-3d6e-f175-0567-7fb13e2cdd27" executionId="30e4c48e-7071-4500-848c-d52c61157ac3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="13" executed="13" passed="13" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.0.0+e341b939fe (64-bit .NET 10.0.8)&#xD;
+[xUnit.net 00:00:00.49]   Discovering: Tracto.Desktop.Protocol.Tests&#xD;
+[xUnit.net 00:00:00.53]   Discovered:  Tracto.Desktop.Protocol.Tests&#xD;
+[xUnit.net 00:00:00.55]   Starting:    Tracto.Desktop.Protocol.Tests&#xD;
+[xUnit.net 00:00:01.82]   Finished:    Tracto.Desktop.Protocol.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
