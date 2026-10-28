@@ -1,0 +1,11 @@
+{
+  "title": "Tracto Contract Schema Version Catalogue",
+  "description": "Declares the current supported schema major. A previousMajor entry is added only when a second major is actually published.",
+  "contractVersion": "1.0.1",
+  "currentMajor": 1,
+  "currentVersion": "1.0",
+  "supportedMajors": [1],
+  "previousMajor": null,
+  "schemaDirectory": "schemas/v1",
+  "notes": "Stage 1 begins with one schema major (v1). N/N-1 compatibility applies when a second major is published. Until then, conformance tests verify that an artifact with a schemaVersion outside the supported range is rejected with a VALIDATION error and a republish diagnostic."
+}

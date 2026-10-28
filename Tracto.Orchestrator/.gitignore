@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+*.user
+.vs/
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db

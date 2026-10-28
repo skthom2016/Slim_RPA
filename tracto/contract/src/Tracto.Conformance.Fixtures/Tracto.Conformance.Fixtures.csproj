@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Conformance.Fixtures</PackageId>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="fixtures\**\*.json" />
+    <ProjectReference Include="..\Tracto.Contract.Schemas\Tracto.Contract.Schemas.csproj" />
+  </ItemGroup>
+</Project>

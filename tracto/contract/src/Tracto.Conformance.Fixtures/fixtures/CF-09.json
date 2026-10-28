@@ -1,0 +1,21 @@
+{
+  "fixtureId": "CF-09",
+  "title": "Safe cancel: cancellation signal injected during job execution",
+  "acIds": ["ST1-14-AC09"],
+  "category": "cancellation",
+  "description": "A cancellation signal is injected while the job is running. The worker must honour the cancellation and the job must reach CANCELLED run state cleanly without leaving orphaned resources.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf09",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "isInteractiveJob": true,
+  "heartbeatCount": 1,
+  "injectCancellation": true,
+  "injectFault": null,
+  "finalRunState": "CANCELLED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Validates the cooperative cancellation path. The worker must respond to the cancellation token and report CANCELLED, not FAILED or SUCCEEDED."
+}

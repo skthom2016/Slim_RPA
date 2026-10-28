@@ -1,0 +1,13 @@
+{
+  "name": "tracto-orchestrator-ui",
+  "version": "1.0.0",
+  "description": "Tracto Orchestrator Management Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

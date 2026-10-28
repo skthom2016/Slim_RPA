@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Element/Tracto.Desktop.Element.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Input/Tracto.Desktop.Input.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Session/Tracto.Desktop.Session.csproj" />
+  </ItemGroup>
+</Project>

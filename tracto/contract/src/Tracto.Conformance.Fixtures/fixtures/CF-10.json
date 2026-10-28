@@ -1,0 +1,23 @@
+{
+  "fixtureId": "CF-10",
+  "title": "Security: unapproved serviceRef in job envelope",
+  "acIds": ["ST1-14-AC10"],
+  "category": "security",
+  "description": "The job envelope references a serviceRef that is not in the approved service registry. The envelope must be rejected at service validation before the job is dispatched.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf10",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "serviceRef": "unregistered.api/submit",
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": null,
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": false,
+  "expectedServiceValidationPassed": false,
+  "notes": "An unregistered serviceRef must cause service validation to fail. No job may be dispatched when the service reference cannot be resolved against the approved registry."
+}

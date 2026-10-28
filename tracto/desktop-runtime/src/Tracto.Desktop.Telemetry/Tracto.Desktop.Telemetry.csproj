@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <ProjectReference Include="../../../contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Security/Tracto.Desktop.Security.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Element/Tracto.Desktop.Element.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "automation-envelope.schema.json",
+  "title": "AutomationEnvelope",
+  "description": "Top-level envelope for a Tracto automation script. Validated before any step executes.",
+  "type": "object",
+  "required": ["schemaVersion", "automationId", "runtimeType", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Contract schema version in major.minor format (e.g. 1.0)."
+    },
+    "automationId": {
+      "allOf": [
+        { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/\\-]{0,254}$" },
+        { "not": { "type": "string", "pattern": "\\.\\." } }
+      ],
+      "description": "Lowercase path-like identifier. No path traversal (..). No executable extensions."
+    },
+    "runtimeType": {
+      "enum": ["desktop", "browser", "terminal"],
+      "description": "Target runtime environment for this automation. Must match the dispatching worker's runtimeType."
+    },
+    "policyRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional list of policy document references that govern this automation's execution."
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/InputDeclaration"
+      },
+      "description": "Typed input declarations. Values are supplied by the Orchestrator at dispatch time."
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/OutputDeclaration"
+      },
+      "description": "Typed output declarations. Each output must carry an approved evidence classification (see REF-08)."
+    },
+    "vars": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/VarDeclaration"
+      },
+      "description": "C1: Script-scoped variable declarations. Validated before any step executes. Vars do not persist across run boundaries."
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StepDefinition"
+      },
+      "minItems": 1,
+      "description": "Ordered list of step definitions. Executed sequentially unless control flow steps alter order."
+    }
+  },
+  "$defs": {
+    "InputDeclaration": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "description": "Declaration of a typed input parameter for this automation.",
+      "properties": {
+        "type": {
+          "enum": ["string", "integer", "boolean"],
+          "description": "Primitive type of this input. Structured types are not supported in v1."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether this input may be supplied as null. Defaults to false."
+        },
+        "sensitive": {
+          "type": "boolean",
+          "description": "Whether this input contains sensitive data. Sensitive inputs are redacted from telemetry."
+        }
+      }
+    },
+    "OutputDeclaration": {
+      "type": "object",
+      "required": ["type", "evidenceClassification"],
+      "additionalProperties": false,
+      "description": "Declaration of a typed output produced by this automation. Each output requires an approved evidence classification.",
+      "properties": {
+        "type": {
+          "enum": ["string", "integer", "boolean"],
+          "description": "Primitive type of this output. Structured types are not supported in v1."
+        },
+        "evidenceClassification": {
+          "enum": [
+            "TECHNICAL_METADATA",
+            "BUSINESS_REFERENCE",
+            "UI_ASSERTION",
+            "SANITIZED_EVIDENCE"
+          ],
+          "description": "Approved evidence/telemetry classification for this output (see REF-08, contract §ST1-01-AC07)."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether this output may be null. Defaults to false."
+        }
+      }
+    },
+    "VarDeclaration": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "description": "C1: Script-scoped variable declaration. Written only via outputBinding; read via {ref:vars.<name>}. Duplicate names are a validation error.",
+      "properties": {
+        "type": {
+          "enum": ["string", "integer", "boolean"],
+          "description": "Primitive type of this variable. Structured types may be introduced in a later contract major."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "C1: Whether this variable may hold a null value. Defaults to false. Reading null when nullable=false is a VALIDATION error."
+        },
+        "defaultValue": {
+          "description": "C1: Initial value for this variable. If absent, the var is uninitialized; reading it before any outputBinding populates it is a VALIDATION error (variable.uninitializedRead)."
+        },
+        "sensitivity": {
+          "enum": ["NONE", "OPAQUE", "RESTRICTED"],
+          "description": "C1: Sensitivity classification. Sensitive vars must not be serialized into telemetry or Orchestrator state."
+        }
+      }
+    },
+    "StepDefinition": {
+      "type": "object",
+      "required": ["stepId", "action"],
+      "additionalProperties": false,
+      "description": "An individual step in the automation. See step-envelope.schema.json for standalone use.",
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+          "description": "Unique step identifier within the automation. Lowercase, starts with a letter."
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*\\.[a-z][a-z0-9.]*$",
+          "description": "Fully qualified action name in namespace.action format (e.g. desktop.click, service.invoke)."
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/TypedValue"
+          },
+          "description": "Map of input parameter names to typed values or references."
+        },
+        "outputBinding": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "C1: Map of declared var name to step output field reference. Writes are the only permitted way to assign a var."
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum milliseconds this step may execute. See C3 for TIMED_OUT vs UNKNOWN step-state rules."
+        },
+        "retryClass": {
+          "enum": ["TRANSIENT_SAFE", "IDEMPOTENT", "ONCE_ONLY", "NEVER"],
+          "description": "Retry classification. TRANSIENT_SAFE permits bounded retry only when non-commitment is confirmed (C3)."
+        },
+        "precondition": {
+          "$ref": "#/$defs/TechnicalCondition",
+          "description": "Technical condition that must be true before the step executes."
+        },
+        "postcondition": {
+          "$ref": "#/$defs/TechnicalCondition",
+          "description": "Technical condition verifying effect commitment after step completes. Failure may yield FAILED or UNKNOWN (C3)."
+        },
+        "onFailure": {
+          "$ref": "#/$defs/OnFailureHandler",
+          "description": "Handler invoked when this step reaches a terminal failure state."
+        },
+        "sensitivity": {
+          "enum": ["NONE", "OPAQUE", "RESTRICTED"],
+          "description": "Sensitivity classification for this step. Affects telemetry redaction."
+        }
+      }
+    },
+    "TypedRef": {
+      "type": "object",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "description": "A reference to a declared binding: input, var, step output, or secret.",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^(inputs|vars|steps\\.[^.]+\\.outputs|secrets)\\..+",
+          "description": "Reference path. Must point to a declared binding. Undeclared references are a VALIDATION error (variable.undeclaredReference)."
+        }
+      }
+    },
+    "TypedValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "integer" },
+        { "type": "boolean" },
+        { "$ref": "#/$defs/TypedRef" }
+      ],
+      "description": "A literal typed value (string, integer, boolean) or a reference to a declared binding."
+    },
+    "TechnicalCondition": {
+      "type": "object",
+      "required": ["predicate"],
+      "additionalProperties": false,
+      "description": "A technical predicate evaluated by the worker runtime. Must not encode business intent (see REF-01, contract §ST1-04-AC06).",
+      "properties": {
+        "predicate": {
+          "type": "string",
+          "description": "Fully qualified predicate name (e.g. desktop.elementExists, api.statusCodeEquals)."
+        },
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/TypedValue"
+          },
+          "description": "Arguments passed to the predicate evaluator."
+        },
+        "waitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum milliseconds to poll for this condition. Zero means evaluate once."
+        },
+        "pollIntervalMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Polling interval in milliseconds when waitMs > 0."
+        }
+      }
+    },
+    "OnFailureHandler": {
+      "type": "object",
+      "required": ["handler"],
+      "additionalProperties": false,
+      "description": "Specifies the failure handling strategy when a step reaches a terminal failure state.",
+      "properties": {
+        "handler": {
+          "type": "string",
+          "description": "Named failure handler strategy (e.g. abort, continueWithDefault, escalate)."
+        },
+        "compensatingSteps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ordered list of stepIds to execute as compensating actions before the handler runs."
+        }
+      }
+    }
+  }
+}

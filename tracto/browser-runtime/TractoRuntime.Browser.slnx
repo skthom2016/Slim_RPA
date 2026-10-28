@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TractoRuntime.Browser/TractoRuntime.Browser.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TractoRuntime.Browser.Tests/TractoRuntime.Browser.Tests.csproj" />
+  </Folder>
+</Solution>

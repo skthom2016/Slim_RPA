@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracto Orchestrator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">⚙ Tracto</div>
+      <div class="brand-sub">Orchestrator Console</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-link active" data-tab="overview">
+        <span class="icon">📊</span> Overview
+      </a>
+      <a href="#" class="nav-link" data-tab="jobs">
+        <span class="icon">📋</span> Jobs
+      </a>
+      <a href="#" class="nav-link" data-tab="artifacts">
+        <span class="icon">📦</span> Artifacts
+      </a>
+      <a href="#" class="nav-link" data-tab="workers">
+        <span class="icon">🖥</span> Workers
+      </a>
+      <a href="#" class="nav-link" data-tab="logs">
+        <span class="icon">📜</span> Logs
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="conn-status" id="conn-status">
+        <span class="conn-dot"></span>
+        <span class="conn-label" id="conn-label">Connecting…</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <header class="topbar">
+      <h1 class="page-title" id="page-title">Overview</h1>
+      <div class="topbar-right">
+        <span class="refresh-hint">Auto-refresh every 5 s</span>
+        <button class="btn btn-secondary" id="btn-refresh">↺ Refresh</button>
+      </div>
+    </header>
+
+    <!-- Overview ─────────────────────────────────────────────────────────── -->
+    <div class="tab-pane active" id="tab-overview">
+      <div class="stat-grid" id="stat-grid"></div>
+    </div>
+
+    <!-- Jobs ─────────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-jobs">
+      <div class="toolbar">
+        <label>State</label>
+        <select id="jobs-state-filter">
+          <option value="">All States</option>
+          <option value="Queued">Queued</option>
+          <option value="Running">Running</option>
+          <option value="Succeeded">Succeeded</option>
+          <option value="Failed">Failed</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="TimedOut">TimedOut</option>
+          <option value="Unknown">Unknown</option>
+        </select>
+        <label>Limit</label>
+        <input type="number" id="jobs-limit" value="50" min="1" max="200">
+        <button class="btn btn-secondary" id="btn-jobs-refresh">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Run ID</th>
+              <th>Script Artifact</th>
+              <th>Ver</th>
+              <th>State</th>
+              <th>Worker</th>
+              <th>Trigger</th>
+              <th>Attention</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Artifacts ────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-artifacts">
+      <div class="toolbar">
+        <label>
+          <input type="checkbox" id="artifacts-show-deleted"> Show deleted
+        </label>
+        <button class="btn btn-secondary" id="btn-artifacts-refresh">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Artifact ID</th>
+              <th>Version</th>
+              <th>Schema</th>
+              <th>Signature</th>
+              <th>Content Hash</th>
+              <th>Uploaded</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="artifacts-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Workers ──────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-workers">
+      <div class="toolbar">
+        <button class="btn btn-secondary" id="btn-workers-refresh">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Worker ID</th>
+              <th>Runtime</th>
+              <th>State</th>
+              <th>Online</th>
+              <th>Last Heartbeat</th>
+              <th>Registered</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="workers-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Logs ─────────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-logs">
+      <div class="toolbar">
+        <input type="text" id="logs-run-id" placeholder="Paste Run ID (UUID)…">
+        <button class="btn btn-primary" id="btn-logs-load">Load Logs</button>
+        <button class="btn btn-secondary" id="btn-logs-clear">Clear</button>
+      </div>
+      <div id="logs-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Run modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="run-overlay">
+  <div class="modal">
+    <div class="modal-title">Submit Job</div>
+    <div class="modal-desc" id="run-artifact-label"></div>
+    <label style="display:block;margin-bottom:6px;font-size:13px">Trigger type</label>
+    <select id="run-trigger-type" style="width:100%;margin-bottom:16px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--fg)">
+      <option value="Manual">Manual</option>
+      <option value="Scheduled">Scheduled</option>
+      <option value="Event">Event</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="run-dismiss">Cancel</button>
+      <button class="btn btn-primary"   id="run-confirm">▶ Submit Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cancel modal ──────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="cancel-overlay">
+  <div class="modal">
+    <div class="modal-title">Cancel Job</div>
+    <div class="modal-desc" id="cancel-run-id-label"></div>
+    <input type="text" id="cancel-requested-by" placeholder="Your name or reason (required)">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="cancel-dismiss">Close</button>
+      <button class="btn btn-danger"    id="cancel-confirm">Confirm Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast area ─────────────────────────────────────────────────────────── -->
+<div class="toast-area" id="toast-area"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+time=2026-10-25T00:01:20.716+05:30 level=WARN msg="ORCHESTRATOR_JWT_SECRET not set — running in parse-only JWT mode (development)"
+time=2026-10-25T00:01:20.754+05:30 level=INFO msg="database ready" path=smoke-live.db
+time=2026-10-25T00:01:20.755+05:30 level=INFO msg="Tracto Orchestrator (Go) starting" addr=0.0.0.0:5080 mode=connected
+time=2026-10-25T00:01:59.077+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=a7bb1773-e4dc-4e81-9024-0c30f9e3bfd0 status=200 ms=4
+time=2026-10-25T00:01:59.137+05:30 level=INFO msg=request method=PUT path=/artifacts/art1/versions/v1 query="" auth="" trace=5c0a780f-56c1-46b0-8f60-e243156e0b17 status=201 ms=1
+time=2026-10-25T00:01:59.145+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=e5121a4d-8865-44f6-838f-e1be337080cc status=200 ms=1
+time=2026-10-25T00:01:59.149+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=4d2bad79-335b-4960-bf56-1864a7dc5a80 status=200 ms=1
+time=2026-10-25T00:01:59.159+05:30 level=INFO msg=request method=POST path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2/lease/accept query="" auth="" trace=c03911d1-08e4-4240-8cc1-1f640d3e46ed status=200 ms=1
+time=2026-10-25T00:01:59.162+05:30 level=INFO msg=request method=GET path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2 query="" auth="" trace=9690b101-4b46-4d2c-96c7-ddc1dcd72474 status=200 ms=0
+time=2026-10-25T00:01:59.166+05:30 level=INFO msg=request method=POST path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2/heartbeat query="" auth="" trace=04d90d1b-f764-4c62-a80d-65d03e5a99c6 status=200 ms=0
+time=2026-10-25T00:01:59.173+05:30 level=INFO msg=request method=POST path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2/result query="" auth="" trace=bb1ca181-3739-4f2c-91fe-35c01e5ba710 status=200 ms=1
+time=2026-10-25T00:01:59.178+05:30 level=INFO msg=request method=GET path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2 query="" auth="" trace=c17ba539-a665-4797-b711-c0b469ae8a6e status=200 ms=0
+time=2026-10-25T00:01:59.183+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=8bb5e33a-a4cd-4794-8adb-3e6c9d31fa9a status=200 ms=1
+time=2026-10-25T00:01:59.188+05:30 level=INFO msg=request method=POST path=/jobs/d119935a-3b03-4a20-b293-10edc0312da1/cancel query="" auth="" trace=936b18ad-b8ba-4a50-bd85-580642455993 status=200 ms=1
+time=2026-10-25T00:01:59.190+05:30 level=INFO msg=request method=GET path=/jobs/d119935a-3b03-4a20-b293-10edc0312da1 query="" auth="" trace=98350cce-556d-4b7e-b71e-e250e3160e7f status=200 ms=0
+time=2026-10-25T00:01:59.194+05:30 level=INFO msg=request method=POST path=/jobs/4821a323-0a1f-40db-b1ec-f7bfc4d44cf2/cancel query="" auth="" trace=24a09501-3575-45de-8c72-3f2d04f2dd89 status=409 ms=0
+time=2026-10-25T00:01:59.217+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=4ee6ed4c-0da3-4817-a9f6-b653afa269aa status=200 ms=0
+time=2026-10-25T00:01:59.222+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=4e3a8118-e60b-46cd-883f-815b154b6a55 status=200 ms=2
+time=2026-10-25T00:01:59.226+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=5b1278d7-2341-49ea-adc2-2e8fb5c91c8e status=200 ms=1
+time=2026-10-25T00:01:59.230+05:30 level=INFO msg=request method=POST path=/jobs/0bd727e1-c0b4-4539-936a-2f35409a8c5d/lease/accept query="" auth="" trace=95028788-9701-4c13-8864-c9d624b59801 status=200 ms=1
+time=2026-10-25T00:01:59.235+05:30 level=INFO msg=request method=POST path=/jobs/0bd727e1-c0b4-4539-936a-2f35409a8c5d/reconcile query="" auth="" trace=7c8aa420-b272-47d5-a775-debf2491bed3 status=200 ms=1
+time=2026-10-25T00:01:59.239+05:30 level=INFO msg=request method=GET path=/jobs/0bd727e1-c0b4-4539-936a-2f35409a8c5d query="" auth="" trace=60b361e7-05c8-4bad-ac4a-cfe7c48d5085 status=200 ms=0
+time=2026-10-25T00:01:59.243+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=3f5bbb1d-7e74-4678-96d1-20f7d6f0338c status=200 ms=0
+time=2026-10-25T00:01:59.246+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=a79e02d8-0646-4e45-8a97-fd1874f5a794 status=200 ms=1
+time=2026-10-25T00:01:59.249+05:30 level=INFO msg=request method=POST path=/jobs/d21299fb-e87f-4b2b-986e-0b518f9690e5/lease/accept query="" auth="" trace=1aa03e98-6189-4e9c-9657-d6b4e114a68d status=200 ms=0
+time=2026-10-25T00:01:59.254+05:30 level=INFO msg=request method=POST path=/jobs/d21299fb-e87f-4b2b-986e-0b518f9690e5/result query="" auth="" trace=54599a9a-b332-4362-a000-a467c976d9f6 status=200 ms=1
+time=2026-10-25T00:01:59.257+05:30 level=INFO msg=request method=GET path=/jobs/d21299fb-e87f-4b2b-986e-0b518f9690e5 query="" auth="" trace=023cccc2-98c4-4c9f-b071-d90e6b562972 status=200 ms=0
+time=2026-10-25T00:01:59.262+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=29026652-b5f3-4951-893e-a5e94d670d70 status=200 ms=0
+time=2026-10-25T00:01:59.266+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=eb81d3e3-8507-46b7-83db-6b0a3443b0f4 status=200 ms=1
+time=2026-10-25T00:01:59.270+05:30 level=INFO msg=request method=POST path=/jobs/537e737a-b281-43c8-a4d0-e835be74c80b/lease/accept query="" auth="" trace=e0bd6a05-4865-425f-bc58-b6a1dc0dcc9a status=200 ms=1
+time=2026-10-25T00:01:59.272+05:30 level=INFO msg=request method=POST path=/jobs/537e737a-b281-43c8-a4d0-e835be74c80b/result query="" auth="" trace=4b38ddc0-93aa-49e3-89ac-447e93d7873f status=422 ms=0
+time=2026-10-25T00:01:59.277+05:30 level=INFO msg=request method=POST path=/jobs/537e737a-b281-43c8-a4d0-e835be74c80b/result query="" auth="" trace=5d299660-2fd7-4c76-9985-622751854af1 status=200 ms=1
+time=2026-10-25T00:01:59.279+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=8495d91b-1467-406b-9b5e-208ab738950f status=422 ms=0
+time=2026-10-25T00:01:59.284+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=659c7653-fc79-47c1-90a3-6ff5048b7335 status=200 ms=1
+time=2026-10-25T00:01:59.286+05:30 level=INFO msg=request method=GET path=/health query="" auth="" trace=ee9096ce-2b78-4b67-951e-64b1d9862dc9 status=200 ms=0
+[WARN] worker desktop-runtime-001: capabilityDigest mismatch (expected 3f7ac83805792f4211460bf758a58df51582ec6cb0fdc7c69e710fc71f3882c7, got 6636d7d94665229d42bddd2d4a90f7cba49586719f4f35dcc3efcd933223a7e6)
+time=2026-10-25T06:59:05.201+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=280b7cdb-11cb-451b-b290-44346767a209 status=200 ms=2
+time=2026-10-25T06:59:05.237+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=e0e530b2-4005-4f7a-91b7-0d7b8263017f status=200 ms=1
+time=2026-10-25T06:59:10.283+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=e5bc700b-d5f5-4f7e-9619-372cb92c495a status=200 ms=0
+[WARN] worker desktop-runtime-001: capabilityDigest mismatch (expected 3f7ac83805792f4211460bf758a58df51582ec6cb0fdc7c69e710fc71f3882c7, got 6636d7d94665229d42bddd2d4a90f7cba49586719f4f35dcc3efcd933223a7e6)
+time=2026-10-25T06:59:58.920+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=eb92cc5c-b9cc-4de7-a14c-a631985ef811 status=200 ms=1
+time=2026-10-25T06:59:58.944+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=f4017fac-c6fe-4ea4-aa1b-cc0f04854d50 status=200 ms=0
+time=2026-10-25T07:00:03.975+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=e0da326b-4bd3-46e0-87c7-08904b1a20e8 status=200 ms=1
+[WARN] worker desktop-runtime-001: capabilityDigest mismatch (expected 3f7ac83805792f4211460bf758a58df51582ec6cb0fdc7c69e710fc71f3882c7, got 6636d7d94665229d42bddd2d4a90f7cba49586719f4f35dcc3efcd933223a7e6)
+time=2026-10-25T07:00:24.230+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=5f764dda-dd19-4937-8c80-991683784fc5 status=200 ms=3
+time=2026-10-25T07:00:24.256+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=52dbea23-c39f-4899-ac07-11d3685f40f6 status=200 ms=0
+time=2026-10-25T07:00:29.279+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=0edb2473-7ea0-4494-8857-9d8e6c9ec36b status=200 ms=1
+[WARN] worker desktop-runtime-001: capabilityDigest mismatch (expected 3f7ac83805792f4211460bf758a58df51582ec6cb0fdc7c69e710fc71f3882c7, got 6636d7d94665229d42bddd2d4a90f7cba49586719f4f35dcc3efcd933223a7e6)
+time=2026-10-25T07:00:55.492+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=6f4aef31-4e2b-4e25-8d3c-5a15f0341e0a status=200 ms=1
+time=2026-10-25T07:00:55.518+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=9c77a8d3-0784-4856-9cb3-438e81482049 status=200 ms=0
+time=2026-10-25T07:00:58.223+05:30 level=INFO msg=request method=PUT path=/artifacts/art1/versions/v1 query="" auth="" trace=3d26efff-f2ee-4916-9fcd-02b69b3ba2b1 status=201 ms=0
+time=2026-10-25T07:00:58.287+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=104a4e76-29a8-4bab-8453-2bfb75c5b72a status=200 ms=1
+time=2026-10-25T07:00:59.300+05:30 level=INFO msg=request method=GET path=/jobs/6ad45370-bd3c-4c5e-a21f-47f61d5f1c64 query="" auth="" trace=cd349ded-b0aa-45f2-a20a-be6e6b456e0f status=200 ms=0
+time=2026-10-25T07:01:00.329+05:30 level=INFO msg=request method=GET path=/jobs/6ad45370-bd3c-4c5e-a21f-47f61d5f1c64 query="" auth="" trace=183822c9-cca4-4d7b-a3be-5e0cebb69419 status=200 ms=0
+time=2026-10-25T07:01:00.535+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=f37e29f2-c1b7-42b2-91b7-3b625340e463 status=200 ms=2
+time=2026-10-25T07:01:00.547+05:30 level=INFO msg=request method=POST path=/jobs/6ad45370-bd3c-4c5e-a21f-47f61d5f1c64/lease/accept query="" auth="" trace=1bccde21-163d-48a7-91eb-5dead7b571d4 status=200 ms=2
+time=2026-10-25T07:01:00.556+05:30 level=INFO msg=request method=POST path=/jobs/6ad45370-bd3c-4c5e-a21f-47f61d5f1c64/result query="" auth="" trace=6d7d46b8-5d20-4e92-93d3-81a5115e27df status=200 ms=0
+time=2026-10-25T07:01:00.558+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=5712afba-1a85-496b-bed8-2f393ad44588 status=200 ms=0
+time=2026-10-25T07:01:01.358+05:30 level=INFO msg=request method=GET path=/jobs/6ad45370-bd3c-4c5e-a21f-47f61d5f1c64 query="" auth="" trace=ea6f11b1-88fd-4042-abca-a6294999b7d9 status=200 ms=0

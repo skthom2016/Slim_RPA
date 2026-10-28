@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Tracto.Contract.Orchestrator</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.Contract.Models\Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="..\Tracto.Contract.Validation\Tracto.Contract.Validation.csproj" />
+  </ItemGroup>
+</Project>

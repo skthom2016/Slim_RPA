@@ -1,0 +1,15 @@
+time=2026-10-25T07:10:35.823+05:30 level=WARN msg="ORCHESTRATOR_JWT_SECRET not set — running in parse-only JWT mode (development)"
+time=2026-10-25T07:10:35.877+05:30 level=INFO msg="database ready" path=orchestrator-dev.db
+time=2026-10-25T07:10:35.878+05:30 level=INFO msg="Tracto Orchestrator (Go) starting" addr=0.0.0.0:5080 mode=connected
+time=2026-10-25T07:10:39.677+05:30 level=INFO msg=request method=GET path=/health query="" auth="" trace=afb8ee3d-d74a-4cb9-a3bd-c277df0ee124 status=200 ms=0
+[WARN] worker desktop-runtime-001: capabilityDigest mismatch (expected 3f7ac83805792f4211460bf758a58df51582ec6cb0fdc7c69e710fc71f3882c7, got 6636d7d94665229d42bddd2d4a90f7cba49586719f4f35dcc3efcd933223a7e6)
+time=2026-10-25T07:10:56.834+05:30 level=INFO msg=request method=POST path=/workers/register query="" auth="" trace=d7e91c17-1d53-412e-baf7-7c7f696d5d9b status=200 ms=1
+time=2026-10-25T07:10:56.862+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=0bb2a7ec-18b2-456a-9a9b-0cfe4daf21d1 status=200 ms=1
+time=2026-10-25T07:11:01.528+05:30 level=INFO msg=request method=GET path=/workers query="" auth="" trace=07526378-def2-4694-bf1b-64e18a07fdbb status=200 ms=0
+time=2026-10-25T07:11:01.632+05:30 level=INFO msg=request method=PUT path=/artifacts/excel-automation-test-001/versions/v1 query="" auth="" trace=3a8c54e5-5787-4e8c-8774-5669aebde8a4 status=201 ms=1
+time=2026-10-25T07:11:01.639+05:30 level=INFO msg=request method=POST path=/jobs query="" auth="" trace=8e4309cd-e7a3-413a-b9f8-84657208d645 status=200 ms=1
+time=2026-10-25T07:11:01.884+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=4c4ebc00-46b5-400a-b92b-cb8b3a21bea0 status=200 ms=1
+time=2026-10-25T07:11:01.901+05:30 level=INFO msg=request method=POST path=/jobs/9e8d7ca7-50be-4f3d-ba97-2bfc0aee9463/lease/accept query="" auth="" trace=da423a70-0ca6-4762-bda7-0d9a2ab829bb status=200 ms=2
+time=2026-10-25T07:11:01.911+05:30 level=INFO msg=request method=POST path=/jobs/9e8d7ca7-50be-4f3d-ba97-2bfc0aee9463/result query="" auth="" trace=956ca30e-b320-4ccd-8ed9-ba30c6343c2d status=200 ms=1
+time=2026-10-25T07:11:01.914+05:30 level=INFO msg=request method=POST path=/jobs/pull query="" auth="" trace=1245f4d6-7d2b-4c42-9a72-98cd3f92df3a status=200 ms=0
+time=2026-10-25T07:11:02.649+05:30 level=INFO msg=request method=GET path=/jobs/9e8d7ca7-50be-4f3d-ba97-2bfc0aee9463 query="" auth="" trace=40b356b1-5fef-438c-9d92-d8172a2f15d6 status=200 ms=0

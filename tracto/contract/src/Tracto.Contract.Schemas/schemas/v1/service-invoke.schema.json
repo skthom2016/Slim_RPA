@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/service-invoke.schema.json",
+  "title": "ServiceInvoke",
+  "description": "Parameters for a service.invoke step action in the Tracto Common Execution Contract v1.",
+  "type": "object",
+  "required": ["serviceRef", "operationRef"],
+  "additionalProperties": false,
+  "properties": {
+    "serviceRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,127}$",
+      "description": "Stable logical identifier for the target service."
+    },
+    "operationRef": {
+      "type": "string",
+      "description": "Identifies the operation to invoke on the target service."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Key-value map of inputs passed to the service operation. Values may be literal primitives or TypedRef references.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "integer" },
+          { "type": "boolean" },
+          { "$ref": "#/$defs/TypedRef" }
+        ]
+      }
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum milliseconds to wait for the service operation to complete before timing out."
+    },
+    "retryClass": {
+      "enum": ["TRANSIENT_SAFE", "IDEMPOTENT", "ONCE_ONLY", "NEVER"],
+      "description": "Declares the retry semantics for this invocation. Governs whether and how many times a retry is safe after a transient failure or timeout."
+    },
+    "expectedOutcomes": {
+      "type": "array",
+      "description": "Ordered list of ServiceOutcome values the step treats as non-error results. Unlisted outcomes are treated as failures.",
+      "items": {
+        "enum": [
+          "SUCCESS",
+          "BUSINESS_REJECTION",
+          "TECHNICAL_FAILURE",
+          "TRANSIENT_FAILURE",
+          "UNKNOWN_OUTCOME"
+        ]
+      }
+    },
+    "idempotencyKey": {
+      "description": "Unique key used by the service to deduplicate repeated invocations. May be a literal string or a TypedRef resolved at runtime.",
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/TypedRef" }
+      ]
+    },
+    "callbackConfig": {
+      "type": "object",
+      "description": "Configuration for async callback delivery. Required when the operation does not return a synchronous response.",
+      "required": ["timeoutMs", "nonce"],
+      "additionalProperties": false,
+      "properties": {
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum milliseconds to wait for the async callback before timing out."
+        },
+        "nonce": {
+          "type": "string",
+          "description": "Single-use token embedded in the callback request to prevent replay. Must match the nonce in the corresponding async-callback message."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "TypedRef": {
+      "type": "object",
+      "description": "A reference resolved at runtime against the execution context (e.g. vars.<name> or steps.<id>.outputs.<field>).",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "Dotted path resolved at runtime, e.g. vars.myVar or steps.step1.outputs.result."
+        }
+      }
+    }
+  }
+}

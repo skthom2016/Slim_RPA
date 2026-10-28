@@ -1,0 +1,50 @@
+<UserControl x:Class="Tracto.Designer.App.Views.PublicationPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Border BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="8,4">
+        <StackPanel>
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock Text="Publish Script" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                <TextBlock Text=" — " VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding PublisherName}" Foreground="#555555" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Output directory -->
+            <StackPanel Orientation="Horizontal" Margin="0,2">
+                <TextBlock Text="Output Directory:" Width="120" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}"
+                         Width="400" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Publish button + spinner -->
+            <StackPanel Orientation="Horizontal" Margin="0,4">
+                <Button Content="Publish" Command="{Binding PublishCommand}" Padding="12,4" Margin="0,0,8,0"/>
+                <TextBlock Text="Publishing..." VerticalAlignment="Center"
+                           Visibility="{Binding IsPublishing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StackPanel>
+
+            <!-- Result area -->
+            <Border Margin="0,4,0,0"
+                    Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel>
+                    <!-- Success result -->
+                    <TextBlock Foreground="Green" FontWeight="SemiBold"
+                               Visibility="{Binding LastResult.Success, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Run Text="Published — ID: "/>
+                        <Run Text="{Binding LastResult.PublicationId}"/>
+                    </TextBlock>
+                    <!-- Failure result -->
+                    <TextBlock Foreground="Red" FontWeight="SemiBold"
+                               Visibility="{Binding LastResult.Success, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <Run Text="FAILED: "/>
+                        <Run Text="{Binding LastResult.Message}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>

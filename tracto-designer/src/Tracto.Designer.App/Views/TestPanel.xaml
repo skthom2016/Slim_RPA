@@ -1,0 +1,87 @@
+<UserControl x:Class="Tracto.Designer.App.Views.TestPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="200" d:DesignWidth="600">
+    <Border BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="4">
+        <StackPanel>
+
+            <!-- Header row -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock Text="Test Run" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding RunnerName}" Foreground="Gray" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Button Content="Run Test"  Command="{Binding RunTestCommand}"  Margin="2,0" Padding="6,2"/>
+                <Button Content="Stop Test" Command="{Binding StopTestCommand}" Margin="2,0" Padding="6,2"/>
+            </StackPanel>
+
+            <!-- Progress bar (visible while running) -->
+            <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="12" Margin="0,0,0,6"
+                         Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <!-- Result area (collapsed when no result yet) -->
+            <StackPanel Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+
+                <!-- PASSED / FAILED status -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,8,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="&#x2717; FAILED"/>
+                                <Setter Property="Foreground" Value="Red"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Passed}" Value="True">
+                                        <Setter Property="Text" Value="&#x2713; PASSED"/>
+                                        <Setter Property="Foreground" Value="Green"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding TestResult.Duration, StringFormat='Duration: \{0:g\}'}"
+                               VerticalAlignment="Center" Foreground="Gray"/>
+                </StackPanel>
+
+                <!-- Error message (only when non-null) -->
+                <TextBlock Text="{Binding TestResult.ErrorMessage}"
+                           Foreground="OrangeRed" Margin="0,0,0,4" TextWrapping="Wrap"
+                           Visibility="{Binding TestResult.ErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                <!-- Step results list -->
+                <ListView ItemsSource="{Binding TestResult.StepResults}" MaxHeight="160"
+                          Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="#"       Width="40"  DisplayMemberBinding="{Binding StepNumber}"/>
+                            <GridViewColumn Header="Passed"  Width="60">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="&#x2717;"/>
+                                                    <Setter Property="Foreground" Value="Red"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Passed}" Value="True">
+                                                            <Setter Property="Text" Value="&#x2713;"/>
+                                                            <Setter Property="Foreground" Value="Green"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Message"  Width="300" DisplayMemberBinding="{Binding Message}"/>
+                            <GridViewColumn Header="Duration" Width="100" DisplayMemberBinding="{Binding Duration, StringFormat='\{0:g\}'}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+
+            </StackPanel>
+
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,0 +1,95 @@
+{ "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.dev/schemas/v1/telemetry-event.schema.json",
+  "title": "TelemetryEvent",
+  "description": "A single structured telemetry event emitted by a worker or orchestrator component during automation execution. Events must NOT contain secrets, authentication headers, cookies, or sensitive business payloads; redaction is the emitter's responsibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "correlationId", "eventType", "timestamp"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "description": "Unique identifier for this event instance. Must be globally unique (e.g. a UUID)."
+    },
+    "correlationId": {
+      "type": "string",
+      "description": "Correlation identifier linking this event to a run, attempt, or causal chain. Used for distributed tracing."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "WorkerRegistered",
+        "JobLeased",
+        "JobAcquired",
+        "StepStarted",
+        "StepCompleted",
+        "RunCompleted",
+        "LeaseExpired",
+        "CancellationRequested",
+        "CancellationAcknowledged",
+        "HeartbeatSent",
+        "ReconcileStarted",
+        "ReconcileCompleted",
+        "EvidenceRecorded"
+      ],
+      "description": "The type of lifecycle event being recorded."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp at which the event occurred."
+    },
+    "businessJobId": {
+      "type": ["string", "null"],
+      "description": "The business-layer job identifier, if applicable. May be null for infrastructure-only events."
+    },
+    "leaseId": {
+      "type": ["string", "null"],
+      "description": "The lease identifier associated with this event, if applicable."
+    },
+    "runId": {
+      "type": ["string", "null"],
+      "description": "The run identifier associated with this event, if applicable."
+    },
+    "attemptId": {
+      "type": ["string", "null"],
+      "description": "The attempt identifier associated with this event, if applicable."
+    },
+    "stepId": {
+      "type": ["string", "null"],
+      "description": "The step identifier associated with this event. Present for StepStarted and StepCompleted events."
+    },
+    "workerId": {
+      "type": ["string", "null"],
+      "description": "The stable unique identity of the worker that emitted or is the subject of this event."
+    },
+    "runState": {
+      "type": ["string", "null"],
+      "enum": ["CREATED", "QUEUED", "LEASED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "CANCELLED", "HANDED_OFF", null],
+      "description": "The run state at the time of this event, if applicable."
+    },
+    "stepState": {
+      "type": ["string", "null"],
+      "enum": ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "UNKNOWN", "SKIPPED", "CANCELLED", null],
+      "description": "The step state at the time of this event. Present for step-scoped events."
+    },
+    "errorCategory": {
+      "type": ["string", "null"],
+      "enum": ["VALIDATION", "TIMEOUT", "POLICY_DENIED", "TRUST_FAILURE", "TRANSPORT", "EXECUTION", "CONCURRENCY", "RESOURCE", "SECURITY", "CANCELLED", "UNKNOWN", null],
+      "description": "Error category if this event records a failure condition."
+    },
+    "errorDetail": {
+      "type": ["string", "null"],
+      "description": "Stable error detail code (e.g. 'action.executionTimeout', 'action.commitUncertain', 'variable.uninitializedRead'). Must not contain sensitive data."
+    },
+    "durationMs": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Duration in milliseconds relevant to this event (e.g. step execution time, run total time). Must be measured with a monotonic clock per REF-10."
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Must NOT contain secrets, authentication headers, cookies, or sensitive business payloads. Redaction is the emitter's responsibility. Use for diagnostic or operational data only (e.g. worker version, host class, retry count)."
+    }
+  }
+}

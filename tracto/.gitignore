@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+packages/
+*.nupkg
+*.snupkg
+*.lock.json
+!packages.lock.json
+TestResults/
+
+logs/

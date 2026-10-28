@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tracto.Orchestrator.Api/Tracto.Orchestrator.Api.csproj" />
+    <Project Path="src/Tracto.Orchestrator.Application/Tracto.Orchestrator.Application.csproj" />
+    <Project Path="src/Tracto.Orchestrator.Domain/Tracto.Orchestrator.Domain.csproj" />
+    <Project Path="src/Tracto.Orchestrator.Infrastructure/Tracto.Orchestrator.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tracto.Orchestrator.Integration.Tests/Tracto.Orchestrator.Integration.Tests.csproj" />
+    <Project Path="tests/Tracto.Orchestrator.Unit.Tests/Tracto.Orchestrator.Unit.Tests.csproj" />
+  </Folder>
+</Solution>

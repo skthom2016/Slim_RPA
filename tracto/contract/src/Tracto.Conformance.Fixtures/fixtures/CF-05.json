@@ -1,0 +1,22 @@
+{
+  "fixtureId": "CF-05",
+  "title": "Unknown leaseId on reconcile: orchestrator receives a leaseId it does not recognise",
+  "acIds": ["ST1-14-AC05"],
+  "category": "reconciliation",
+  "description": "During reconciliation the orchestrator encounters a leaseId that does not match any tracked job. The disposition must be recorded as UNKNOWN because the history cannot be established.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf05",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "reconcileUnknownLeaseId": true,
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": null,
+  "expectedDisposition": "UNKNOWN",
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "An unrecognised leaseId during reconciliation indicates lost state. The safest resolution is UNKNOWN; the orchestrator must not raise an unhandled exception."
+}

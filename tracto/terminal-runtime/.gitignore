@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+.vs/
+*.suo
+*.userprefs
+sprint*-review.md
+CERTIFICATION.md

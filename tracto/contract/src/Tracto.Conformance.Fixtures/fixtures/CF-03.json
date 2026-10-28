@@ -1,0 +1,22 @@
+{
+  "fixtureId": "CF-03",
+  "title": "Uncertain expiry: job lease expires without a final result submission",
+  "acIds": ["ST1-14-AC03"],
+  "category": "expiry",
+  "description": "Worker accepts the job but never submits a final result before the lease expires. The orchestrator must record the disposition as UNKNOWN because the outcome cannot be determined.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf03",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "isInteractiveJob": true,
+  "heartbeatCount": 1,
+  "injectCancellation": false,
+  "injectFault": null,
+  "submitFinalResult": false,
+  "finalRunState": null,
+  "expectedDisposition": "UNKNOWN",
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "Simulates a worker crash or silent hang. The lease expires and the system must settle on UNKNOWN disposition without blocking indefinitely."
+}

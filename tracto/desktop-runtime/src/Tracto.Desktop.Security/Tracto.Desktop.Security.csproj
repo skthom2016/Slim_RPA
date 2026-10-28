@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <ProjectReference Include="../../../contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Element/Tracto.Desktop.Element.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Input/Tracto.Desktop.Input.csproj" />
+    <ProjectReference Include="../Tracto.Desktop.Session/Tracto.Desktop.Session.csproj" />
+  </ItemGroup>
+</Project>

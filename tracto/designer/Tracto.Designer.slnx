@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tracto.Designer.App/Tracto.Designer.App.csproj" />
+    <Project Path="src/Tracto.Designer.Core/Tracto.Designer.Core.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Tracto.Designer.Infrastructure/Tracto.Designer.Infrastructure.csproj">
+      <Platform Project="x64" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tracto.Designer.Integration.Tests/Tracto.Designer.Integration.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Tracto.Designer.Unit.Tests/Tracto.Designer.Unit.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+  </Folder>
+</Solution>

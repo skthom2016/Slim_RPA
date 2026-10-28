@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tracto Script",
+  "description": "Designer-format script for the Tracto Desktop Runtime",
+  "type": "object",
+  "required": ["id", "name", "version", "targetRuntime", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique artifact ID used as the Orchestrator artifact key (e.g. 'notepad-hello-world-001')",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable script name shown in the Designer"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version (e.g. '1.0.0')",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "targetRuntime": {
+      "type": "string",
+      "enum": ["desktop"],
+      "description": "Runtime type — currently only 'desktop' is supported"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["stepNumber", "action", "parameters"],
+        "additionalProperties": false,
+        "properties": {
+          "stepNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based sequential step number"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "key",
+              "type",
+              "delay",
+              "click",
+              "scroll",
+              "navigate",
+              "focus",
+              "app.launch",
+              "http.get",
+              "file.saveAs"
+            ],
+            "description": "Action handler name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional human-readable description of what this step does"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "All parameter values must be strings (the runtime casts to int/bool as needed)",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "action_key": {
+      "description": "key action: required 'key' param. Use {LWIN}s for Win+S, {ENTER}, %{F4} for Alt+F4, ^s for Ctrl+S",
+      "required_params": ["key"],
+      "optional_params": ["window"],
+      "outputs": ["sendKeysValue"]
+    },
+    "action_type": {
+      "description": "type action: required 'value' param. Supports ${varName.field} expansion and \\n for newline",
+      "required_params": ["value"],
+      "optional_params": ["window"],
+      "outputs": ["charactersTyped"]
+    },
+    "action_delay": {
+      "description": "delay action: required 'ms' param (max 30000)",
+      "required_params": ["ms"],
+      "optional_params": []
+    },
+    "action_click": {
+      "description": "click action: required 'coordinates' param as 'x,y' string",
+      "required_params": ["coordinates"],
+      "optional_params": ["window", "rightClick"],
+      "outputs": ["x", "y"]
+    },
+    "action_scroll": {
+      "description": "scroll action: required 'coordinates' param as 'x,y'. delta defaults to 120 (positive=up)",
+      "required_params": ["coordinates"],
+      "optional_params": ["delta", "window"]
+    },
+    "action_navigate": {
+      "description": "navigate action: required 'window' param (partial window title, case-insensitive)",
+      "required_params": ["window"],
+      "optional_params": [],
+      "outputs": ["windowHandle"]
+    },
+    "action_focus": {
+      "description": "focus action: activates a window or control",
+      "required_params": [],
+      "optional_params": ["window", "target"],
+      "outputs": ["windowHandle"]
+    },
+    "action_app_launch": {
+      "description": "app.launch action: launches or attaches to a Windows app",
+      "required_params": ["executable"],
+      "optional_params": ["args", "timeoutMs", "attachIfRunning"],
+      "outputs": ["processId", "windowTitle"]
+    },
+    "action_http_get": {
+      "description": "http.get action: HTTP GET; use storeAs to chain outputs as ${storeAs.statusCode}, ${storeAs.body}, ${storeAs.json}",
+      "required_params": ["url"],
+      "optional_params": ["timeoutMs", "storeAs"],
+      "outputs": ["statusCode", "body", "json"]
+    },
+    "action_file_saveAs": {
+      "description": "file.saveAs action: saves via Save As dialog. filePath supports %ENV% expansion",
+      "required_params": ["filePath"],
+      "optional_params": ["windowTitle", "overwrite", "saveAsShortcut"],
+      "outputs": ["savedPath", "fileSizeBytes"]
+    }
+  }
+}

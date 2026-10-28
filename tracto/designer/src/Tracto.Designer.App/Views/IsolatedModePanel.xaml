@@ -1,0 +1,55 @@
+<UserControl x:Class="Tracto.Designer.App.Views.IsolatedModePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="600">
+    <StackPanel>
+
+        <!-- Isolated mode banner — visible only when IsEnabled -->
+        <Border Background="Orange" Padding="8,4"
+                Visibility="{Binding BannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="&#x26A0; ISOLATED MODE — No network access"
+                       FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+        </Border>
+
+        <StackPanel Margin="4,6,4,4">
+
+            <!-- Enable toggle -->
+            <CheckBox Content="Enable Isolated Mode"
+                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                      Margin="0,0,0,4"/>
+
+            <!-- Restrict network access — only actionable when isolation is on -->
+            <CheckBox Content="Restrict Network Access"
+                      IsChecked="{Binding RestrictNetworkAccess, Mode=TwoWay}"
+                      IsEnabled="{Binding IsEnabled}"
+                      Margin="0,0,0,4"/>
+
+            <!-- Validate button -->
+            <Button Content="Validate for Isolation"
+                    Command="{Binding ValidateCommand}"
+                    HorizontalAlignment="Left"
+                    Padding="8,3"
+                    Margin="0,0,0,6"/>
+
+            <!-- Violations grid — collapsed until a validation has run -->
+            <DataGrid ItemsSource="{Binding ValidationResult.Violations}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      GridLinesVisibility="Horizontal"
+                      HeadersVisibility="Column"
+                      Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Code"       Width="80"  Binding="{Binding Code}"/>
+                    <DataGridTextColumn Header="Message"    Width="*"   Binding="{Binding Message}"/>
+                    <DataGridTextColumn Header="Step"       Width="50"  Binding="{Binding StepNumber}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+        </StackPanel>
+
+    </StackPanel>
+</UserControl>

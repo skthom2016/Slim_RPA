@@ -1,0 +1,22 @@
+{
+  "fixtureId": "CF-06",
+  "title": "Service outcome SUCCESS: normalized service call returns SUCCESS",
+  "acIds": ["ST1-14-AC06"],
+  "category": "service-outcomes",
+  "description": "Worker executes a service invocation that returns the normalized outcome SUCCESS. Verifies that SUCCESS is correctly mapped and that the job reaches SUCCEEDED run state.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf06",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "serviceOutcome": "SUCCESS",
+  "isInteractiveJob": true,
+  "heartbeatCount": 1,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": "SUCCEEDED",
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": true,
+  "notes": "SUCCESS is the affirmative normalized service outcome. Its presence must not alter the run state from SUCCEEDED."
+}

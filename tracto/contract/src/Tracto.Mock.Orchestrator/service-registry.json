@@ -1,0 +1,32 @@
+[
+  {
+    "serviceRef": "orchestrator.internal",
+    "operationRef": "notifyRunComplete",
+    "baseUrl": null,
+    "httpMethod": "POST",
+    "responseSchemaVersion": "1.0",
+    "authPolicy": "internal-token",
+    "requiresTls": true,
+    "allowedRetryClasses": ["TRANSIENT_SAFE", "IDEMPOTENT"]
+  },
+  {
+    "serviceRef": "orchestrator.internal",
+    "operationRef": "fetchCallbackToken",
+    "baseUrl": null,
+    "httpMethod": "GET",
+    "responseSchemaVersion": "1.0",
+    "authPolicy": "internal-token",
+    "requiresTls": true,
+    "allowedRetryClasses": ["TRANSIENT_SAFE"]
+  },
+  {
+    "serviceRef": "business.api",
+    "operationRef": "submitForm",
+    "baseUrl": null,
+    "httpMethod": "POST",
+    "responseSchemaVersion": "1.0",
+    "authPolicy": "bearer-token",
+    "requiresTls": true,
+    "allowedRetryClasses": ["IDEMPOTENT", "ONCE_ONLY"]
+  }
+]

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Tracto.TerminalRuntime.Host-e15232e8-db36-4d4d-8644-bb7d0ac8187d</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tracto.TerminalRuntime.Application\Tracto.TerminalRuntime.Application.csproj" />
+    <ProjectReference Include="..\Tracto.TerminalRuntime.Infrastructure\Tracto.TerminalRuntime.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

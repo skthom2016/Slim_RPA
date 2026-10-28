@@ -1,0 +1,27 @@
+## .NET / C# gitignore
+obj/
+bin/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
+*.snupkg
+artifacts/
+publish/
+
+## Playwright browsers (pinned via playwright.ps1 at build, not committed)
+.playwright/
+
+## Local secrets / deployment policy
+appsettings.Local.json
+appsettings.*.Local.json
+secrets/
+
+## Build tools
+.dotnet/
+
+## Rider / VS Code
+.idea/
+.vscode/settings.json
+.vscode/launch.json

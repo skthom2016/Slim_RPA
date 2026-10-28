@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+  </ItemGroup>
+</Project>

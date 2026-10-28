@@ -1,0 +1,22 @@
+{
+  "fixtureId": "CF-02",
+  "title": "Incompatible schema major: worker advertises major 2, job requires major 1",
+  "acIds": ["ST1-14-AC02"],
+  "category": "schema-compatibility",
+  "description": "Worker registers with schemaMajor=2 but the job envelope requires schemaMajor=1. The dispatcher must withhold the job offer because the schema major versions are incompatible.",
+  "workerRuntimeType": "desktop",
+  "workerHostClass": "interactive",
+  "interactiveSessionId": "session-cf02",
+  "requiredNamespaces": ["desktop.*"],
+  "requiredSchemaMajor": 1,
+  "workerSchemaMajor": 2,
+  "isInteractiveJob": true,
+  "heartbeatCount": 0,
+  "injectCancellation": false,
+  "injectFault": null,
+  "finalRunState": null,
+  "expectedDisposition": null,
+  "expectedRegistrationAccepted": true,
+  "expectedJobOffered": false,
+  "notes": "Job must be withheld when worker schema major does not match required schema major. Worker registration itself is accepted; only job dispatch is blocked."
+}

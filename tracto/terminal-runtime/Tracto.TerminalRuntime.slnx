@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tracto.TerminalRuntime.Application/Tracto.TerminalRuntime.Application.csproj" />
+    <Project Path="src/Tracto.TerminalRuntime.Domain/Tracto.TerminalRuntime.Domain.csproj" />
+    <Project Path="src/Tracto.TerminalRuntime.Host/Tracto.TerminalRuntime.Host.csproj" />
+    <Project Path="src/Tracto.TerminalRuntime.Infrastructure/Tracto.TerminalRuntime.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tracto.TerminalRuntime.Integration.Tests/Tracto.TerminalRuntime.Integration.Tests.csproj" />
+    <Project Path="tests/Tracto.TerminalRuntime.Unit.Tests/Tracto.TerminalRuntime.Unit.Tests.csproj" />
+  </Folder>
+</Solution>

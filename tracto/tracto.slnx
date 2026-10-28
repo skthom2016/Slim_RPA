@@ -1,0 +1,130 @@
+<Solution>
+  <Folder Name="/contract/">
+    <Project Path="contract/src/Tracto.Conformance.Fixtures/Tracto.Conformance.Fixtures.csproj" />
+    <Project Path="contract/src/Tracto.Conformance.Runner/Tracto.Conformance.Runner.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Execution/Tracto.Contract.Execution.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Models/Tracto.Contract.Models.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Orchestrator/Tracto.Contract.Orchestrator.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Schemas/Tracto.Contract.Schemas.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Telemetry/Tracto.Contract.Telemetry.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Testing/Tracto.Contract.Testing.csproj" />
+    <Project Path="contract/src/Tracto.Contract.Validation/Tracto.Contract.Validation.csproj" />
+    <Project Path="contract/src/Tracto.Mock.BusinessService/Tracto.Mock.BusinessService.csproj" />
+    <Project Path="contract/src/Tracto.Mock.Orchestrator/Tracto.Mock.Orchestrator.csproj" />
+    <Project Path="contract/src/Tracto.Reference.Adapter/Tracto.Reference.Adapter.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Execution.Tests/Tracto.Contract.Execution.Tests.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Models.Tests/Tracto.Contract.Models.Tests.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Orchestrator.Tests/Tracto.Contract.Orchestrator.Tests.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Schemas.Tests/Tracto.Contract.Schemas.Tests.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Telemetry.Tests/Tracto.Contract.Telemetry.Tests.csproj" />
+    <Project Path="contract/tests/Tracto.Contract.Validation.Tests/Tracto.Contract.Validation.Tests.csproj" />
+  </Folder>
+  <Folder Name="/designer/">
+    <Project Path="designer/src/Tracto.Designer.App/Tracto.Designer.App.csproj" />
+    <Project Path="designer/src/Tracto.Designer.Core/Tracto.Designer.Core.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="designer/src/Tracto.Designer.Infrastructure/Tracto.Designer.Infrastructure.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="designer/tests/Tracto.Designer.Integration.Tests/Tracto.Designer.Integration.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="designer/tests/Tracto.Designer.Unit.Tests/Tracto.Designer.Unit.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+  </Folder>
+  <Folder Name="/desktop-runtime/">
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Host/Tracto.Desktop.Host.csproj" />
+    <Project Path="desktop-runtime/src/Tracto.Desktop.AppLifecycle/Tracto.Desktop.AppLifecycle.csproj" />
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Controls/Tracto.Desktop.Controls.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Element/Tracto.Desktop.Element.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Input/Tracto.Desktop.Input.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Ipc/Tracto.Desktop.Ipc.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Protocol/Tracto.Desktop.Protocol.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Recovery/Tracto.Desktop.Recovery.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Runtime/Tracto.Desktop.Runtime.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Security/Tracto.Desktop.Security.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Session/Tracto.Desktop.Session.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/src/Tracto.Desktop.Telemetry/Tracto.Desktop.Telemetry.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.AppLifecycle.Tests/Tracto.Desktop.AppLifecycle.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Controls.Tests/Tracto.Desktop.Controls.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Element.Tests/Tracto.Desktop.Element.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Input.Tests/Tracto.Desktop.Input.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Integration.Tests/Tracto.Desktop.Integration.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Ipc.Tests/Tracto.Desktop.Ipc.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Protocol.Tests/Tracto.Desktop.Protocol.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Recovery.Tests/Tracto.Desktop.Recovery.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Security.Tests/Tracto.Desktop.Security.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Session.Tests/Tracto.Desktop.Session.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="desktop-runtime/tests/Tracto.Desktop.Telemetry.Tests/Tracto.Desktop.Telemetry.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+  </Folder>
+  <Folder Name="/orchestrator/">
+    <Project Path="orchestrator/src/Tracto.Orchestrator.Api/Tracto.Orchestrator.Api.csproj" />
+    <Project Path="orchestrator/src/Tracto.Orchestrator.Application/Tracto.Orchestrator.Application.csproj" />
+    <Project Path="orchestrator/src/Tracto.Orchestrator.Domain/Tracto.Orchestrator.Domain.csproj" />
+    <Project Path="orchestrator/src/Tracto.Orchestrator.Infrastructure/Tracto.Orchestrator.Infrastructure.csproj" />
+    <Project Path="orchestrator/tests/Tracto.Orchestrator.Integration.Tests/Tracto.Orchestrator.Integration.Tests.csproj" />
+    <Project Path="orchestrator/tests/Tracto.Orchestrator.Unit.Tests/Tracto.Orchestrator.Unit.Tests.csproj" />
+  </Folder>
+  <Folder Name="/terminal-runtime/">
+    <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Domain/Tracto.TerminalRuntime.Domain.csproj" />
+    <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Application/Tracto.TerminalRuntime.Application.csproj" />
+    <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Infrastructure/Tracto.TerminalRuntime.Infrastructure.csproj" />
+    <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Host/Tracto.TerminalRuntime.Host.csproj" />
+    <Project Path="terminal-runtime/tests/Tracto.TerminalRuntime.Unit.Tests/Tracto.TerminalRuntime.Unit.Tests.csproj" />
+    <Project Path="terminal-runtime/tests/Tracto.TerminalRuntime.Integration.Tests/Tracto.TerminalRuntime.Integration.Tests.csproj" />
+  </Folder>
+  <Folder Name="/browser-runtime/">
+    <Project Path="browser-runtime/src/TractoRuntime.Browser/TractoRuntime.Browser.csproj" />
+    <Project Path="browser-runtime/tests/TractoRuntime.Browser.Tests/TractoRuntime.Browser.Tests.csproj" />
+  </Folder>
+  <Folder Name="/hello-world/">
+    <Project Path="hello-world/src/Tracto.HelloWorld.Api/Tracto.HelloWorld.Api.csproj" />
+  </Folder>
+  <Folder Name="/e2e/">
+    <Project Path="e2e/Tracto.E2E.Tests/Tracto.E2E.Tests.csproj" />
+  </Folder>
+</Solution>

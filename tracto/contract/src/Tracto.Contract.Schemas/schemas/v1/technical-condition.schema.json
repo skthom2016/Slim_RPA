@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.neeli/schemas/v1/technical-condition.schema.json",
+  "title": "TechnicalCondition",
+  "description": "A closed-allowlist grammar for expressing technical preconditions and postconditions. Supports logical composition (all/any/not) and a fixed set of predicate types. No domain arithmetic, relational operators, or executable code is permitted. Depth limit is enforced by the validator at runtime, not expressed in the schema itself.",
+  "$comment": "Depth limit is enforced by the validator, not the schema.",
+  "$ref": "#/$defs/Condition",
+  "$defs": {
+    "Condition": {
+      "title": "Condition",
+      "$comment": "Depth limit is enforced by the validator, not the schema.",
+      "oneOf": [
+        { "$ref": "#/$defs/AllCondition" },
+        { "$ref": "#/$defs/AnyCondition" },
+        { "$ref": "#/$defs/NotCondition" },
+        { "$ref": "#/$defs/PredicateCondition" }
+      ]
+    },
+
+    "AllCondition": {
+      "title": "AllCondition",
+      "description": "Logical conjunction: all child conditions must be true.",
+      "type": "object",
+      "required": ["all"],
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "type": "array",
+          "description": "One or more conditions that must all evaluate to true.",
+          "items": { "$ref": "#/$defs/Condition" },
+          "minItems": 1
+        }
+      }
+    },
+
+    "AnyCondition": {
+      "title": "AnyCondition",
+      "description": "Logical disjunction: at least one child condition must be true.",
+      "type": "object",
+      "required": ["any"],
+      "additionalProperties": false,
+      "properties": {
+        "any": {
+          "type": "array",
+          "description": "One or more conditions of which at least one must evaluate to true.",
+          "items": { "$ref": "#/$defs/Condition" },
+          "minItems": 1
+        }
+      }
+    },
+
+    "NotCondition": {
+      "title": "NotCondition",
+      "description": "Logical negation: the child condition must be false.",
+      "type": "object",
+      "required": ["not"],
+      "additionalProperties": false,
+      "properties": {
+        "not": {
+          "$ref": "#/$defs/Condition",
+          "description": "The condition whose result is negated."
+        }
+      }
+    },
+
+    "PredicateCondition": {
+      "title": "PredicateCondition",
+      "description": "A leaf condition that tests a specific observable fact. The allowed predicate types form a closed allowlist; no arithmetic, relational expressions, or executable code may appear here.",
+      "oneOf": [
+        { "$ref": "#/$defs/StateEqualsCondition" },
+        { "$ref": "#/$defs/ElementVisibleCondition" },
+        { "$ref": "#/$defs/ElementEnabledCondition" },
+        { "$ref": "#/$defs/ElementExistsCondition" },
+        { "$ref": "#/$defs/ElementTextEqualsCondition" },
+        { "$ref": "#/$defs/ApiOutcomeCategoryEqualsCondition" },
+        { "$ref": "#/$defs/ApiActionCodeEqualsCondition" },
+        { "$ref": "#/$defs/CommandExitCodeEqualsCondition" },
+        { "$ref": "#/$defs/CommandOutputContainsCondition" },
+        { "$ref": "#/$defs/VariableIsSetCondition" }
+      ]
+    },
+
+    "StateEqualsCondition": {
+      "title": "StateEqualsCondition",
+      "description": "Tests that a named state variable equals a specific string value.",
+      "type": "object",
+      "required": ["type", "target", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "state.equals" },
+        "target": {
+          "type": "string",
+          "description": "The name of the state variable to test.",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "description": "The expected string value of the state variable."
+        }
+      }
+    },
+
+    "ElementVisibleCondition": {
+      "title": "ElementVisibleCondition",
+      "description": "Tests that the UI element identified by selectorRef is visible in the current session.",
+      "type": "object",
+      "required": ["type", "selectorRef"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "element.visible" },
+        "selectorRef": {
+          "type": "string",
+          "description": "The logical name of the target selector (must appear in the script's TargetMap).",
+          "minLength": 1
+        }
+      }
+    },
+
+    "ElementEnabledCondition": {
+      "title": "ElementEnabledCondition",
+      "description": "Tests that the UI element identified by selectorRef is enabled (not disabled or read-only).",
+      "type": "object",
+      "required": ["type", "selectorRef"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "element.enabled" },
+        "selectorRef": {
+          "type": "string",
+          "description": "The logical name of the target selector (must appear in the script's TargetMap).",
+          "minLength": 1
+        }
+      }
+    },
+
+    "ElementExistsCondition": {
+      "title": "ElementExistsCondition",
+      "description": "Tests that the UI element identified by selectorRef exists in the DOM or accessibility tree, regardless of visibility.",
+      "type": "object",
+      "required": ["type", "selectorRef"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "element.exists" },
+        "selectorRef": {
+          "type": "string",
+          "description": "The logical name of the target selector (must appear in the script's TargetMap).",
+          "minLength": 1
+        }
+      }
+    },
+
+    "ElementTextEqualsCondition": {
+      "title": "ElementTextEqualsCondition",
+      "description": "Tests that the visible text content of the UI element identified by selectorRef equals the given value.",
+      "type": "object",
+      "required": ["type", "selectorRef", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "element.textEquals" },
+        "selectorRef": {
+          "type": "string",
+          "description": "The logical name of the target selector (must appear in the script's TargetMap).",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string",
+          "description": "The expected text content of the element."
+        }
+      }
+    },
+
+    "ApiOutcomeCategoryEqualsCondition": {
+      "title": "ApiOutcomeCategoryEqualsCondition",
+      "description": "Tests that the outcome category of the most recent service call equals the given value. Uses the ServiceOutcome enumeration mapped to uppercase underscore form.",
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "api.outcomeCategoryEquals" },
+        "value": {
+          "description": "The expected service outcome category.",
+          "enum": [
+            "SUCCESS",
+            "BUSINESS_REJECTION",
+            "TECHNICAL_FAILURE",
+            "TRANSIENT_FAILURE",
+            "UNKNOWN_OUTCOME"
+          ]
+        }
+      }
+    },
+
+    "ApiActionCodeEqualsCondition": {
+      "title": "ApiActionCodeEqualsCondition",
+      "description": "Tests that the action code returned by the most recent service call equals the given stable string code.",
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "api.actionCodeEquals" },
+        "value": {
+          "type": "string",
+          "description": "The expected action code string returned by the service.",
+          "minLength": 1
+        }
+      }
+    },
+
+    "CommandExitCodeEqualsCondition": {
+      "title": "CommandExitCodeEqualsCondition",
+      "description": "Tests that the exit code of the most recently completed command step equals the given integer value.",
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "command.exitCodeEquals" },
+        "value": {
+          "type": "integer",
+          "description": "The expected process exit code."
+        }
+      }
+    },
+
+    "CommandOutputContainsCondition": {
+      "title": "CommandOutputContainsCondition",
+      "description": "Tests that the stdout output of the most recently completed command step contains the given literal substring.",
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "command.outputContains" },
+        "value": {
+          "type": "string",
+          "description": "The literal substring to search for in the command's stdout output.",
+          "minLength": 1
+        }
+      }
+    },
+
+    "VariableIsSetCondition": {
+      "title": "VariableIsSetCondition",
+      "description": "Tests that the named script variable has been assigned a value (i.e., is not uninitialized). See C1 decision: an uninitialized var is a distinct state from null.",
+      "type": "object",
+      "required": ["type", "varName"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "variable.isSet" },
+        "varName": {
+          "type": "string",
+          "description": "The name of the declared script variable to test (must appear in the script's vars map).",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "step-envelope.schema.json",
+  "title": "StepEnvelope",
+  "description": "Individual step definition within a Tracto automation script.",
+  "type": "object",
+  "required": ["stepId", "action"],
+  "additionalProperties": false,
+  "properties": {
+    "stepId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+      "description": "Unique step identifier within the automation. Lowercase, starts with a letter."
+    },
+    "action": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*\\.[a-z][a-z0-9.]*$",
+      "description": "Fully qualified action name in namespace.action format (e.g. desktop.click, service.invoke)."
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/TypedValue"
+      },
+      "description": "Map of input parameter names to typed values or references."
+    },
+    "outputBinding": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Map of declared var name to step output field reference (e.g. steps.<stepId>.outputs.<field>)."
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum milliseconds this step may execute before TimedOut is raised."
+    },
+    "retryClass": {
+      "enum": ["TransientSafe", "Idempotent", "OnceOnly", "Never"],
+      "description": "Retry classification governing whether and how this step may be retried on failure."
+    },
+    "precondition": {
+      "$ref": "#/$defs/TechnicalCondition",
+      "description": "Technical condition that must be true before the step executes."
+    },
+    "postcondition": {
+      "$ref": "#/$defs/TechnicalCondition",
+      "description": "Technical condition that must be true after the step completes to verify effect commitment."
+    },
+    "onFailure": {
+      "$ref": "#/$defs/OnFailureHandler",
+      "description": "Handler invoked when this step reaches a terminal failure state."
+    },
+    "sensitivity": {
+      "enum": ["NONE", "OPAQUE", "RESTRICTED"],
+      "description": "Sensitivity classification for this step's inputs/outputs. Affects telemetry redaction."
+    }
+  },
+  "$defs": {
+    "TypedRef": {
+      "type": "object",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^(inputs|vars|steps\\.[^.]+\\.outputs|secrets)\\..+",
+          "description": "Reference path to an input, var, step output, or secret."
+        }
+      }
+    },
+    "TypedValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "integer" },
+        { "type": "boolean" },
+        { "$ref": "#/$defs/TypedRef" }
+      ],
+      "description": "A literal typed value or a reference to a declared binding."
+    },
+    "TechnicalCondition": {
+      "type": "object",
+      "required": ["predicate"],
+      "additionalProperties": false,
+      "description": "A technical predicate evaluated by the worker runtime. Must not encode business intent (see contract §ST1-04-AC06).",
+      "properties": {
+        "predicate": {
+          "type": "string",
+          "description": "Fully qualified predicate name in namespace.predicate format (e.g. desktop.elementExists, api.statusCodeEquals)."
+        },
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/TypedValue"
+          },
+          "description": "Arguments passed to the predicate evaluator."
+        },
+        "waitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum milliseconds to poll for this condition to become true. Zero means evaluate once."
+        },
+        "pollIntervalMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Polling interval in milliseconds when waitMs > 0."
+        }
+      }
+    },
+    "OnFailureHandler": {
+      "type": "object",
+      "required": ["handler"],
+      "additionalProperties": false,
+      "description": "Specifies what happens when this step reaches a terminal failure state.",
+      "properties": {
+        "handler": {
+          "type": "string",
+          "description": "Named failure handler strategy (e.g. abort, continueWithDefault, escalate)."
+        },
+        "compensatingSteps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ordered list of stepIds to execute as compensating actions before the handler runs."
+        }
+      }
+    }
+  }
+}

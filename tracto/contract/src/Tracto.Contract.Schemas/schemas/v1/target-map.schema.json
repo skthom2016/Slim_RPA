@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tracto.neeli/schemas/v1/target-map.schema.json",
+  "title": "TargetMap",
+  "description": "A named map of automation target selectors used by a script to locate UI elements, URLs, commands, or data regions. Each entry is immutable at runtime; no executable script content is permitted in the value field.",
+  "type": "object",
+  "required": ["targets"],
+  "additionalProperties": false,
+  "properties": {
+    "targets": {
+      "type": "object",
+      "description": "A map of logical target names to their selector definitions. Keys are stable identifiers referenced by steps via selectorRef.",
+      "additionalProperties": {
+        "$ref": "#/$defs/TargetDefinition"
+      }
+    }
+  },
+  "$defs": {
+    "TargetDefinition": {
+      "title": "TargetDefinition",
+      "description": "Defines how to locate a single automation target. The value field must contain a literal selector expression and must not contain executable script content.",
+      "type": "object",
+      "required": ["selectorRef", "selectorType", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "selectorRef": {
+          "type": "string",
+          "description": "The logical name of this target, used by steps to reference it. Must match the map key for cross-validation purposes.",
+          "minLength": 1
+        },
+        "selectorType": {
+          "description": "The mechanism used to locate the target element or resource.",
+          "enum": ["css", "xpath", "uia", "regex", "command", "url"]
+        },
+        "value": {
+          "type": "string",
+          "description": "The literal selector expression for this target. Must not contain executable script content. For css/xpath/uia this is the selector string; for command, the executable path and static arguments; for url, the literal URL; for regex, the pattern.",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
