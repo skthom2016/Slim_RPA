@@ -169,6 +169,94 @@ tracto/
 
 ---
 
+## Cleaning Up a Designer Recording
+
+When the Designer records a session it captures everything — including noise that must be removed before the script can run. Follow these rules every time you are given a raw recording file to clean up:
+
+### Step 1 — Delete noise steps (always present)
+Remove any step that matches one of these patterns:
+
+| Pattern | Why it's noise |
+|---------|---------------|
+| `focus` with empty `parameters: {}` | Unfocused events — no target captured |
+| `focus` with `window: ""` or missing window | Designer failed to identify the window |
+| `navigate` with empty `parameters: {}` | Spurious window-activation event |
+| `click` with only `coordinates` and no `window` in the first 5 steps | User clicking into the Designer UI itself before the automation started |
+| Steps with `description` containing `"Tracto Designer"` | Recorder captured clicks on the Designer app itself — delete these |
+| Steps with `window: "DesktopWindowXamlSource"` or `window: "CoreInput"` | Windows internal XAML host windows — not real targets |
+
+### Step 2 — Convert VK codes to a `type` action
+The recorder writes individual keystrokes as `key` actions with raw Windows virtual key codes (`VK_48`, `VK_45`, etc.). Replace any consecutive group of `key` steps that spell out a word or phrase with a single `type` action.
+
+VK code to character map (common ones):
+```
+VK_20 = Space   VK_41=A  VK_42=B  VK_43=C  VK_44=D  VK_45=E
+VK_46=F  VK_47=G  VK_48=H  VK_49=I  VK_4A=J  VK_4B=K
+VK_4C=L  VK_4D=M  VK_4E=N  VK_4F=O  VK_50=P  VK_51=Q
+VK_52=R  VK_53=S  VK_54=T  VK_55=U  VK_56=V  VK_57=W
+VK_58=X  VK_59=Y  VK_5A=Z
+VK_30=0  VK_31=1  VK_32=2  VK_33=3  VK_34=4
+VK_35=5  VK_36=6  VK_37=7  VK_38=8  VK_39=9
+```
+
+Example — recorder output:
+```json
+{ "action": "key", "parameters": { "key": "VK_48" } },
+{ "action": "key", "parameters": { "key": "VK_45" } },
+{ "action": "key", "parameters": { "key": "VK_4C" } },
+{ "action": "key", "parameters": { "key": "VK_4C" } },
+{ "action": "key", "parameters": { "key": "VK_4F" } }
+```
+Clean version:
+```json
+{ "action": "type", "parameters": { "value": "HELLO" } }
+```
+
+### Step 3 — Add delays between major actions
+The recorder captures no timing. Add `delay` steps wherever the UI needs time to respond:
+
+| Transition | Recommended delay |
+|-----------|------------------|
+| After opening Windows Search (`{LWIN}s`) | 800 ms |
+| After typing into a search box | 1000 ms |
+| After pressing Enter to open an app | 2000 ms |
+| After clicking a button that opens a dialog | 500 ms |
+| After a `file.saveAs` | 1000 ms |
+
+### Step 4 — Give the script a clean identity
+Replace the recorder's auto-generated id (`c47069175c014c9e8e3c6022bec3414c`) and name (`Session 4f2c1b28`) with meaningful values:
+```json
+{
+  "id": "descriptive-kebab-case-id",
+  "name": "Human Readable Name",
+  "version": "1.0.0",
+  "targetRuntime": "desktop"
+}
+```
+
+### Step 5 — Add a `file.saveAs` if the recording ends without saving
+Raw recordings often end abruptly. If the intent included saving a file, add:
+```json
+{
+  "stepNumber": N,
+  "description": "Save the file",
+  "action": "file.saveAs",
+  "parameters": {
+    "filePath": "%USERPROFILE%\\Downloads\\output.txt",
+    "windowTitle": "Notepad",
+    "overwrite": "true"
+  }
+}
+```
+
+### Renumber steps after cleanup
+After deletions, renumber `stepNumber` sequentially starting from 1.
+
+### Validate the result
+The cleaned script must match `tracto/script.schema.json`. Every parameter value must be a string.
+
+---
+
 ## Known Quirks
 
 - **All parameter values are strings.** Even `ms`, `timeoutMs`, and `overwrite` must be string values in JSON.
