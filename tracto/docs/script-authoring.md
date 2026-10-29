@@ -48,14 +48,15 @@ Validate any script against `tracto/script.schema.json`.
 |--------|----------------|---------------------|---------|
 | `key` | `key` | `window` | `sendKeysValue` |
 | `type` | `value` | `window` | `charactersTyped` |
-| `delay` | `ms` (max 30000) | — | — |
+| `notepad.type` | `text` | `windowTitle` (def "Notepad") | `charactersTyped` |
+| `delay` | — (default 1000ms) | `ms` (max 30000) | — |
 | `click` | `coordinates` ("x,y") | `window`, `rightClick` | `x`, `y` |
 | `scroll` | `coordinates` ("x,y") | `delta` (def "120"), `window` | — |
-| `navigate` | `window` | — | `windowHandle` |
+| `navigate` | — (no-op if missing) | `window` | `windowHandle` |
 | `focus` | — | `window`, `target` | `windowHandle` |
 | `app.launch` | `executable` | `args`, `timeoutMs`, `attachIfRunning` | `processId`, `windowTitle` |
 | `http.get` | `url` | `timeoutMs`, `storeAs` | `statusCode`, `body`, `json` |
-| `file.saveAs` | `filePath` | `windowTitle`, `overwrite`, `saveAsShortcut` | `savedPath`, `fileSizeBytes` |
+| `file.saveAs` | `filePath` | `windowTitle` (def "Notepad"), `overwrite`, `saveAsShortcut` | `savedPath`, `fileSizeBytes` |
 
 Full details with examples: `docs/action-catalog.md`
 
@@ -66,15 +67,22 @@ Full details with examples: `docs/action-catalog.md`
 | Key string | Meaning |
 |-----------|---------|
 | `{LWIN}s` | Windows key + S (opens Search) — routed through Win32 `keybd_event`, NOT SendKeys |
-| `{ENTER}` | Enter |
-| `{TAB}` | Tab |
-| `{ESC}` | Escape |
-| `%{F4}` | Alt+F4 |
-| `^s` | Ctrl+S |
-| `^c` | Ctrl+C |
-| `^v` | Ctrl+V |
-| `{F12}` | F12 (Excel Save As) |
-| `+{TAB}` | Shift+Tab |
+| `{WIN}s` | Alias for `{LWIN}s` |
+| `{RWIN}` | Right Windows key |
+| `{ENTER}` or `"Enter"` | Enter |
+| `{TAB}` or `"Tab"` | Tab |
+| `{ESC}` or `"Escape"` | Escape |
+| `{DELETE}` or `"Delete"` | Delete |
+| `{BACKSPACE}` or `"Backspace"` | Backspace |
+| `{HOME}` / `{END}` | Home / End |
+| `{PGUP}` / `{PGDN}` | Page Up / Page Down |
+| `{UP}` `{DOWN}` `{LEFT}` `{RIGHT}` | Arrow keys |
+| `%{F4}` or `"Alt+F4"` | Alt+F4 |
+| `^s` or `"Ctrl+S"` | Ctrl+S |
+| `^c` or `"Ctrl+C"` | Ctrl+C |
+| `^v` or `"Ctrl+V"` | Ctrl+V |
+| `{F12}` or `"F12"` | F12 (Excel Save As) |
+| `+{TAB}` or `"Shift+Tab"` | Shift+Tab |
 
 ---
 
@@ -108,7 +116,13 @@ Available in any `value` or `filePath` parameter without a `storeAs`:
 
 - **All parameter values are strings.** `"ms": "1000"` not `"ms": 1000`. Applies to every parameter.
 - **`key` not `keys`.** The key action parameter name is singular `"key"`.
-- **`{LWIN}` requires Win32.** The runtime auto-routes `{LWIN}*` tokens through `keybd_event`. Do not try to use it via `type`.
+- **`{LWIN}` / `{WIN}` / `{RWIN}` require Win32.** The runtime auto-routes these through `keybd_event`. They cannot be sent via `type`.
+- **`notepad.type` uses `text`, not `value`.** It is the one action whose text parameter is named `text`. All others use `value`.
+- **`notepad.type` uses clipboard paste.** It overwrites the clipboard. If your script reads the clipboard after a `notepad.type` step, the value will be the text you just pasted.
+- **`delay` has a default.** `ms` is optional — omitting it defaults to 1000ms. Always supply it explicitly for clarity.
+- **`navigate` missing window is a no-op.** If `window` is absent or empty, the step logs a warning and succeeds without doing anything.
 - **`filePath` is one full path.** `file.saveAs` takes a single `filePath` (e.g. `"%USERPROFILE%\\Downloads\\out.txt"`), not separate directory + filename params.
 - **`coordinates` format is `"x,y"` as a string.** e.g. `"coordinates": "960,540"`.
 - **`delay` max is 30000 ms.** For longer waits, chain multiple delay steps.
+- **`http.get` non-2xx still populates outputs.** If a request returns 4xx/5xx, the step fails but `statusCode` and `body` are still available via `storeAs`.
+- **`app.launch` args cannot contain spaces.** The `args` string is split on spaces — arguments that themselves contain spaces (e.g. file paths) will be broken apart.
