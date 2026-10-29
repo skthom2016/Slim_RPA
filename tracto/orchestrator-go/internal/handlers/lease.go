@@ -115,8 +115,8 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	// Lease: Offered → Accepted
-	tx.Exec(`UPDATE LeaseRecords SET State='Accepted',AcceptedAt=? WHERE RunId=? AND AttemptId=?`,
-		nowStr, runID, req.AttemptId)
+	tx.Exec(`UPDATE LeaseRecords SET State='Accepted',AcceptedAt=?,LastHeartbeatAt=? WHERE RunId=? AND AttemptId=?`,
+		nowStr, nowStr, runID, req.AttemptId)
 
 	// Run: Queued → Leased → Running (both transitions in one shot)
 	tx.Exec(`UPDATE RunRecords SET State='Running',UpdatedAt=? WHERE Id=?`, nowStr, runID)

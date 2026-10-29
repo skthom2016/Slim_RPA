@@ -49,6 +49,22 @@ internal static class NativeMethods
         Thread.Sleep(50);
     }
 
+    // ── DPI ───────────────────────────────────────────────────────────────────
+
+    [DllImport("user32.dll")]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+    private static readonly IntPtr PerMonitorAwareV2 = new(-4);
+
+    /// <summary>
+    /// Makes this process report and accept physical pixels. Without it, a display scaled above 100%
+    /// makes cursor positioning land away from the coordinates the Designer recorded.
+    /// </summary>
+    internal static void EnableDpiAwareness()
+    {
+        try { SetProcessDpiAwarenessContext(PerMonitorAwareV2); } catch { }
+    }
+
     // ── Mouse helpers ─────────────────────────────────────────────────────────
 
     [DllImport("user32.dll")]
@@ -106,6 +122,42 @@ internal static class NativeMethods
             return true;
         }, IntPtr.Zero);
         return found;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct Rect { public int Left, Top, Right, Bottom; }
+
+    /// <summary>Like <see cref="FindWindowByTitle"/> but ignores hidden windows.</summary>
+    internal static IntPtr FindVisibleWindowByTitle(string titleHint)
+    {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows((hwnd, _) =>
+        {
+            if (!IsWindowVisible(hwnd)) return true;
+            var buf = new StringBuilder(512);
+            GetWindowText(hwnd, buf, buf.Capacity);
+            if (buf.Length > 0 && buf.ToString().Contains(titleHint, StringComparison.OrdinalIgnoreCase))
+            {
+                found = hwnd;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    internal static bool TryGetWindowOrigin(IntPtr hwnd, out int left, out int top)
+    {
+        var ok = GetWindowRect(hwnd, out var r);
+        left = r.Left;
+        top = r.Top;
+        return ok;
     }
 
     /// <summary>Escapes text for use with <c>SendKeys.SendWait</c>.</summary>

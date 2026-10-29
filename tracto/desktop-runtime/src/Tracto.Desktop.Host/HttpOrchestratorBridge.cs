@@ -128,7 +128,18 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
 
         var resp = await _http.PostAsJsonAsync($"/jobs/{cached.RunId}/heartbeat", body, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
-        return new HeartbeatAck(heartbeat.LeaseId, heartbeat.SequenceNumber, false);
+
+        var cancellationRequested = false;
+        try
+        {
+            using var doc = await System.Text.Json.JsonDocument.ParseAsync(
+                await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            cancellationRequested = doc.RootElement.TryGetProperty("cancellationRequested", out var c)
+                && c.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch (System.Text.Json.JsonException) { }
+
+        return new HeartbeatAck(heartbeat.LeaseId, heartbeat.SequenceNumber, cancellationRequested);
     }
 
     // ── Final result ──────────────────────────────────────────────────────────

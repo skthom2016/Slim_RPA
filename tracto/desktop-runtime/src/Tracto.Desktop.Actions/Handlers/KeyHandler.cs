@@ -72,6 +72,10 @@ public sealed class KeyHandler : IActionHandler
     /// </summary>
     private static string ToSendKeys(string key)
     {
+        // Raw virtual-key name as written by the Designer recorder, e.g. "VK_4E".
+        if (TryParseVirtualKey(key, out var vk))
+            return VirtualKeyToSendKeys(vk);
+
         // Already looks like a SendKeys string (contains ^ % + { }) — pass through.
         if (key.Length > 0 && "^%+{~".Contains(key[0]))
             return key;
@@ -118,4 +122,40 @@ public sealed class KeyHandler : IActionHandler
 
         return modStr + keyStr;
     }
+
+    private static bool TryParseVirtualKey(string key, out int vk)
+    {
+        vk = 0;
+        return key.Length is >= 4 and <= 5
+            && key.StartsWith("VK_", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(key.AsSpan(3), System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out vk);
+    }
+
+    /// <summary>
+    /// Maps a Windows virtual-key code to a SendKeys string. Modifier keys alone
+    /// map to an empty string because a recorded key-down carries no hold state.
+    /// </summary>
+    private static string VirtualKeyToSendKeys(int vk) => vk switch
+    {
+        >= 0x30 and <= 0x39 or >= 0x41 and <= 0x5A => ((char)vk).ToString().ToLowerInvariant(),
+        >= 0x60 and <= 0x69                        => ((char)('0' + (vk - 0x60))).ToString(),
+        >= 0x70 and <= 0x7B                        => "{F" + (vk - 0x6F) + "}",
+        0x08 => "{BACKSPACE}",
+        0x09 => "{TAB}",
+        0x0D => "{ENTER}",
+        0x1B => "{ESC}",
+        0x20 => " ",
+        0x21 => "{PGUP}",
+        0x22 => "{PGDN}",
+        0x23 => "{END}",
+        0x24 => "{HOME}",
+        0x25 => "{LEFT}",
+        0x26 => "{UP}",
+        0x27 => "{RIGHT}",
+        0x28 => "{DOWN}",
+        0x2D => "{INSERT}",
+        0x2E => "{DELETE}",
+        _    => string.Empty,
+    };
 }

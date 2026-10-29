@@ -13,6 +13,8 @@ using Tracto.Desktop.AppLifecycle;
 using Tracto.Desktop.Host;
 using Tracto.Desktop.Protocol;
 
+ProcessDpi.EnableAwareness();
+
 // ── Configuration from environment ───────────────────────────────────────────
 string orchestratorUrl = Environment.GetEnvironmentVariable("ORCHESTRATOR_URL") ?? "http://localhost:5080";
 string workerId        = Environment.GetEnvironmentVariable("WORKER_ID")        ?? "desktop-runtime-001";
@@ -156,7 +158,12 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
             using var jobCts      = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var heartbeatTask = HeartbeatLoop.RunAsync(
-                _orch, _cfg.WorkerId, job.LeaseId, intervalMs: 15_000, jobCts.Token);
+                _orch, _cfg.WorkerId, job.LeaseId, intervalMs: 15_000, jobCts.Token,
+                onStopRequested: () =>
+                {
+                    _log.LogWarning("Run {RunId}: orchestrator cancelled the run or the lease was lost — stopping", job.RunId);
+                    jobCts.Cancel();
+                });
 
             var startedAt = DateTimeOffset.UtcNow;
             RunState runState;
@@ -164,7 +171,7 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
             try
             {
-                (runState, steps) = await _engine.RunAsync(job, ct);
+                (runState, steps) = await _engine.RunAsync(job, jobCts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -180,7 +187,8 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
             finally
             {
                 await jobCts.CancelAsync();
-                await heartbeatTask;
+                try { await heartbeatTask; }
+                catch (Exception ex) { _log.LogWarning(ex, "Heartbeat loop ended with an error"); }
             }
 
             try

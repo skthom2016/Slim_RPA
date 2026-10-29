@@ -29,7 +29,7 @@ func expireStaleLeases(db *sql.DB, logger *slog.Logger) {
 	heartbeatTimeout := time.Now().UTC().Add(-45 * time.Second).Format(time.RFC3339Nano)
 	rows, err := db.Query(
 		`SELECT LeaseId,RunId,AttemptId,WorkerId FROM LeaseRecords
-		 WHERE State='Accepted' AND (LastHeartbeatAt IS NULL OR LastHeartbeatAt < ?)`,
+		 WHERE State='Accepted' AND COALESCE(LastHeartbeatAt, AcceptedAt, '') < ?`,
 		heartbeatTimeout)
 	if err != nil {
 		logger.Error("lease expiry: query failed", "err", err)
@@ -59,7 +59,7 @@ func expireStaleLeases(db *sql.DB, logger *slog.Logger) {
 
 		// Check if run was ever running
 		var runningCount int
-		db.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=? AND EventType='RUN_RUNNING'`, s.runID).Scan(&runningCount)
+		tx.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=? AND EventType='RUN_RUNNING'`, s.runID).Scan(&runningCount)
 
 		newAttemptID := uuid.NewString()
 		if runningCount > 0 {

@@ -13,6 +13,7 @@ public sealed class DesktopCaptureEngine : IDesktopCaptureEngine
     private long _sequence;
     private bool _running;
     private IntPtr _winEventHook, _kbHook, _mouseHook;
+    private KeyModifiers _heldModifiers;
 
     // MUST be fields — local delegates get GC'd and crash the hook
     private readonly NativeInterop.WinEventDelegate _winEventDelegate;
@@ -121,15 +122,17 @@ public sealed class DesktopCaptureEngine : IDesktopCaptureEngine
                 };
                 if (evtType.HasValue)
                 {
+                    var target = DescribeClickTarget(ms.pt.x, ms.pt.y);
                     var raw = new RawEvent(
                         System.Threading.Interlocked.Increment(ref _sequence),
                         DateTimeOffset.Now,
                         evtType.Value,
                         string.Empty,
-                        string.Empty,
-                        null, null, null, null,
+                        target.WindowTitle,
+                        target.ControlName, null, null, null,
                         false, null,
-                        ms.pt.x, ms.pt.y);
+                        ms.pt.x, ms.pt.y,
+                        target.OffsetX, target.OffsetY);
                     Dispatch(raw);
                 }
             }
@@ -143,10 +146,23 @@ public sealed class DesktopCaptureEngine : IDesktopCaptureEngine
         try
         {
             var next = NativeInterop.CallNextHookEx(_kbHook, nCode, wParam, lParam);
-            if (nCode == NativeInterop.HC_ACTION && _running
-                && ((int)wParam == NativeInterop.WM_KEYDOWN || (int)wParam == NativeInterop.WM_SYSKEYDOWN))
+            if (nCode == NativeInterop.HC_ACTION && _running)
             {
+                var msg = (int)wParam;
                 var kb = Marshal.PtrToStructure<NativeInterop.KBDLLHOOKSTRUCT>(lParam);
+                var isDown = msg == NativeInterop.WM_KEYDOWN || msg == NativeInterop.WM_SYSKEYDOWN;
+                var isUp   = msg == NativeInterop.WM_KEYUP   || msg == NativeInterop.WM_SYSKEYUP;
+
+                // Modifiers are tracked as held state and folded into the next key, not recorded alone.
+                var modifier = KeyNameTranslator.ModifierOf(kb.vkCode);
+                if (modifier != KeyModifiers.None)
+                {
+                    if (isDown) _heldModifiers |= modifier;
+                    else if (isUp) _heldModifiers &= ~modifier;
+                    return next;
+                }
+                if (!isDown) return next;
+
                 bool isPassword = false;
                 try
                 {
@@ -154,7 +170,9 @@ public sealed class DesktopCaptureEngine : IDesktopCaptureEngine
                     if (focused != null) isPassword = focused.Current.IsPassword;
                 }
                 catch { }
-                string? keyVal = isPassword ? null : $"VK_{kb.vkCode:X2}";
+                string? keyVal = isPassword ? null : KeyNameTranslator.Translate(
+                    kb.vkCode, kb.scanCode, _heldModifiers,
+                    (NativeInterop.GetKeyState(0x14) & 1) != 0, ForegroundKeyboardLayout());
                 var raw = new RawEvent(
                     System.Threading.Interlocked.Increment(ref _sequence),
                     DateTimeOffset.Now,
@@ -169,6 +187,50 @@ public sealed class DesktopCaptureEngine : IDesktopCaptureEngine
             return next;
         }
         catch { return NativeInterop.CallNextHookEx(_kbHook, nCode, wParam, lParam); }
+    }
+
+    private readonly record struct ClickTarget(string WindowTitle, string? ControlName, int? OffsetX, int? OffsetY);
+
+    /// <summary>
+    /// Identifies what was clicked: the top-level window, the click position relative to that
+    /// window's top-left corner, and (best effort, time-boxed so the mouse hook stays responsive)
+    /// the UI element under the cursor.
+    /// </summary>
+    private static ClickTarget DescribeClickTarget(int x, int y)
+    {
+        try
+        {
+            var hwnd = NativeInterop.WindowFromPoint(new NativeInterop.POINT { x = x, y = y });
+            if (hwnd == IntPtr.Zero) return default;
+            var root = NativeInterop.GetAncestor(hwnd, NativeInterop.GA_ROOT);
+            if (root == IntPtr.Zero) root = hwnd;
+
+            var title = new StringBuilder(256);
+            NativeInterop.GetWindowText(root, title, title.Capacity);
+            int? offX = null, offY = null;
+            if (NativeInterop.GetWindowRect(root, out var rect))
+            {
+                offX = x - rect.Left;
+                offY = y - rect.Top;
+            }
+
+            string? name = null;
+            var lookup = Task.Run(() =>
+            {
+                try { return AutomationElement.FromPoint(new System.Windows.Point(x, y))?.Current.Name; }
+                catch { return null; }
+            });
+            if (lookup.Wait(150)) name = lookup.Result;
+
+            return new ClickTarget(title.ToString(), string.IsNullOrWhiteSpace(name) ? null : name, offX, offY);
+        }
+        catch { return default; }
+    }
+
+    private static IntPtr ForegroundKeyboardLayout()
+    {
+        var thread = NativeInterop.GetWindowThreadProcessId(NativeInterop.GetForegroundWindow(), out _);
+        return NativeInterop.GetKeyboardLayout(thread);
     }
 
     private void Dispatch(RawEvent raw)

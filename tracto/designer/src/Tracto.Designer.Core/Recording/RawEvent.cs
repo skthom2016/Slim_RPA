@@ -13,4 +13,6 @@ public sealed record RawEvent(
     bool IsPasswordField,
     string? KeyValue,
     int ScreenX,
-    int ScreenY);
+    int ScreenY,
+    int? WindowOffsetX = null,
+    int? WindowOffsetY = null);

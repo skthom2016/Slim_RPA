@@ -21,12 +21,18 @@ public sealed class HeartbeatLoop
     /// <param name="leaseId">The active lease identifier to renew.</param>
     /// <param name="intervalMs">Interval between heartbeats in milliseconds.</param>
     /// <param name="ct">Cancellation token; cancellation stops the loop.</param>
+    /// <param name="onStopRequested">
+    /// Called once, and the loop then ends, when the Orchestrator asks for cancellation or reports
+    /// the lease as lost (HTTP 409). Other heartbeat failures are treated as transient and retried
+    /// at the next interval.
+    /// </param>
     public static async Task RunAsync(
         IOrchestratorServer orch,
         string workerId,
         string leaseId,
         int intervalMs,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Action? onStopRequested = null)
     {
         ArgumentNullException.ThrowIfNull(orch);
         ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
@@ -51,7 +57,24 @@ public sealed class HeartbeatLoop
                     CurrentStepId:    null,
                     CurrentRunState:  RunState.Running);
 
-                await orch.ProcessHeartbeatAsync(heartbeat, ct).ConfigureAwait(false);
+                try
+                {
+                    var ack = await orch.ProcessHeartbeatAsync(heartbeat, ct).ConfigureAwait(false);
+                    if (ack.CancellationRequested)
+                    {
+                        onStopRequested?.Invoke();
+                        return;
+                    }
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    onStopRequested?.Invoke();
+                    return;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Transient heartbeat failure — try again at the next interval.
+                }
             }
         }
         catch (OperationCanceledException)
