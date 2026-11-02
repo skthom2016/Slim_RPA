@@ -67,6 +67,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IActionHandler, NotepadTypeHandler>();
         services.AddSingleton<IActionHandler, FileSaveAsHandler>();
         services.AddSingleton<IActionHandler, HttpGetHandler>();
+        services.AddSingleton<IActionHandler, HttpPostHandler>();
 
         // ActionDispatcher collects all IActionHandler registrations.
         services.AddSingleton<ActionDispatcher>();

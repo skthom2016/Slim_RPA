@@ -33,6 +33,9 @@
     </Project>
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Tracto.Desktop.Actions.Tests/Tracto.Desktop.Actions.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="tests/Tracto.Desktop.AppLifecycle.Tests/Tracto.Desktop.AppLifecycle.Tests.csproj">
       <Platform Project="x64" />
     </Project>

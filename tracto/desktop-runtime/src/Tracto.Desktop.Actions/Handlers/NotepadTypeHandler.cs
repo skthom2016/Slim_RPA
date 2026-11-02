@@ -40,20 +40,7 @@ public sealed class NotepadTypeHandler : IActionHandler
         await Task.Delay(300, ctx.CancellationToken);
 
         // Clipboard must be set on an STA thread
-        var clipboardSet = await Task.Factory.StartNew(() =>
-        {
-            try
-            {
-                Clipboard.SetText(text);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }, ctx.CancellationToken, TaskCreationOptions.None, SynchronizationContext.Current is null
-            ? TaskScheduler.Default
-            : TaskScheduler.FromCurrentSynchronizationContext());
+        var clipboardSet = await SetClipboardTextAsync(text);
 
         if (!clipboardSet)
             return ActionResult.Fail("EXECUTION_FAILED", "Failed to set clipboard text");
@@ -70,6 +57,34 @@ public sealed class NotepadTypeHandler : IActionHandler
         {
             ["charactersTyped"] = text.Length
         });
+    }
+
+    // The clipboard only works on an STA thread; the thread pool is MTA. The clipboard can also be
+    // held briefly by another process, so a few attempts are made.
+    private static Task<bool> SetClipboardTextAsync(string text)
+    {
+        var done = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetDataObject(text, copy: true);
+                    done.SetResult(true);
+                    return;
+                }
+                catch
+                {
+                    Thread.Sleep(100);
+                }
+            }
+            done.SetResult(false);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        return done.Task;
     }
 
     private static IntPtr FindNotepadWindow(string titleHint)

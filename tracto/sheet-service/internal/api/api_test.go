@@ -1,0 +1,140 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/xuri/excelize/v2"
+)
+
+func workbook(t *testing.T) (path string) {
+	t.Helper()
+	path = filepath.Join(t.TempDir(), "book.xlsx")
+	f := excelize.NewFile()
+	f.NewSheet("Data")
+	rows := [][]any{
+		{"Style_ID", "Approved_by_Finance", "Bot_Status", "Bot_Comments"},
+		{"1", "", "", ""},
+		{"2", "", "", ""},
+		{"3", "Approved", "OLD", "keep"},
+	}
+	for i, r := range rows {
+		cell, _ := excelize.CoordinatesToCellName(1, i+1)
+		if err := f.SetSheetRow("Data", cell, &r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.SaveAs(path); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func post(t *testing.T, h http.Handler, route, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, route, strings.NewReader(body)))
+	return rec
+}
+
+func TestUpdate_ManyRowsWithManyColumnsInOneCall(t *testing.T) {
+	path := workbook(t)
+	h := New()
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/update", `{"source":`+src+`,"rows":[
+		{"row":2,"values":{"Approved_by_Finance":"Approved","Bot_Status":"SUCCESS","Bot_Comments":"done"}},
+		{"row":3,"values":{"Bot_Status":"FAILED"}}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var resp UpdateResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Rows != 2 || resp.Cells != 4 {
+		t.Fatalf("got %+v, want 2 rows and 4 cells", resp)
+	}
+
+	rec = post(t, h, "/batch", `{"source":`+src+`,"startRow":2,"endRow":10}`)
+	var b BatchResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &b)
+	by := map[int]map[string]string{}
+	for _, r := range b.Rows {
+		by[r.Number] = r.Values
+	}
+	if by[2]["Bot_Status"] != "SUCCESS" || by[2]["Approved_by_Finance"] != "Approved" || by[2]["Bot_Comments"] != "done" {
+		t.Fatalf("row 2 wrong: %v", by[2])
+	}
+	if by[3]["Bot_Status"] != "FAILED" || by[3]["Bot_Comments"] != "" || by[3]["Approved_by_Finance"] != "" {
+		t.Fatalf("row 3 must change only Bot_Status: %v", by[3])
+	}
+	if by[4]["Bot_Status"] != "OLD" || by[4]["Bot_Comments"] != "keep" {
+		t.Fatalf("row 4 was not part of the call and must be untouched: %v", by[4])
+	}
+}
+
+func TestApply_FillsOnlyTheFirstPendingRows(t *testing.T) {
+	path := workbook(t)
+	h := New()
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/apply", `{"source":`+src+`,"limit":1,
+		"pending":{"column":"Approved_by_Finance","doneValues":["Approved","Rejected"]},
+		"set":{"Approved_by_Finance":"Approved","Bot_Status":"SUCCESS"}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var resp ApplyResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Updated != 1 || resp.Rows[0].Number != 2 || !strings.Contains(resp.Text, "Style_ID") {
+		t.Fatalf("got %+v", resp)
+	}
+
+	rec = post(t, h, "/batch", `{"source":`+src+`,"startRow":2,"endRow":10}`)
+	var b BatchResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &b)
+	if b.Rows[0].Values["Bot_Status"] != "SUCCESS" || b.Rows[1].Values["Bot_Status"] != "" {
+		t.Fatalf("only row 2 may be filled: %+v", b.Rows)
+	}
+}
+
+func TestApply_RequiresLimitAndSet(t *testing.T) {
+	rec := post(t, New(), "/apply", `{"source":{"path":"x.xlsx","sheet":"Data"},"limit":0,"set":{"a":"b"}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", rec.Code)
+	}
+}
+
+func TestUpdate_BadColumnWritesNothing(t *testing.T) {
+	path := workbook(t)
+	h := New()
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/update", `{"source":`+src+`,"rows":[
+		{"row":2,"values":{"Bot_Status":"SUCCESS"}},
+		{"row":3,"values":{"No_Such_Column":"x"}}]}`)
+	if rec.Code == http.StatusOK {
+		t.Fatal("expected an error for the unknown column")
+	}
+	rec = post(t, h, "/batch", `{"source":`+src+`,"startRow":2,"endRow":2}`)
+	var b BatchResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &b)
+	if b.Rows[0].Values["Bot_Status"] != "" {
+		t.Fatal("row 2 must not be written when another row in the same call is invalid")
+	}
+}
+
+func TestUpdate_EmptyRequestIsRejected(t *testing.T) {
+	rec := post(t, New(), "/update", `{"source":{"type":"xlsx","path":"x","sheet":"s"}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400", rec.Code)
+	}
+}
+
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
