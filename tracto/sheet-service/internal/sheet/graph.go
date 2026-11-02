@@ -3,25 +3,29 @@ package sheet
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/xuri/excelize/v2"
 )
 
-// The Excel range API in Microsoft Graph accepts only signed-in users, so an unattended service
-// cannot use it. This connector works on the file instead: it downloads a copy of the workbook,
-// reads and edits the copy with the local xlsx code, and uploads the result back. Graph's simple
-// upload accepts files up to 250 MB.
-const graphMaxUpload = 250 << 20
+// OneDrive and SharePoint workbooks are read and written through the Excel range API of Microsoft
+// Graph. Only the requested rows are fetched and only the cells sent are written; the file is never
+// downloaded or uploaded as a whole. The range API accepts signed-in users only, so the token comes
+// from the saved sign-in (see package msauth).
+const (
+	maxRowsPerPatch = 500 // rows written in one PATCH
+	maxAttempts     = 4   // tries for a request that is throttled (429) or temporarily unavailable
+)
 
 type graphSource struct {
 	cfg    Config
@@ -29,29 +33,22 @@ type graphSource struct {
 	client *http.Client
 	base   string
 	share  string // encoded sharing URL: "u!" + base64url(path)
-	entry  *graphEntry
 }
 
-// graphEntry is the downloaded copy of one remote file. It is kept between requests so that
-// reading a large sheet batch by batch downloads the file once, and so that a write can tell
-// whether the file changed after it was read.
-type graphEntry struct {
-	mu      sync.Mutex
-	local   string
-	etag    string
-	driveID string
-	itemID  string
-}
+type graphItem struct{ drive, item string }
 
-var graphEntries sync.Map // share id -> *graphEntry
+var graphItems sync.Map // share id -> graphItem
 
-type driveItemMeta struct {
-	ID              string `json:"id"`
-	ETag            string `json:"eTag"`
-	Size            int64  `json:"size"`
-	ParentReference struct {
-		DriveID string `json:"driveId"`
-	} `json:"parentReference"`
+// retryWait is replaced in tests.
+var retryWait = func(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 func newGraph(cfg Config) (Source, error) {
@@ -67,193 +64,270 @@ func newGraph(cfg Config) (Source, error) {
 		base = "https://graph.microsoft.com"
 	}
 	share := "u!" + base64.RawURLEncoding.EncodeToString([]byte(cfg.Path))
-	e, _ := graphEntries.LoadOrStore(share, &graphEntry{})
-	return &graphSource{cfg: cfg, tokens: tokens, client: newGraphClient(), base: base, share: share, entry: e.(*graphEntry)}, nil
+	return &graphSource{cfg: cfg, tokens: tokens, client: http.DefaultClient, base: base, share: share}, nil
 }
 
-// newGraphClient never forwards the bearer token on a redirect: file downloads redirect to a
-// pre-authenticated URL that must not receive it.
-func newGraphClient() *http.Client {
-	return &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 10 {
-			return fmt.Errorf("stopped after 10 redirects")
+// worksheet resolves the file once per process and returns the URL of the worksheet resource.
+func (g *graphSource) worksheet(ctx context.Context) (string, error) {
+	it, ok := graphItems.Load(g.share)
+	if !ok {
+		raw, err := g.do(ctx, http.MethodGet, fmt.Sprintf("%s/v1.0/shares/%s/driveItem?$select=id,parentReference", g.base, g.share), nil, "")
+		if err != nil {
+			return "", err
 		}
-		req.Header.Del("Authorization")
-		return nil
-	}}
+		var m struct {
+			ID              string `json:"id"`
+			ParentReference struct {
+				DriveID string `json:"driveId"`
+			} `json:"parentReference"`
+		}
+		if err := json.Unmarshal(raw, &m); err != nil || m.ID == "" || m.ParentReference.DriveID == "" {
+			return "", fmt.Errorf("graph file info is missing the item or drive id; is the path a file?")
+		}
+		it = graphItem{drive: m.ParentReference.DriveID, item: m.ID}
+		graphItems.Store(g.share, it)
+	}
+	i := it.(graphItem)
+	return fmt.Sprintf("%s/v1.0/drives/%s/items/%s/workbook", g.base, url.PathEscape(i.drive), url.PathEscape(i.item)), nil
+}
+
+func (g *graphSource) sheetURL(workbook string) string {
+	return workbook + "/worksheets/" + url.PathEscape(g.cfg.Sheet)
+}
+
+// bounds returns the last used column and row of the worksheet.
+func (g *graphSource) bounds(ctx context.Context, ws string) (lastCol, lastRow int, err error) {
+	raw, err := g.do(ctx, http.MethodGet, ws+"/usedRange(valuesOnly=true)?$select=address", nil, "")
+	if err != nil {
+		return 0, 0, err
+	}
+	var r struct {
+		Address string `json:"address"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return 0, 0, fmt.Errorf("parse used range: %w", err)
+	}
+	addr := r.Address
+	if i := strings.LastIndex(addr, "!"); i >= 0 {
+		addr = addr[i+1:]
+	}
+	if i := strings.LastIndex(addr, ":"); i >= 0 {
+		addr = addr[i+1:]
+	}
+	col, row, err := excelize.CellNameToCoordinates(strings.ReplaceAll(addr, "$", ""))
+	if err != nil {
+		return 0, 0, fmt.Errorf("unexpected used range address %q", r.Address)
+	}
+	return col, row, nil
+}
+
+// text reads a rectangle as the cells' displayed text.
+func (g *graphSource) text(ctx context.Context, ws, address string) ([][]string, error) {
+	raw, err := g.do(ctx, http.MethodGet, fmt.Sprintf("%s/range(address='%s')?$select=text", ws, address), nil, "")
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Text [][]any `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return nil, fmt.Errorf("parse range: %w", err)
+	}
+	out := make([][]string, len(r.Text))
+	for i, cells := range r.Text {
+		out[i] = make([]string, len(cells))
+		for c, v := range cells {
+			if v != nil {
+				out[i][c] = fmt.Sprint(v)
+			}
+		}
+	}
+	return out, nil
+}
+
+func cellAddr(col, row int) string {
+	name, _ := excelize.ColumnNumberToName(col)
+	return name + strconv.Itoa(row)
+}
+
+func (g *graphSource) header(ctx context.Context, ws string, lastCol int) ([]string, error) {
+	h := g.cfg.HeaderRow
+	rows, err := g.text(ctx, ws, cellAddr(1, h)+":"+cellAddr(lastCol, h))
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 || strings.Join(rows[0], "") == "" {
+		return nil, fmt.Errorf("sheet %q has no header row %d", g.cfg.Sheet, h)
+	}
+	return rows[0], nil
 }
 
 func (g *graphSource) ReadRows(ctx context.Context, start, end int) (*Batch, error) {
 	if err := checkRange(g.cfg.HeaderRow, start, end); err != nil {
 		return nil, err
 	}
-	g.entry.mu.Lock()
-	defer g.entry.mu.Unlock()
-	if err := g.refresh(ctx); err != nil {
+	wb, err := g.worksheet(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return g.localSource().ReadRows(ctx, start, end)
+	ws := g.sheetURL(wb)
+	lastCol, lastRow, err := g.bounds(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
+	header, err := g.header(ctx, ws, lastCol)
+	if err != nil {
+		return nil, err
+	}
+	if start > lastRow {
+		return buildBatch(header, start, end, nil), nil
+	}
+	data, err := g.text(ctx, ws, cellAddr(1, start)+":"+cellAddr(lastCol, min(end, lastRow)))
+	if err != nil {
+		return nil, err
+	}
+	return buildBatch(header, start, end, data), nil
 }
 
-// Write edits the downloaded copy and uploads it. It fails with ErrConflict when the file in the
-// cloud is no longer the version the rows were read from, so a stale row number can never be
-// written into a file that has changed.
+// Write sets the cells with as few PATCH calls as possible: neighbouring rows are sent as one
+// rectangle, and cells that are not being changed are sent as null, which Graph ignores. All input
+// is validated before anything is written.
 func (g *graphSource) Write(ctx context.Context, updates []CellUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}
-	e := g.entry
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	meta, err := g.meta(ctx)
+	wb, err := g.worksheet(ctx)
 	if err != nil {
 		return err
 	}
-	if e.local == "" || e.etag == "" || e.etag != meta.ETag {
-		return ErrConflict
-	}
-	if err := g.localSource().Write(ctx, updates); err != nil {
-		return err
-	}
-
-	data, err := os.ReadFile(e.local)
-	if err != nil {
-		e.etag = ""
-		return err
-	}
-	if len(data) > graphMaxUpload {
-		e.etag = ""
-		return fmt.Errorf("workbook is %d MB; Graph simple upload is limited to 250 MB", len(data)>>20)
-	}
-
-	newTag, err := g.upload(ctx, e, data)
-	if err != nil {
-		e.etag = "" // the local copy is ahead of the cloud; force a fresh download
-		return err
-	}
-	e.etag = newTag
-	return nil
-}
-
-func (g *graphSource) localSource() Source {
-	return &xlsxSource{cfg: Config{Path: g.entry.local, Sheet: g.cfg.Sheet, HeaderRow: g.cfg.HeaderRow}}
-}
-
-// refresh makes sure the local copy matches the cloud version, downloading only when it differs.
-func (g *graphSource) refresh(ctx context.Context) error {
-	e := g.entry
-	meta, err := g.meta(ctx)
+	ws := g.sheetURL(wb)
+	lastCol, _, err := g.bounds(ctx, ws)
 	if err != nil {
 		return err
 	}
-	if e.local != "" && e.etag == meta.ETag {
-		if _, err := os.Stat(e.local); err == nil {
-			return nil
+	header, err := g.header(ctx, ws, lastCol)
+	if err != nil {
+		return err
+	}
+	cols := columnIndex(header)
+
+	cells := map[int]map[int]string{} // row -> column -> value
+	for _, u := range updates {
+		c, ok := cols[u.Column]
+		if !ok {
+			return fmt.Errorf("column %q not found in header", u.Column)
 		}
+		if u.Row <= g.cfg.HeaderRow {
+			return fmt.Errorf("row %d is not a data row", u.Row)
+		}
+		if cells[u.Row] == nil {
+			cells[u.Row] = map[int]string{}
+		}
+		cells[u.Row][c] = u.Value
 	}
+	rows := make([]int, 0, len(cells))
+	for r := range cells {
+		rows = append(rows, r)
+	}
+	sort.Ints(rows)
 
-	dir := g.cfg.WorkDir
-	if dir == "" {
-		dir = filepath.Join(os.TempDir(), "sheet-service")
+	// A workbook session lets Graph apply the calls to one open copy of the file. If one cannot be
+	// created the calls still work, only slower.
+	session := g.createSession(ctx, wb)
+	defer g.closeSession(wb, session)
+
+	for i := 0; i < len(rows); {
+		j := i + 1
+		for j < len(rows) && rows[j] == rows[j-1]+1 && j-i < maxRowsPerPatch {
+			j++
+		}
+		run := rows[i:j]
+		minC, maxC := 1<<30, 0
+		for _, r := range run {
+			for c := range cells[r] {
+				minC, maxC = min(minC, c), max(maxC, c)
+			}
+		}
+		matrix := make([][]any, len(run))
+		for k, r := range run {
+			matrix[k] = make([]any, maxC-minC+1)
+			for c, v := range cells[r] {
+				matrix[k][c-minC] = v
+			}
+		}
+		body, _ := json.Marshal(map[string]any{"values": matrix})
+		addr := cellAddr(minC, run[0]) + ":" + cellAddr(maxC, run[len(run)-1])
+		if _, err := g.do(ctx, http.MethodPatch, fmt.Sprintf("%s/range(address='%s')", ws, addr), body, session); err != nil {
+			return err
+		}
+		i = j
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	sum := sha256.Sum256([]byte(g.share))
-	local := filepath.Join(dir, hex.EncodeToString(sum[:8])+".xlsx")
-	if err := g.download(ctx, local); err != nil {
-		return err
-	}
-	e.local, e.etag, e.driveID, e.itemID = local, meta.ETag, meta.ParentReference.DriveID, meta.ID
 	return nil
 }
 
-func (g *graphSource) meta(ctx context.Context) (*driveItemMeta, error) {
-	endpoint := fmt.Sprintf("%s/v1.0/shares/%s/driveItem?$select=id,eTag,size,parentReference", g.base, g.share)
-	resp, err := g.do(ctx, http.MethodGet, endpoint, nil, nil)
+func (g *graphSource) createSession(ctx context.Context, wb string) string {
+	raw, err := g.do(ctx, http.MethodPost, wb+"/createSession", []byte(`{"persistChanges":true}`), "")
 	if err != nil {
-		return nil, err
+		return ""
 	}
-	defer resp.Body.Close()
-	var m driveItemMeta
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
-		return nil, fmt.Errorf("graph file info: %w", err)
+	var s struct {
+		ID string `json:"id"`
 	}
-	if m.ID == "" || m.ParentReference.DriveID == "" {
-		return nil, fmt.Errorf("graph file info is missing the item or drive id; is the path a file?")
-	}
-	return &m, nil
+	_ = json.Unmarshal(raw, &s)
+	return s.ID
 }
 
-func (g *graphSource) download(ctx context.Context, local string) error {
-	endpoint := fmt.Sprintf("%s/v1.0/shares/%s/driveItem/content", g.base, g.share)
-	resp, err := g.do(ctx, http.MethodGet, endpoint, nil, nil) // the client follows the 302 to the download URL
-	if err != nil {
-		return err
+func (g *graphSource) closeSession(wb, session string) {
+	if session == "" {
+		return
 	}
-	defer resp.Body.Close()
-
-	tmp := local + ".part"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return fmt.Errorf("download: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp, local)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	_, _ = g.do(ctx, http.MethodPost, wb+"/closeSession", []byte(`{}`), session)
 }
 
-func (g *graphSource) upload(ctx context.Context, e *graphEntry, data []byte) (string, error) {
-	endpoint := fmt.Sprintf("%s/v1.0/drives/%s/items/%s/content", g.base, url.PathEscape(e.driveID), url.PathEscape(e.itemID))
-	headers := map[string]string{
-		"Content-Type": "application/octet-stream",
-		"If-Match":     e.etag,
+// do sends an authenticated request. A throttled request (429) or a temporarily unavailable
+// service (503, 504) is retried after the delay Graph asks for in Retry-After.
+func (g *graphSource) do(ctx context.Context, method, endpoint string, body []byte, session string) ([]byte, error) {
+	for attempt := 1; ; attempt++ {
+		token, err := g.tokens.Token(ctx)
+		if err != nil {
+			return nil, err
+		}
+		req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		if session != "" {
+			req.Header.Set("Workbook-Session-Id", session)
+		}
+		resp, err := g.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("graph api: %w", err)
+		}
+		raw, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode/100 == 2 {
+			return raw, nil
+		}
+		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout
+		if retryable && attempt < maxAttempts {
+			wait := time.Duration(1<<attempt) * time.Second
+			if s, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && s >= 0 {
+				wait = time.Duration(s) * time.Second
+			}
+			if err := retryWait(ctx, min(wait, time.Minute)); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		return nil, fmt.Errorf("graph api %d: %s", resp.StatusCode, strings.TrimSpace(string(raw[:min(len(raw), 2048)])))
 	}
-	resp, err := g.do(ctx, http.MethodPut, endpoint, data, headers)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	var item struct {
-		ETag string `json:"eTag"`
-	}
-	_ = json.NewDecoder(resp.Body).Decode(&item)
-	return item.ETag, nil
-}
-
-// do sends an authenticated request and returns the response for 2xx statuses.
-// A 412 (precondition failed) is reported as ErrConflict.
-func (g *graphSource) do(ctx context.Context, method, endpoint string, body []byte, headers map[string]string) (*http.Response, error) {
-	token, err := g.tokens.Token(ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	resp, err := g.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("graph api: %w", err)
-	}
-	if resp.StatusCode/100 == 2 {
-		return resp, nil
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusPreconditionFailed {
-		return nil, ErrConflict
-	}
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	return nil, fmt.Errorf("graph api %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 }

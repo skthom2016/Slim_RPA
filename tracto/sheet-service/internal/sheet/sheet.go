@@ -60,13 +60,14 @@ type Config struct {
 	Type      string `json:"type,omitempty"`
 	Sheet     string `json:"sheet"`
 	HeaderRow int    `json:"headerRow,omitempty"` // default 1
+	// Connection names the saved Microsoft sign-in to use for OneDrive/SharePoint (default "default").
+	Connection string `json:"connection,omitempty"`
 
 	// The fields below are never read from a request.
 	Env           func(string) string `json:"-"` // environment lookup; os.Getenv when nil
 	GoogleAPIBase string              `json:"-"`
 	GraphBase     string              `json:"-"`
 	LoginBase     string              `json:"-"`
-	WorkDir       string              `json:"-"` // where downloaded copies are kept
 }
 
 func (c Config) getenv(key string) string {

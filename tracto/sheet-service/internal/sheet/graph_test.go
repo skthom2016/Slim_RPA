@@ -8,267 +8,342 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/xuri/excelize/v2"
+
+	"tracto/sheet-service/internal/msauth"
 )
 
-// fakeGraph imitates the parts of Microsoft Graph the connector uses: the app-only token
-// endpoint, the share lookup, the download redirect and the content upload.
+// fakeGraph imitates the parts of Microsoft Graph the connector uses: the share lookup and the
+// Excel range API (used range, range read, range update, workbook sessions).
 type fakeGraph struct {
 	srv *httptest.Server
 
-	mu        sync.Mutex
-	file      []byte
-	version   int
-	downloads int
-	uploads   int
-	ignoreIf  bool // behave like a server that does not honour If-Match
+	mu       sync.Mutex
+	grid     [][]string // grid[0] is row 1
+	reads    []string   // addresses requested with GET
+	patches  []patch
+	sessions int
+	closed   int
+	throttle int // answer the next N requests with 429
 }
 
-func (f *fakeGraph) etag() string { return fmt.Sprintf(`"tag-%d"`, f.version) }
-
-// replace simulates somebody else saving a new version of the file.
-func (f *fakeGraph) replace(data []byte) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.file = data
-	f.version++
+type patch struct {
+	address string
+	session string
+	values  [][]any
 }
 
-func newFakeGraph(t *testing.T, workbook string) *fakeGraph {
+var addrRe = regexp.MustCompile(`range\(address='([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?'\)`)
+
+func newFakeGraph(t *testing.T, grid [][]string) *fakeGraph {
 	t.Helper()
-	data, err := os.ReadFile(workbook)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &fakeGraph{file: data, version: 1}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/tenant-1/oauth2/v2.0/token", func(w http.ResponseWriter, r *http.Request) {
-		_ = r.ParseForm()
-		if r.Form.Get("grant_type") != "client_credentials" || r.Form.Get("client_secret") != "secret" ||
-			r.Form.Get("scope") != "https://graph.microsoft.com/.default" {
-			http.Error(w, `{"error_description":"bad request"}`, http.StatusBadRequest)
-			return
-		}
-		_, _ = w.Write([]byte(`{"access_token":"app-token","expires_in":3600}`))
-	})
-	authed := func(h http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("Authorization") != "Bearer app-token" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			h(w, r)
-		}
-	}
-	mux.HandleFunc("/v1.0/shares/", authed(func(w http.ResponseWriter, r *http.Request) {
+	f := &fakeGraph{grid: grid}
+	const wb = "/v1.0/drives/DRIVE1/items/ITEM1/workbook"
+	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if f.throttle > 0 {
+			f.throttle--
+			w.Header().Set("Retry-After", "0")
+			http.Error(w, "throttled", http.StatusTooManyRequests)
+			return
+		}
+		p := r.URL.Path
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/driveItem"):
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": "ITEM1", "eTag": f.etag(), "size": len(f.file),
-				"parentReference": map[string]string{"driveId": "DRIVE1"},
-			})
-		case strings.HasSuffix(r.URL.Path, "/driveItem/content"):
-			f.downloads++
-			http.Redirect(w, r, "/blob", http.StatusFound) // real Graph redirects to a pre-authenticated URL
+		case strings.HasPrefix(p, "/v1.0/shares/") && strings.HasSuffix(p, "/driveItem"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "ITEM1", "parentReference": map[string]string{"driveId": "DRIVE1"}})
+		case p == wb+"/createSession" && r.Method == http.MethodPost:
+			f.sessions++
+			_, _ = w.Write([]byte(`{"id":"S1"}`))
+		case p == wb+"/closeSession" && r.Method == http.MethodPost:
+			f.closed++
+			w.WriteHeader(http.StatusNoContent)
+		case strings.HasPrefix(p, wb+"/worksheets/Data/usedRange"):
+			lastCol := 0
+			for _, row := range f.grid {
+				lastCol = max(lastCol, len(row))
+			}
+			name, _ := excelize.ColumnNumberToName(lastCol)
+			_ = json.NewEncoder(w).Encode(map[string]string{"address": fmt.Sprintf("Data!A1:%s%d", name, len(f.grid))})
+		case strings.HasPrefix(p, wb+"/worksheets/Data/range"):
+			m := addrRe.FindStringSubmatch(p)
+			if m == nil {
+				http.NotFound(w, r)
+				return
+			}
+			c1, _ := excelize.ColumnNameToNumber(m[1])
+			r1, _ := strconv.Atoi(m[2])
+			c2, r2 := c1, r1
+			if m[3] != "" {
+				c2, _ = excelize.ColumnNameToNumber(m[3])
+				r2, _ = strconv.Atoi(m[4])
+			}
+			if r.Method == http.MethodGet {
+				f.reads = append(f.reads, m[0])
+				var out [][]string
+				for row := r1; row <= r2; row++ {
+					line := make([]string, c2-c1+1)
+					for c := c1; c <= c2; c++ {
+						if row <= len(f.grid) && c <= len(f.grid[row-1]) {
+							line[c-c1] = f.grid[row-1][c-1]
+						}
+					}
+					out = append(out, line)
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"text": out})
+				return
+			}
+			body, _ := io.ReadAll(r.Body)
+			var req struct {
+				Values [][]any `json:"values"`
+			}
+			_ = json.Unmarshal(body, &req)
+			f.patches = append(f.patches, patch{address: m[1] + m[2] + ":" + m[3] + m[4], session: r.Header.Get("Workbook-Session-Id"), values: req.Values})
+			for i, line := range req.Values {
+				for j, v := range line {
+					if v == nil {
+						continue // null leaves the cell as it is
+					}
+					row, col := r1+i, c1+j
+					for len(f.grid) < row {
+						f.grid = append(f.grid, nil)
+					}
+					for len(f.grid[row-1]) < col {
+						f.grid[row-1] = append(f.grid[row-1], "")
+					}
+					f.grid[row-1][col-1] = fmt.Sprint(v)
+				}
+			}
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-	mux.HandleFunc("/blob", func(w http.ResponseWriter, r *http.Request) {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		if r.Header.Get("Authorization") != "" {
-			http.Error(w, "the pre-authenticated URL must not receive the bearer token", http.StatusBadRequest)
-			return
-		}
-		_, _ = w.Write(f.file)
-	})
-	mux.HandleFunc("/v1.0/drives/DRIVE1/items/ITEM1/content", authed(func(w http.ResponseWriter, r *http.Request) {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		if !f.ignoreIf && r.Header.Get("If-Match") != f.etag() {
-			http.Error(w, "precondition failed", http.StatusPreconditionFailed)
-			return
-		}
-		body, _ := io.ReadAll(r.Body)
-		f.file = body
-		f.version++
-		f.uploads++
-		_ = json.NewEncoder(w).Encode(map[string]string{"eTag": f.etag()})
-	}))
-	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
 }
 
-func graphConfig(f *fakeGraph, work string) Config {
-	return Config{
-		Path:      "https://contoso.sharepoint.com/sites/team/Shared%20Documents/" + filepath.Base(work) + ".xlsx",
-		Sheet:     "Data",
-		Env:       env("MS_TENANT_ID", "tenant-1", "MS_CLIENT_ID", "app", "MS_CLIENT_SECRET", "secret"),
-		GraphBase: f.srv.URL,
-		LoginBase: f.srv.URL,
-		WorkDir:   work,
-	}
-}
-
-func cloudRow(t *testing.T, f *fakeGraph, row int, col string) string {
-	t.Helper()
+func (f *fakeGraph) cell(row, col int) string {
 	f.mu.Lock()
-	data := append([]byte(nil), f.file...)
-	f.mu.Unlock()
-	tmp := filepath.Join(t.TempDir(), "check.xlsx")
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		t.Fatal(err)
+	defer f.mu.Unlock()
+	if row > len(f.grid) || col > len(f.grid[row-1]) {
+		return ""
 	}
-	b, err := (&xlsxSource{cfg: Config{Path: tmp, Sheet: "Data", HeaderRow: 1}}).ReadRows(context.Background(), 2, 100)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range b.Rows {
-		if r.Number == row {
-			return r.Values[col]
-		}
-	}
-	return ""
+	return f.grid[row-1][col-1]
 }
 
-func TestGraph_ReadDownloadsOnceAndWriteUploadsTheChange(t *testing.T) {
-	f := newFakeGraph(t, small(t))
-	src, err := Open(graphConfig(f, t.TempDir()))
-	if err != nil {
-		t.Fatal(err)
+func itemsGrid() [][]string {
+	return [][]string{
+		{"Item_ID", "Item_Name", "Approval_Status", "Bot_Status"},
+		{"ITM-1", "One", "Approved", ""},
+		{"ITM-2", "Two", "", ""},
+		{"ITM-3", "Three", "Hold", ""},
+		{"ITM-4", "Four", "Rejected", "OLD"},
+		{"ITM-5", "Five", "", ""},
 	}
-	ctx := context.Background()
+}
 
-	b, err := src.ReadRows(ctx, 2, 100)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(b.Rows) != 3 || b.Rows[1].Number != 3 {
-		t.Fatalf("got %+v", b.Rows)
-	}
-	if _, err := src.ReadRows(ctx, 2, 3); err != nil { // a second batch of the same file
-		t.Fatal(err)
-	}
-	if f.downloads != 1 {
-		t.Fatalf("file downloaded %d times, want 1", f.downloads)
-	}
-
-	err = src.Write(ctx, []CellUpdate{
-		{Row: 3, Column: "Approved_by_Finance", Value: "Approved"},
-		{Row: 3, Column: "Bot_Status", Value: "SUCCESS"},
+func graphSrc(t *testing.T, f *fakeGraph) Source {
+	t.Helper()
+	retryWait = func(context.Context, time.Duration) error { return nil }
+	t.Cleanup(func() { retryWait = realRetryWait })
+	src, err := Open(Config{
+		Path:      "https://contoso.sharepoint.com/sites/team/Shared%20Documents/items.xlsx",
+		Sheet:     "Data",
+		Env:       env("MS_ACCESS_TOKEN", "tok"),
+		GraphBase: f.srv.URL,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.uploads != 1 {
-		t.Fatalf("uploads = %d, want 1", f.uploads)
-	}
-	if got := cloudRow(t, f, 3, "Bot_Status"); got != "SUCCESS" {
-		t.Fatalf("cloud copy not updated: %q", got)
-	}
+	return src
+}
 
-	// The upload changed the cloud version; our own next read must not download again.
-	if _, err := src.ReadRows(ctx, 2, 100); err != nil {
+var realRetryWait = retryWait
+
+func TestGraph_ReadRowsRequestsOnlyTheRange(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	b, err := graphSrc(t, f).ReadRows(context.Background(), 3, 4)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if f.downloads != 1 {
-		t.Fatalf("file downloaded %d times after own upload, want 1", f.downloads)
+	if len(b.Rows) != 2 || b.Rows[0].Number != 3 || b.Rows[1].Number != 4 {
+		t.Fatalf("got %+v, want rows 3 and 4", b.Rows)
+	}
+	if b.Rows[1].Values["Approval_Status"] != "Hold" || b.Rows[0].Values["Item_ID"] != "ITM-2" {
+		t.Fatalf("values wrong: %+v", b.Rows)
+	}
+	if b.EndOfData {
+		t.Fatal("row 4 is not the last row of the sheet")
+	}
+	if got := strings.Join(f.reads, " "); got != "range(address='A1:D1') range(address='A3:D4')" {
+		t.Fatalf("requested %q: only the header and rows 3-4 may be read", got)
 	}
 }
 
-func TestGraph_WriteIsRefusedWhenTheFileChangedAfterTheRead(t *testing.T) {
-	f := newFakeGraph(t, small(t))
-	src, _ := Open(graphConfig(f, t.TempDir()))
-	ctx := context.Background()
-	if _, err := src.ReadRows(ctx, 2, 100); err != nil {
+func TestGraph_RangeIsCappedAtTheLastUsedRow(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	b, err := graphSrc(t, f).ReadRows(context.Background(), 2, 1001)
+	if err != nil {
 		t.Fatal(err)
 	}
-
-	changed, _ := os.ReadFile(small(t))
-	f.replace(changed) // somebody saves a new version
-
-	err := src.Write(ctx, []CellUpdate{{Row: 3, Column: "Bot_Status", Value: "SUCCESS"}})
-	if !errors.Is(err, ErrConflict) {
-		t.Fatalf("got %v, want ErrConflict", err)
+	if len(b.Rows) != 5 || !b.EndOfData || b.LastRow != 6 {
+		t.Fatalf("rows=%d endOfData=%v lastRow=%d", len(b.Rows), b.EndOfData, b.LastRow)
 	}
-	if f.uploads != 0 {
-		t.Fatal("nothing may be uploaded after a conflict")
-	}
-
-	// A fresh read picks up the new version, after which writing works again.
-	if _, err := src.ReadRows(ctx, 2, 100); err != nil {
-		t.Fatal(err)
-	}
-	if f.downloads != 2 {
-		t.Fatalf("downloads = %d, want 2 after the file changed", f.downloads)
-	}
-	if err := src.Write(ctx, []CellUpdate{{Row: 3, Column: "Bot_Status", Value: "SUCCESS"}}); err != nil {
-		t.Fatal(err)
+	if got := f.reads[len(f.reads)-1]; got != "range(address='A2:D6')" {
+		t.Fatalf("requested %q, want the range cut at the last used row", got)
 	}
 }
 
-func TestGraph_ServerRejectingIfMatchIsReportedAsConflict(t *testing.T) {
-	f := newFakeGraph(t, small(t))
-	src, _ := Open(graphConfig(f, t.TempDir()))
-	ctx := context.Background()
-	if _, err := src.ReadRows(ctx, 2, 100); err != nil {
+func TestGraph_StartPastTheLastRowReadsNoData(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	b, err := graphSrc(t, f).ReadRows(context.Background(), 100, 199)
+	if err != nil {
 		t.Fatal(err)
 	}
-	// The version tag check passes, then the file changes before the upload arrives.
-	f.mu.Lock()
-	f.ignoreIf = false
-	f.mu.Unlock()
-	hook := &racingUpload{f: f}
-	src.(*graphSource).client.Transport = hook
-
-	err := src.Write(ctx, []CellUpdate{{Row: 3, Column: "Bot_Status", Value: "SUCCESS"}})
-	if !errors.Is(err, ErrConflict) {
-		t.Fatalf("got %v, want ErrConflict", err)
+	if len(b.Rows) != 0 || !b.EndOfData || len(f.reads) != 1 {
+		t.Fatalf("rows=%d endOfData=%v reads=%v", len(b.Rows), b.EndOfData, f.reads)
 	}
 }
 
-// racingUpload bumps the cloud version just before the PUT reaches the server.
-type racingUpload struct{ f *fakeGraph }
-
-func (r *racingUpload) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodPut {
-		r.f.mu.Lock()
-		r.f.version++
-		r.f.mu.Unlock()
+func TestGraph_NeighbouringRowsAreWrittenInOnePatchWithNullForUnchangedCells(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	err := graphSrc(t, f).Write(context.Background(), []CellUpdate{
+		{Row: 3, Column: "Approval_Status", Value: "Approved"},
+		{Row: 3, Column: "Bot_Status", Value: "SUCCESS"},
+		{Row: 4, Column: "Bot_Status", Value: "SUCCESS"},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	return http.DefaultTransport.RoundTrip(req)
+	if len(f.patches) != 1 {
+		t.Fatalf("%d patches, want 1: %+v", len(f.patches), f.patches)
+	}
+	p := f.patches[0]
+	if p.address != "C3:D4" || p.session != "S1" {
+		t.Fatalf("patch %+v: want range C3:D4 inside session S1", p)
+	}
+	if p.values[1][0] != nil {
+		t.Fatalf("row 4 column C is not being changed and must be null: %v", p.values)
+	}
+	if f.cell(4, 3) != "Hold" || f.cell(4, 4) != "SUCCESS" || f.cell(3, 3) != "Approved" || f.cell(3, 4) != "SUCCESS" || f.cell(5, 4) != "OLD" {
+		t.Fatalf("sheet wrong: %v", f.grid)
+	}
+	if f.sessions != 1 || f.closed != 1 {
+		t.Fatalf("sessions opened %d, closed %d, want 1 and 1", f.sessions, f.closed)
+	}
 }
 
-func TestGraph_BadAppCredentialsAreReported(t *testing.T) {
-	f := newFakeGraph(t, small(t))
-	cfg := graphConfig(f, t.TempDir())
-	cfg.Env = env("MS_TENANT_ID", "tenant-1", "MS_CLIENT_ID", "app", "MS_CLIENT_SECRET", "wrong")
+func TestGraph_ScatteredRowsAreSeparatePatches(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	err := graphSrc(t, f).Write(context.Background(), []CellUpdate{
+		{Row: 2, Column: "Bot_Status", Value: "A"},
+		{Row: 6, Column: "Bot_Status", Value: "B"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.patches) != 2 || f.patches[0].address != "D2:D2" || f.patches[1].address != "D6:D6" {
+		t.Fatalf("patches: %+v", f.patches)
+	}
+}
+
+func TestGraph_BadColumnWritesNothing(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	err := graphSrc(t, f).Write(context.Background(), []CellUpdate{
+		{Row: 3, Column: "Bot_Status", Value: "SUCCESS"},
+		{Row: 4, Column: "No_Such_Column", Value: "x"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "No_Such_Column") {
+		t.Fatalf("got %v", err)
+	}
+	if len(f.patches) != 0 || f.sessions != 0 {
+		t.Fatalf("nothing may be written: patches=%d sessions=%d", len(f.patches), f.sessions)
+	}
+}
+
+func TestGraph_ThrottledRequestsAreRetried(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	f.throttle = 2
+	if _, err := graphSrc(t, f).ReadRows(context.Background(), 2, 3); err != nil {
+		t.Fatalf("a throttled request must be retried: %v", err)
+	}
+	f.throttle = 100
+	_, err := graphSrc(t, f).ReadRows(context.Background(), 2, 3)
+	if err == nil || !strings.Contains(err.Error(), "429") {
+		t.Fatalf("got %v, want the 429 after the retries run out", err)
+	}
+}
+
+func TestGraph_MissingSettingsNameTheVariables(t *testing.T) {
+	_, err := Open(Config{Path: "https://contoso.sharepoint.com/x.xlsx", Sheet: "Data", Env: env()})
+	if err == nil || !strings.Contains(err.Error(), "MS_TENANT_ID") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+// The saved sign-in is used when no ready access token is given, and an expired access token is
+// renewed from it.
+func TestGraph_UsesTheSavedSignIn(t *testing.T) {
+	f := newFakeGraph(t, itemsGrid())
+	var refreshes int
+	login := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		refreshes++
+		if r.Form.Get("refresh_token") != "saved-refresh" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"gone"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"tok","refresh_token":"next-refresh","expires_in":3600}`))
+	}))
+	t.Cleanup(login.Close)
+
+	db := filepath.Join(t.TempDir(), "tokens.db")
+	store, err := msauth.OpenStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	_ = store.Put(context.Background(), msauth.Token{Name: "default", Tenant: "t1", ClientID: "app", Refresh: "saved-refresh", Expires: time.Now().Add(-time.Hour)})
+
+	retryWait = func(context.Context, time.Duration) error { return nil }
+	cfg := Config{
+		Path: "https://contoso.sharepoint.com/x.xlsx", Sheet: "Data", GraphBase: f.srv.URL, LoginBase: login.URL,
+		Env: env("MS_TENANT_ID", "t1", "MS_CLIENT_ID", "app", "SHEET_SERVICE_DB", db),
+	}
 	src, err := Open(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := src.ReadRows(context.Background(), 2, 10); err == nil || !strings.Contains(err.Error(), "token request failed") {
-		t.Fatalf("expected a token error, got %v", err)
+	if _, err := src.ReadRows(context.Background(), 2, 3); err != nil {
+		t.Fatal(err)
 	}
-}
+	if refreshes != 1 {
+		t.Fatalf("refreshed %d times, want 1 (later calls reuse the renewed token)", refreshes)
+	}
+	saved, _ := store.Get(context.Background(), "default")
+	if saved.Refresh != "next-refresh" {
+		t.Fatalf("rotated refresh token was not saved: %+v", saved)
+	}
 
-func TestGraph_AccessTokenFromEnvironmentIsUsedAsIs(t *testing.T) {
-	f := newFakeGraph(t, small(t))
-	cfg := graphConfig(f, t.TempDir())
-	cfg.Env = env("MS_ACCESS_TOKEN", "app-token")
-	src, err := Open(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := src.ReadRows(context.Background(), 2, 10); err != nil {
-		t.Fatal(err)
+	// A revoked sign-in reaches the caller as ErrLoginRequired.
+	_ = store.Put(context.Background(), msauth.Token{Name: "other", Tenant: "t1", ClientID: "app", Refresh: "dead", Expires: time.Now().Add(-time.Hour)})
+	cfg.Connection = "other"
+	src, _ = Open(cfg)
+	if _, err := src.ReadRows(context.Background(), 2, 3); !errors.Is(err, msauth.ErrLoginRequired) {
+		t.Fatalf("got %v, want ErrLoginRequired", err)
 	}
 }

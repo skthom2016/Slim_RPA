@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/xuri/excelize/v2"
+
+	"tracto/sheet-service/internal/msauth"
 )
 
 func workbook(t *testing.T) (path string) {
@@ -98,6 +100,25 @@ func TestApply_FillsOnlyTheFirstPendingRows(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &b)
 	if b.Rows[0].Values["Bot_Status"] != "SUCCESS" || b.Rows[1].Values["Bot_Status"] != "" {
 		t.Fatalf("only row 2 may be filled: %+v", b.Rows)
+	}
+}
+
+// With no saved Microsoft sign-in the caller gets 401 and a message saying to run login.
+func TestBatch_MissingMicrosoftSignInIsUnauthorized(t *testing.T) {
+	t.Setenv("MS_ACCESS_TOKEN", "")
+	t.Setenv("MS_TENANT_ID", "tenant-1")
+	t.Setenv("MS_CLIENT_ID", "app")
+	db := filepath.Join(t.TempDir(), "tokens.db")
+	t.Setenv("SHEET_SERVICE_DB", db)
+	t.Cleanup(func() { // Windows cannot delete an open database file
+		if s, err := msauth.OpenStore(db); err == nil {
+			s.Close()
+		}
+	})
+
+	rec := post(t, New(), "/batch", `{"source":{"path":"https://contoso.sharepoint.com/sites/x/items.xlsx","sheet":"Items"}}`)
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "sheet-service login") {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
 	}
 }
 

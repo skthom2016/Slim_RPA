@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"tracto/sheet-service/internal/engine"
+	"tracto/sheet-service/internal/msauth"
 	"tracto/sheet-service/internal/sheet"
 )
 
@@ -156,7 +157,7 @@ func apply(w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := src.ReadRows(r.Context(), req.StartRow, req.EndRow)
 	if err != nil {
-		fail(w, http.StatusBadGateway, err)
+		fail(w, statusFor(err), err)
 		return
 	}
 	rows, err := engine.PendingRows(b, req.Pending)
@@ -173,11 +174,7 @@ func apply(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(cells) > 0 {
 		if err := src.Write(r.Context(), cells); err != nil {
-			status := http.StatusBadGateway
-			if errors.Is(err, sheet.ErrConflict) {
-				status = http.StatusConflict
-			}
-			fail(w, status, err)
+			fail(w, statusFor(err), err)
 			return
 		}
 	}
@@ -210,7 +207,7 @@ func batch(w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := src.ReadRows(r.Context(), req.StartRow, req.EndRow)
 	if err != nil {
-		fail(w, http.StatusBadGateway, err)
+		fail(w, statusFor(err), err)
 		return
 	}
 	rows, err := engine.PendingRows(b, req.Pending)
@@ -241,14 +238,23 @@ func update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := src.Write(r.Context(), cells); err != nil {
-		status := http.StatusBadGateway
-		if errors.Is(err, sheet.ErrConflict) {
-			status = http.StatusConflict
-		}
-		fail(w, status, err)
+		fail(w, statusFor(err), err)
 		return
 	}
 	writeJSON(w, http.StatusOK, UpdateResponse{Rows: req.rowCount(cells), Cells: len(cells)})
+}
+
+// statusFor maps a source error to an HTTP status: 401 when the Microsoft sign-in must be
+// repeated, 409 when the file changed after it was read, 502 for anything else.
+func statusFor(err error) int {
+	switch {
+	case errors.Is(err, msauth.ErrLoginRequired):
+		return http.StatusUnauthorized
+	case errors.Is(err, sheet.ErrConflict):
+		return http.StatusConflict
+	default:
+		return http.StatusBadGateway
+	}
 }
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {

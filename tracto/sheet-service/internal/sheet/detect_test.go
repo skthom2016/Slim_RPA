@@ -24,11 +24,11 @@ func TestDetectType(t *testing.T) {
 
 func TestRequestsCannotSupplyCredentialsOrEndpoints(t *testing.T) {
 	var c Config
-	body := `{"path":"p","sheet":"s","accessToken":"stolen","GraphBase":"http://evil","graphBase":"http://evil","loginBase":"http://evil","workDir":"/etc"}`
+	body := `{"path":"p","sheet":"s","accessToken":"stolen","GraphBase":"http://evil","graphBase":"http://evil","loginBase":"http://evil"}`
 	if err := json.Unmarshal([]byte(body), &c); err != nil {
 		t.Fatal(err)
 	}
-	if c.GraphBase != "" || c.LoginBase != "" || c.GoogleAPIBase != "" || c.WorkDir != "" || c.Env != nil {
+	if c.GraphBase != "" || c.LoginBase != "" || c.GoogleAPIBase != "" || c.Env != nil {
 		t.Fatalf("request set internal fields: %+v", c)
 	}
 }
@@ -38,7 +38,7 @@ func TestOpen_MissingMicrosoftCredentialsNamesTheEnvVars(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	for _, v := range []string{"MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET"} {
+	for _, v := range []string{"MS_TENANT_ID", "MS_CLIENT_ID"} {
 		if !contains(err.Error(), v) {
 			t.Errorf("error %q should name %s", err, v)
 		}
