@@ -50,6 +50,8 @@
               "focus",
               "app.launch",
               "http.get",
+              "http.post",
+              "notepad.type",
               "file.saveAs"
             ],
             "description": "Action handler name"
@@ -121,6 +123,18 @@
       "required_params": ["url"],
       "optional_params": ["timeoutMs", "storeAs"],
       "outputs": ["statusCode", "body", "json"]
+    },
+    "action_http_post": {
+      "description": "http.post action: HTTP POST with a body; top-level scalar fields of a JSON reply become ${storeAs.field}",
+      "required_params": ["url"],
+      "optional_params": ["body", "contentType", "timeoutMs", "storeAs"],
+      "outputs": ["statusCode", "body", "json"]
+    },
+    "action_notepad_type": {
+      "description": "notepad.type action: pastes text into Notepad via the clipboard",
+      "required_params": ["text"],
+      "optional_params": ["windowTitle"],
+      "outputs": ["charactersTyped"]
     },
     "action_file_saveAs": {
       "description": "file.saveAs action: saves via Save As dialog. filePath supports %ENV% expansion",

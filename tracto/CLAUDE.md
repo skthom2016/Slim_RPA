@@ -70,6 +70,8 @@ All parameter values are **strings** (the runtime casts to int/bool internally).
 | `focus` | — | `window`, `target` | `windowHandle` |
 | `app.launch` | `executable` | `args`, `timeoutMs`, `attachIfRunning` | `processId`, `windowTitle` |
 | `http.get` | `url` | `timeoutMs`, `storeAs` | `statusCode`, `body`, `json` |
+| `http.post` | `url` | `body`, `contentType`, `timeoutMs`, `storeAs` | `statusCode`, `body`, `json`, plus top-level fields of a JSON reply |
+| `notepad.type` | `text` | `windowTitle` | `charactersTyped` |
 | `file.saveAs` | `filePath` | `windowTitle`, `overwrite`, `saveAsShortcut` | `savedPath`, `fileSizeBytes` |
 
 Full details with examples: `tracto/docs/action-catalog.md`

@@ -125,6 +125,33 @@ Makes an HTTP GET request and stores the response.
 
 ---
 
+## `http.post`
+Makes an HTTP POST request with a body and stores the response.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `url` | ✅ | Full URL. |
+| `body` | ❌ | Request body, sent as-is. |
+| `contentType` | ❌ | Default `application/json`. |
+| `timeoutMs` | ❌ | Default `"30000"`. |
+
+**Outputs:** `statusCode`, `body`, `json`, and every top-level string/number/boolean field of a JSON object reply (so `${storeAs.field}` works). A non-2xx reply fails the step.
+
+---
+
+## `notepad.type`
+Pastes text into Notepad through the clipboard. Use for long or multi-line text.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `text` | ✅ | Text to paste. Use `
+` for new lines. |
+| `windowTitle` | ❌ | Partial title to match (default `"Notepad"`). |
+
+**Outputs:** `charactersTyped`
+
+---
+
 ## `file.saveAs`
 Saves a document via the host application's Save As dialog (Ctrl+S).
 
