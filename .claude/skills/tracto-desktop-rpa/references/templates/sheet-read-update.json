@@ -1,0 +1,28 @@
+{
+  "id": "sheet-read-update",
+  "name": "Sheet Read And Update",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    {
+      "stepNumber": 1, "action": "http.post", "description": "Read rows 2-21",
+      "parameters": {
+        "url": "http://localhost:5090/batch",
+        "body": "{\"source\":{\"path\":\"C:/data/items.xlsx\",\"sheet\":\"Items\"},\"startRow\":2,\"endRow\":21}",
+        "storeAs": "read"
+      }
+    },
+    { "stepNumber": 2, "action": "app.launch", "description": "Open Notepad", "parameters": { "executable": "notepad.exe", "attachIfRunning": "false", "timeoutMs": "10000" } },
+    { "stepNumber": 3, "action": "delay", "description": "Wait for Notepad", "parameters": { "ms": "1500" } },
+    { "stepNumber": 4, "action": "notepad.type", "description": "Print the rows read", "parameters": { "text": "ROWS READ\r\n${read.text}\r\n" } },
+    {
+      "stepNumber": 5, "action": "http.post", "description": "Fill the next 2 rows that are not Approved or Rejected",
+      "parameters": {
+        "url": "http://localhost:5090/apply",
+        "body": "{\"source\":{\"path\":\"C:/data/items.xlsx\",\"sheet\":\"Items\"},\"limit\":2,\"pending\":{\"column\":\"Approval_Status\",\"doneValues\":[\"Approved\",\"Rejected\"]},\"set\":{\"Approval_Status\":\"Approved\",\"Bot_Status\":\"SUCCESS\"}}",
+        "storeAs": "apply"
+      }
+    },
+    { "stepNumber": 6, "action": "notepad.type", "description": "Print the updated rows", "parameters": { "text": "UPDATED ${apply.updated} ROWS\r\n${apply.text}" } }
+  ]
+}

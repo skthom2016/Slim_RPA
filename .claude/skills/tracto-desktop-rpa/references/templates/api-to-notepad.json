@@ -1,0 +1,12 @@
+{
+  "id": "api-to-notepad",
+  "name": "API Result To Notepad",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    { "stepNumber": 1, "action": "http.get", "description": "Call the API", "parameters": { "url": "http://localhost:3000/api/hello", "storeAs": "api" } },
+    { "stepNumber": 2, "action": "app.launch", "description": "Open Notepad", "parameters": { "executable": "notepad.exe" } },
+    { "stepNumber": 3, "action": "delay", "description": "Wait for Notepad", "parameters": { "ms": "1500" } },
+    { "stepNumber": 4, "action": "notepad.type", "description": "Write the result with a timestamp", "parameters": { "text": "${now.local}: ${api.body}" } }
+  ]
+}

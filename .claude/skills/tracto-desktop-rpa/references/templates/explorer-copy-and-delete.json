@@ -1,0 +1,116 @@
+{
+  "id": "explorer-copy-and-delete",
+  "name": "Explorer Copy And Delete",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "app.launch",
+      "description": "Open the folder in File Explorer",
+      "parameters": {
+        "executable": "explorer.exe",
+        "args": "C:\\data",
+        "timeoutMs": "8000"
+      }
+    },
+    {
+      "stepNumber": 2,
+      "action": "delay",
+      "description": "Wait for the window",
+      "parameters": {
+        "ms": "2500"
+      }
+    },
+    {
+      "stepNumber": 3,
+      "action": "navigate",
+      "description": "Activate it (titled with the folder name)",
+      "parameters": {
+        "window": "data"
+      }
+    },
+    {
+      "stepNumber": 4,
+      "action": "type",
+      "description": "Typing the name selects the file",
+      "parameters": {
+        "value": "note1.txt"
+      }
+    },
+    {
+      "stepNumber": 5,
+      "action": "key",
+      "description": "Copy",
+      "parameters": {
+        "key": "Ctrl+C"
+      }
+    },
+    {
+      "stepNumber": 6,
+      "action": "key",
+      "description": "Paste in the same folder (makes \"note1 - Copy.txt\")",
+      "parameters": {
+        "key": "Ctrl+V"
+      }
+    },
+    {
+      "stepNumber": 7,
+      "action": "delay",
+      "description": "Wait for the paste",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 8,
+      "action": "type",
+      "description": "Select the copy",
+      "parameters": {
+        "value": "note1 - Copy.txt"
+      }
+    },
+    {
+      "stepNumber": 9,
+      "action": "key",
+      "description": "Delete (to the Recycle Bin)",
+      "parameters": {
+        "key": "Delete"
+      }
+    },
+    {
+      "stepNumber": 10,
+      "action": "delay",
+      "description": "Wait for the confirmation dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 11,
+      "action": "key",
+      "description": "Confirm \"Delete File\" (Yes is the default)",
+      "parameters": {
+        "key": "Enter",
+        "window": "Delete File"
+      }
+    },
+    {
+      "stepNumber": 12,
+      "action": "delay",
+      "description": "Wait",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 13,
+      "action": "key",
+      "description": "Close the Explorer window",
+      "parameters": {
+        "key": "Alt+F4",
+        "window": "data"
+      }
+    }
+  ]
+}

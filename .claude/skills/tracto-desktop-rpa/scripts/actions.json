@@ -1,0 +1,14 @@
+{
+  "key":         { "required": ["key"], "optional": ["window"], "outputs": ["sendKeysValue"] },
+  "type":        { "required": ["value"], "optional": ["window"], "outputs": ["charactersTyped"] },
+  "delay":       { "required": ["ms"], "optional": [], "outputs": [] },
+  "click":       { "required": ["coordinates"], "optional": ["window", "offset", "rightClick"], "outputs": ["x", "y"] },
+  "scroll":      { "required": ["coordinates"], "optional": ["delta", "window"], "outputs": [] },
+  "navigate":    { "required": ["window"], "optional": [], "outputs": ["windowHandle"] },
+  "focus":       { "required": [], "optional": ["window", "target"], "outputs": ["windowHandle"] },
+  "app.launch":  { "required": ["executable"], "optional": ["args", "timeoutMs", "attachIfRunning"], "outputs": ["processId", "windowTitle"] },
+  "notepad.type":{ "required": ["text"], "optional": ["windowTitle"], "outputs": ["charactersTyped"] },
+  "file.saveAs": { "required": ["filePath"], "optional": ["windowTitle", "overwrite", "saveAsShortcut"], "outputs": ["savedPath", "fileSizeBytes"] },
+  "http.get":    { "required": ["url"], "optional": ["timeoutMs"], "outputs": ["statusCode", "body", "json"] },
+  "http.post":   { "required": ["url"], "optional": ["body", "contentType", "timeoutMs"], "outputs": ["statusCode", "body", "json"], "flattensJson": true }
+}

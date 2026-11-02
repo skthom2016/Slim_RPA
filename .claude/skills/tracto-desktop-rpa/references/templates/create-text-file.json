@@ -1,0 +1,67 @@
+{
+  "id": "create-text-file",
+  "name": "Create A Text File",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "app.launch",
+      "description": "Open Notepad",
+      "parameters": {
+        "executable": "notepad.exe"
+      }
+    },
+    {
+      "stepNumber": 2,
+      "action": "delay",
+      "description": "Wait for the window",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 3,
+      "action": "notepad.type",
+      "description": "Write the content into the new empty document",
+      "parameters": {
+        "text": "Hello from Tracto\r\nCreated ${now.local}",
+        "windowTitle": "Untitled - Notepad"
+      }
+    },
+    {
+      "stepNumber": 4,
+      "action": "delay",
+      "description": "Let Notepad update its window title",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 5,
+      "action": "file.saveAs",
+      "description": "Save it. The window is now titled with the first line of the text. The folder must exist.",
+      "parameters": {
+        "filePath": "C:\\data\\note1.txt",
+        "windowTitle": "Hello from Tracto"
+      }
+    },
+    {
+      "stepNumber": 6,
+      "action": "delay",
+      "description": "Wait for the save",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 7,
+      "action": "key",
+      "description": "Close the saved document",
+      "parameters": {
+        "key": "Alt+F4",
+        "window": "note1.txt - Notepad"
+      }
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "id": "file-operations-run-dialog",
+  "name": "File Operations Through The Run Dialog",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "key",
+      "description": "Open the Run dialog",
+      "parameters": {
+        "key": "{LWIN}r"
+      }
+    },
+    {
+      "stepNumber": 2,
+      "action": "delay",
+      "description": "Wait for the dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 3,
+      "action": "type",
+      "description": "Create the archive folder",
+      "parameters": {
+        "value": "cmd /c mkdir C:\\data\\archive"
+      }
+    },
+    {
+      "stepNumber": 4,
+      "action": "key",
+      "description": "Run it",
+      "parameters": {
+        "key": "Enter"
+      }
+    },
+    {
+      "stepNumber": 5,
+      "action": "delay",
+      "description": "Let it finish",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 6,
+      "action": "key",
+      "description": "Open the Run dialog",
+      "parameters": {
+        "key": "{LWIN}r"
+      }
+    },
+    {
+      "stepNumber": 7,
+      "action": "delay",
+      "description": "Wait for the dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 8,
+      "action": "type",
+      "description": "Copy a file",
+      "parameters": {
+        "value": "cmd /c copy /Y C:\\data\\note1.txt C:\\data\\archive\\note1-copy.txt"
+      }
+    },
+    {
+      "stepNumber": 9,
+      "action": "key",
+      "description": "Run it",
+      "parameters": {
+        "key": "Enter"
+      }
+    },
+    {
+      "stepNumber": 10,
+      "action": "delay",
+      "description": "Let it finish",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 11,
+      "action": "key",
+      "description": "Open the Run dialog",
+      "parameters": {
+        "key": "{LWIN}r"
+      }
+    },
+    {
+      "stepNumber": 12,
+      "action": "delay",
+      "description": "Wait for the dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 13,
+      "action": "type",
+      "description": "Move the copy and add today's date to its name",
+      "parameters": {
+        "value": "cmd /c move /Y C:\\data\\archive\\note1-copy.txt C:\\data\\archive\\note1-${now.date}.txt"
+      }
+    },
+    {
+      "stepNumber": 14,
+      "action": "key",
+      "description": "Run it",
+      "parameters": {
+        "key": "Enter"
+      }
+    },
+    {
+      "stepNumber": 15,
+      "action": "delay",
+      "description": "Let it finish",
+      "parameters": {
+        "ms": "1500"
+      }
+    },
+    {
+      "stepNumber": 16,
+      "action": "key",
+      "description": "Open the Run dialog",
+      "parameters": {
+        "key": "{LWIN}r"
+      }
+    },
+    {
+      "stepNumber": 17,
+      "action": "delay",
+      "description": "Wait for the dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 18,
+      "action": "type",
+      "description": "Delete the original (permanent, no Recycle Bin)",
+      "parameters": {
+        "value": "cmd /c del /Q C:\\data\\note1.txt"
+      }
+    },
+    {
+      "stepNumber": 19,
+      "action": "key",
+      "description": "Run it",
+      "parameters": {
+        "key": "Enter"
+      }
+    },
+    {
+      "stepNumber": 20,
+      "action": "delay",
+      "description": "Let it finish",
+      "parameters": {
+        "ms": "1500"
+      }
+    }
+  ]
+}

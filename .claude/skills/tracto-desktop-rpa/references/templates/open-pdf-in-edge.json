@@ -1,0 +1,48 @@
+{
+  "id": "open-pdf-in-edge",
+  "name": "Open A PDF In Edge",
+  "version": "1.0.0",
+  "targetRuntime": "desktop",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "key",
+      "description": "Open the Run dialog",
+      "parameters": {
+        "key": "{LWIN}r"
+      }
+    },
+    {
+      "stepNumber": 2,
+      "action": "delay",
+      "description": "Wait for the dialog",
+      "parameters": {
+        "ms": "1000"
+      }
+    },
+    {
+      "stepNumber": 3,
+      "action": "type",
+      "description": "Open the PDF in Edge",
+      "parameters": {
+        "value": "msedge --new-window file:///C:/data/invoice.pdf"
+      }
+    },
+    {
+      "stepNumber": 4,
+      "action": "key",
+      "description": "Run it",
+      "parameters": {
+        "key": "Enter"
+      }
+    },
+    {
+      "stepNumber": 5,
+      "action": "delay",
+      "description": "Let it finish",
+      "parameters": {
+        "ms": "5000"
+      }
+    }
+  ]
+}
