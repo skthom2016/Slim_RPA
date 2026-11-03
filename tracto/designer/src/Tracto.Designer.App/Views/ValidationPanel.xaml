@@ -3,47 +3,83 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
-             d:DesignHeight="200" d:DesignWidth="600">
-    <Border BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="4">
-        <StackPanel>
+             mc:Ignorable="d" d:DesignHeight="240" d:DesignWidth="800">
+    <Grid Margin="14,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-            <!-- Header row: title + status icon + validate button -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <TextBlock Text="Validation" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="&#x2713; Valid" Foreground="Green" FontSize="13" VerticalAlignment="Center"
-                           Visibility="{Binding IsValid, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                <TextBlock Text="&#x2717; Invalid" Foreground="Red" FontSize="13" VerticalAlignment="Center"
-                           Visibility="{Binding HasErrors, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                <Button Content="Validate" Command="{Binding ValidateCommand}" Margin="12,0,0,0" Padding="6,2"/>
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Validation" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+
+                <Border Style="{StaticResource Pill}" Margin="10,0,0,0"
+                        Background="{StaticResource SuccessSubtleBrush}" BorderBrush="{StaticResource SuccessSubtleBrush}"
+                        Visibility="{Binding IsValid, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                   Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Valid" Style="{StaticResource CaptionText}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource SuccessBrush}" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Pill}" Margin="10,0,0,0"
+                        Background="{StaticResource DangerSubtleBrush}" BorderBrush="{StaticResource DangerSubtleBrush}"
+                        Visibility="{Binding HasErrors, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                   Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Invalid" Style="{StaticResource CaptionText}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource DangerBrush}" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
-            <!-- Error/warning list — only visible after at least one validation run -->
-            <ItemsControl ItemsSource="{Binding Result.Errors}"
-                          Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Button HorizontalAlignment="Right" Style="{StaticResource AccentButton}"
+                    Content="Validate" Command="{Binding ValidateCommand}"/>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+            <ItemsControl ItemsSource="{Binding Result.Errors}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                            <!-- Severity badge -->
-                            <Border Width="18" Height="18" CornerRadius="2" Margin="0,0,6,0"
-                                    Background="{Binding Severity, Converter={StaticResource SeverityToBrushConverter}}">
-                                <TextBlock Text="{Binding Severity, Converter={StaticResource SeverityToLetterConverter}}"
-                                           Foreground="White" FontWeight="Bold" FontSize="11"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <!-- RuleId -->
-                            <TextBlock Text="{Binding RuleId}" FontFamily="Consolas" Width="72"
-                                       VerticalAlignment="Center" Foreground="Gray"/>
-                            <!-- Message -->
-                            <TextBlock Text="{Binding Message}" VerticalAlignment="Center" Margin="4,0"/>
-                            <!-- StepNumber (displayed when not null via StringFormat) -->
-                            <TextBlock Text="{Binding StepNumber, StringFormat='(step \{0\})'}"
-                                       VerticalAlignment="Center" Foreground="Gray" FontStyle="Italic" Margin="4,0,0,0"/>
-                        </StackPanel>
+                        <Border Background="{StaticResource SurfaceAltBrush}"
+                                BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource ControlRadius}"
+                                Padding="10,7" Margin="0,0,0,5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Width="19" Height="19" CornerRadius="4"
+                                        Background="{Binding Severity, Converter={StaticResource SeverityToBrushConverter}}"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Severity, Converter={StaticResource SeverityToLetterConverter}}"
+                                               Foreground="White" FontSize="11" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <TextBlock Grid.Column="1" Text="{Binding RuleId}" Width="74" Margin="10,0,0,0"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                           Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap"
+                                           Margin="6,0,0,0" VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Column="3" Text="{Binding StepNumber, StringFormat='(step {0})'}"
+                                           Style="{StaticResource CaptionText}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-
-        </StackPanel>
-    </Border>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

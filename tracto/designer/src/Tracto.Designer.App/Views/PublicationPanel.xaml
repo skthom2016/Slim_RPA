@@ -3,48 +3,68 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d">
-    <Border BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="8,4">
-        <StackPanel>
-            <!-- Header -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <TextBlock Text="Publish Script" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
-                <TextBlock Text=" — " VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding PublisherName}" Foreground="#555555" VerticalAlignment="Center"/>
-            </StackPanel>
+             mc:Ignorable="d" d:DesignHeight="240" d:DesignWidth="800">
+    <Grid Margin="14,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-            <!-- Output directory -->
-            <StackPanel Orientation="Horizontal" Margin="0,2">
-                <TextBlock Text="Output Directory:" Width="120" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}"
-                         Width="400" VerticalAlignment="Center"/>
-            </StackPanel>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Publish Script" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding PublisherName}" Style="{StaticResource CaptionText}"
+                       Margin="10,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Text="Publishing..." Style="{StaticResource CaptionText}" Margin="10,0,0,0"
+                       Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Visibility="{Binding IsPublishing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </StackPanel>
 
-            <!-- Publish button + spinner -->
-            <StackPanel Orientation="Horizontal" Margin="0,4">
-                <Button Content="Publish" Command="{Binding PublishCommand}" Padding="12,4" Margin="0,0,8,0"/>
-                <TextBlock Text="Publishing..." VerticalAlignment="Center"
-                           Visibility="{Binding IsPublishing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                <TextBlock Text="Output directory" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource AccentButton}" VerticalAlignment="Bottom"
+                    Command="{Binding PublishCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE898;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Publish" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextOnAccentBrush}" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </Grid>
 
-            <!-- Result area -->
-            <Border Margin="0,4,0,0"
-                    Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel>
-                    <!-- Success result -->
-                    <TextBlock Foreground="Green" FontWeight="SemiBold"
-                               Visibility="{Binding LastResult.Success, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Run Text="Published — ID: "/>
-                        <Run Text="{Binding LastResult.PublicationId}"/>
-                    </TextBlock>
-                    <!-- Failure result -->
-                    <TextBlock Foreground="Red" FontWeight="SemiBold"
-                               Visibility="{Binding LastResult.Success, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                        <Run Text="FAILED: "/>
-                        <Run Text="{Binding LastResult.Message}"/>
+        <Border Grid.Row="2" Padding="11,9"
+                BorderThickness="1" CornerRadius="{StaticResource ControlRadius}"
+                Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderSoftBrush}"
+                Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding LastResult.Success, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Foreground="{StaticResource SuccessBrush}" FontWeight="SemiBold"
+                               Margin="8,0,0,0" VerticalAlignment="Center">
+                        <Run Text="Published — ID:"/><Run Text=" "/><Run Text="{Binding LastResult.PublicationId}"/>
                     </TextBlock>
                 </StackPanel>
-            </Border>
-        </StackPanel>
-    </Border>
+
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding LastResult.Success, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"
+                               Margin="8,0,0,0" VerticalAlignment="Center">
+                        <Run Text="FAILED:"/><Run Text=" "/><Run Text="{Binding LastResult.Message}"/>
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
 </UserControl>

@@ -4,116 +4,229 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="600">
+             d:DesignHeight="520" d:DesignWidth="900">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
+
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="306" MinWidth="240"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*" MinWidth="320"/>
+        </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="4">
-            <!-- Script metadata row -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <Label Content="Name:" VerticalAlignment="Center" />
-                <TextBox Text="{Binding Script.Name, UpdateSourceTrigger=PropertyChanged}"
-                         Width="260" VerticalAlignment="Center" Margin="2,0,12,0"/>
-                <Label Content="Version:" VerticalAlignment="Center" />
+        <!-- ══ Left: the script, its parameters and its segments ═══════════
+             Scrolls, so the segment list and its commands stay reachable however
+             short the editor pane is. -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="14,14,8,14">
+          <StackPanel>
+
+            <!-- Name and version -->
+            <StackPanel>
+                <TextBlock Text="Script" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="Name" Style="{StaticResource FieldLabel}" Margin="0,8,0,3"/>
+                <TextBox Text="{Binding Script.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="Version" Style="{StaticResource FieldLabel}" Margin="0,8,0,3"/>
                 <TextBox Text="{Binding Script.Version, UpdateSourceTrigger=PropertyChanged}"
-                         Width="80" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                         HorizontalAlignment="Left" Width="110"/>
             </StackPanel>
 
-            <!-- Segments: shown when the script has segments. Each segment runs on its own runtime,
-                 in order; later segments receive the outputs of earlier ones. -->
-            <StackPanel Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,4">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                    <Label Content="Parameters (name=value per line):" VerticalAlignment="Top"/>
-                    <TextBox Text="{Binding ParamsText, UpdateSourceTrigger=LostFocus}"
-                             Width="360" Height="48" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
-                             ToolTip="Default values; steps read them as ${param.name}. A job can override them."/>
-                </StackPanel>
-                <Label Content="Segments (run top to bottom):" Padding="5,2"/>
-                <ListBox ItemsSource="{Binding Script.Segments}"
-                         SelectedItem="{Binding SelectedSegment}"
-                         DisplayMemberPath="Title"
-                         MaxHeight="96"/>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
-                            Visibility="{Binding HasSelectedSegment, Converter={StaticResource BoolToVisibility}}">
-                    <Label Content="Segment name:" VerticalAlignment="Center"/>
-                    <TextBox Text="{Binding SelectedSegment.Name, UpdateSourceTrigger=PropertyChanged}"
-                             Width="200" VerticalAlignment="Center" Margin="2,0,12,0"/>
-                    <Label Content="Runtime:" VerticalAlignment="Center"/>
-                    <ComboBox ItemsSource="{Binding RuntimeOptions}"
-                              SelectedItem="{Binding SelectedSegment.Runtime}"
-                              Width="100" VerticalAlignment="Center" Margin="2,0,0,0"/>
-                </StackPanel>
-                <!-- Browser segments only. "Browser mode" is saved in the script and decides how
-                     the segment runs later; the rest drive the browser this Designer opens to
-                     record the segment, and are not saved in the script. -->
-                <StackPanel Visibility="{Binding SelectedSegment.IsBrowser, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Label Content="Browser mode:" VerticalAlignment="Center"/>
-                        <ComboBox ItemsSource="{Binding ModeOptions}"
-                                  SelectedItem="{Binding SelectedSegment.Mode}"
-                                  Width="100" VerticalAlignment="Center" Margin="2,0,12,0"
-                                  ToolTip="How this segment runs later. Leave empty to use the browser host's own BROWSER_MODE setting."/>
-                        <Label Content="Record in:" VerticalAlignment="Center"/>
-                        <ComboBox Width="100" VerticalAlignment="Center" Margin="2,0,12,0"
-                                  ItemsSource="{Binding DataContext.BrowserAdapter.BrowserTypes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  SelectedItem="{Binding DataContext.BrowserAdapter.SelectedBrowser, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                        <CheckBox Content="Launch" VerticalAlignment="Center" Margin="0,0,6,0"
-                                  IsChecked="{Binding DataContext.BrowserAdapter.LaunchBrowser, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  ToolTip="Open a fresh browser when recording starts. Untick to attach to a browser already running with --remote-debugging-port."/>
-                        <Label Content="Port:" VerticalAlignment="Center"/>
-                        <TextBox Width="50" VerticalAlignment="Center" Margin="2,0,0,0"
-                                 Text="{Binding DataContext.BrowserAdapter.DebugPort, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Label Content="Start URL:" VerticalAlignment="Center"/>
-                        <TextBox Width="300" VerticalAlignment="Center" Margin="2,0,12,0"
-                                 Text="{Binding DataContext.BrowserAdapter.StartUrl, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Where recording this segment begins."/>
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding DataContext.BrowserAdapter.Status, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                    </StackPanel>
-                </StackPanel>
+            <!-- Parameters: only meaningful once the script has segments -->
+            <StackPanel Margin="0,14,0,0"
+                        Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Parameters" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding ParamsText, UpdateSourceTrigger=LostFocus}"
+                         Height="62" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                         FontFamily="{StaticResource MonoFont}" FontSize="12"
+                         ToolTip="Default values, one name=value per line. Steps read them as ${param.name}. A job can override them."/>
+                <TextBlock Text="one name=value per line" Style="{StaticResource CaptionText}"
+                           Foreground="{StaticResource TextTertiaryBrush}" Margin="0,3,0,0"/>
             </StackPanel>
 
-            <!-- Segment and step editing buttons -->
-            <StackPanel Orientation="Horizontal">
-                <Button Content="Add Segment"    Command="{Binding AddSegmentCommand}"
-                        ToolTip="Add a segment after the selected one. The first segment takes the script's existing steps."/>
-                <Button Content="Delete Segment" Command="{Binding DeleteSegmentCommand}"      Margin="4,0,0,0"/>
-                <Button Content="Segment Up"     Command="{Binding MoveSegmentUpCommand}"      Margin="4,0,0,0"/>
-                <Button Content="Segment Down"   Command="{Binding MoveSegmentDownCommand}"    Margin="4,0,0,0"/>
-                <Button Content="Make Single"    Command="{Binding MergeToSingleCommand}"      Margin="4,0,12,0"
-                        ToolTip="Turn a script with one segment back into a single-runtime script."/>
-                <Button Content="Add Step"  Command="{Binding AddStepCommand}"/>
-                <Button Content="Delete"    Command="{Binding DeleteStepCommand}" Margin="4,0,0,0"/>
-                <Button Content="Move Up"   Command="{Binding MoveUpCommand}"    Margin="4,0,0,0"/>
-                <Button Content="Move Down" Command="{Binding MoveDownCommand}"  Margin="4,0,0,0"/>
-            </StackPanel>
-        </StackPanel>
+            <!-- Segment list header with its add and reorder commands -->
+            <Grid Margin="0,16,0,6"
+                  Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Segments" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource IconButton}" Tag="&#xE70E;"
+                            Command="{Binding MoveSegmentUpCommand}" ToolTip="Move the selected segment up"/>
+                    <Button Style="{StaticResource IconButton}" Tag="&#xE70D;"
+                            Command="{Binding MoveSegmentDownCommand}" ToolTip="Move the selected segment down"/>
+                    <Button Style="{StaticResource DangerIconButton}" Tag="&#xE74D;"
+                            Command="{Binding DeleteSegmentCommand}" ToolTip="Delete the selected segment"/>
+                </StackPanel>
+            </Grid>
 
-        <TextBlock Grid.Row="1" Margin="8,0,0,2" FontStyle="Italic"
-                   Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}"
-                   Text="{Binding SelectedSegment.Title, StringFormat=Steps of: {0}}"/>
+            <!-- Shown until the script has segments, so the empty panel explains itself. -->
+            <TextBlock Margin="0,14,0,0"
+                       Text="No segments yet. Add one to choose the runtime it records and runs on."
+                       Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                       Foreground="{StaticResource TextTertiaryBrush}">
+                <TextBlock.Visibility>
+                    <Binding Path="IsSegmented" Converter="{StaticResource InverseBoolToVisibilityConverter}"/>
+                </TextBlock.Visibility>
+            </TextBlock>
 
-        <ListView Grid.Row="2"
-                  ItemsSource="{Binding ActiveSteps}"
-                  SelectedItem="{Binding SelectedStep}">
-            <ListView.ItemTemplate>
-                <DataTemplate>
+            <ListBox ItemsSource="{Binding Script.Segments}"
+                     SelectedItem="{Binding SelectedSegment}"
+                     MinHeight="108" MaxHeight="260"
+                     Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <Border Style="{StaticResource Pill}" Padding="6,1"
+                                        Background="{StaticResource AccentSubtleBrush}"
+                                        BorderBrush="{StaticResource AccentSubtleBrush}">
+                                    <TextBlock Text="{Binding Runtime}" Style="{StaticResource CaptionText}"
+                                               FontSize="11" Foreground="{StaticResource AccentHoverBrush}"/>
+                                </Border>
+                                <TextBlock Text="{Binding Mode}" Style="{StaticResource CaptionText}"
+                                           FontSize="11" Margin="6,0,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Add Segment stays reachable even before a script exists -->
+            <StackPanel Margin="0,10,0,0">
+                <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Stretch"
+                        Command="{Binding AddSegmentCommand}"
+                        ToolTip="Add a segment after the selected one. The first segment takes the script's existing steps.">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding StepNumber}" Width="30" VerticalAlignment="Center"/>
-                        <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                                 Width="400" VerticalAlignment="Center"/>
+                        <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Add Segment" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextOnAccentBrush}" FontWeight="SemiBold"/>
                     </StackPanel>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+                </Button>
+                <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                        Content="Make Single" Command="{Binding MergeToSingleCommand}"
+                        ToolTip="Turn a script with one segment back into a single-runtime script."/>
+            </StackPanel>
+
+          </StackPanel>
+        </ScrollViewer>
+
+        <Rectangle Grid.Column="1" Width="1" Fill="{StaticResource BorderSoftBrush}" Margin="0,14"/>
+
+        <!-- ══ Right: the selected segment and its steps ═══════════════════ -->
+        <Grid Grid.Column="2" Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Segment name and runtime -->
+            <StackPanel Grid.Row="0"
+                        Visibility="{Binding HasSelectedSegment, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Selected segment" Style="{StaticResource SectionTitle}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <StackPanel Width="260">
+                        <TextBlock Text="Segment name" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Text="{Binding SelectedSegment.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <StackPanel Width="130" Margin="12,0,0,0">
+                        <TextBlock Text="Runtime" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding RuntimeOptions}"
+                                  SelectedItem="{Binding SelectedSegment.Runtime}"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Browser segments: how it runs later, and how it is recorded now -->
+            <Border Grid.Row="1" Margin="0,12,0,0" Padding="12"
+                    Background="{StaticResource SurfaceAltBrush}"
+                    BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource ControlRadius}"
+                    Visibility="{Binding SelectedSegment.IsBrowser, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE774;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Browser segment" Style="{StaticResource CaptionText}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
+                                   Margin="7,0,0,0"/>
+                    </StackPanel>
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <StackPanel Width="140" Margin="0,0,12,8">
+                            <TextBlock Text="Browser mode" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox ItemsSource="{Binding ModeOptions}"
+                                      SelectedItem="{Binding SelectedSegment.Mode}"
+                                      ToolTip="How this segment runs later. Leave empty to use the browser host's own BROWSER_MODE setting."/>
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,8">
+                            <TextBlock Text="Record in" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox ItemsSource="{Binding DataContext.BrowserAdapter.BrowserTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      SelectedItem="{Binding DataContext.BrowserAdapter.SelectedBrowser, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </StackPanel>
+                        <StackPanel Width="90" Margin="0,0,12,8">
+                            <TextBlock Text="Port" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding DataContext.BrowserAdapter.DebugPort, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,0,8" VerticalAlignment="Bottom">
+                            <CheckBox Content="Launch" Height="30" VerticalContentAlignment="Center"
+                                      IsChecked="{Binding DataContext.BrowserAdapter.LaunchBrowser, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      ToolTip="Open a fresh browser when recording starts. Untick to attach to a browser already running with --remote-debugging-port."/>
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <TextBlock Text="Start URL" Style="{StaticResource FieldLabel}" Margin="0,2,0,3"/>
+                    <TextBox Text="{Binding DataContext.BrowserAdapter.StartUrl, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Where recording this segment begins."/>
+                    <TextBlock Text="{Binding DataContext.BrowserAdapter.Status, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Style="{StaticResource CaptionText}" Margin="0,7,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Steps header with its add, reorder and delete commands -->
+            <Grid Grid.Row="2" Margin="0,18,0,8">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Steps" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding SelectedSegment.Title}" Style="{StaticResource CaptionText}"
+                               Margin="9,0,0,0" VerticalAlignment="Center"
+                               Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource IconButton}" Tag="&#xE710;"
+                            Command="{Binding AddStepCommand}" ToolTip="Add a step"/>
+                    <Button Style="{StaticResource IconButton}" Tag="&#xE70E;"
+                            Command="{Binding MoveUpCommand}" ToolTip="Move the selected step up"/>
+                    <Button Style="{StaticResource IconButton}" Tag="&#xE70D;"
+                            Command="{Binding MoveDownCommand}" ToolTip="Move the selected step down"/>
+                    <Button Style="{StaticResource DangerIconButton}" Tag="&#xE74D;"
+                            Command="{Binding DeleteStepCommand}" ToolTip="Delete the selected step"/>
+                </StackPanel>
+            </Grid>
+
+            <ListView Grid.Row="3" ItemsSource="{Binding ActiveSteps}" SelectedItem="{Binding SelectedStep}"
+                      HorizontalContentAlignment="Stretch">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11"
+                                    Background="{StaticResource SubtleHoverBrush}" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding StepNumber}" Style="{StaticResource CaptionText}"
+                                           FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="Transparent" BorderThickness="0" Padding="4,0"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
     </Grid>
 </UserControl>

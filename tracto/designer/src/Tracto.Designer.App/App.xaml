@@ -5,10 +5,17 @@
              xmlns:conv="clr-namespace:Tracto.Designer.App.Converters"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <conv:SeverityToBrushConverter  x:Key="SeverityToBrushConverter"/>
-        <conv:SeverityToLetterConverter x:Key="SeverityToLetterConverter"/>
-        <conv:DigestTruncateConverter   x:Key="DigestTruncateConverter"/>
-        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Fluent.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <conv:SeverityToBrushConverter  x:Key="SeverityToBrushConverter"/>
+            <conv:SeverityToLetterConverter x:Key="SeverityToLetterConverter"/>
+            <conv:DigestTruncateConverter   x:Key="DigestTruncateConverter"/>
+            <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <conv:TextToVisibilityConverter x:Key="TextToVisibilityConverter"/>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

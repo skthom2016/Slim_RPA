@@ -3,47 +3,79 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
-             d:DesignHeight="200" d:DesignWidth="600">
-    <Border BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="4">
-        <StackPanel>
+             mc:Ignorable="d" d:DesignHeight="240" d:DesignWidth="800">
+    <Grid Margin="14,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-            <!-- Header row -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <TextBlock Text="Script Signing" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="{Binding SignerName}" VerticalAlignment="Center" Foreground="Gray" Margin="0,0,12,0"/>
-                <Button Content="Sign"   Command="{Binding SignCommand}"   Margin="2,0" Padding="6,2"/>
-                <Button Content="Verify" Command="{Binding VerifyCommand}" Margin="2,0" Padding="6,2"/>
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Script Signing" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding SignerName}" Style="{StaticResource CaptionText}"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+
+                <Border Margin="10,0,0,0"
+                        Background="{StaticResource SuccessSubtleBrush}" BorderBrush="{StaticResource SuccessSubtleBrush}">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSigned}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72E;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                   Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Signed" Style="{StaticResource CaptionText}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource SuccessBrush}" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
-            <!-- Signature details (visible when signed) -->
-            <StackPanel Margin="0,0,0,4">
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSigned}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Signed" FontWeight="Bold" Foreground="Green" Margin="0,0,0,2"/>
-                <TextBlock>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource AccentButton}" Content="Sign" Command="{Binding SignCommand}"/>
+                <Button Style="{StaticResource SecondaryButton}" Content="Verify" Margin="6,0,0,0"
+                        Command="{Binding VerifyCommand}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Signature detail, shown once the script carries a signature -->
+        <Border Grid.Row="1" Padding="12" Margin="0,0,0,8"
+                Background="{StaticResource SurfaceAltBrush}"
+                BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                CornerRadius="{StaticResource ControlRadius}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSigned}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel>
+                <TextBlock Style="{StaticResource CaptionText}">
                     <TextBlock.Text>
                         <MultiBinding StringFormat="Algorithm: {0}">
                             <Binding Path="CurrentSignature.Algorithm"/>
                         </MultiBinding>
                     </TextBlock.Text>
                 </TextBlock>
-                <TextBlock>
+                <TextBlock Style="{StaticResource CaptionText}" Margin="0,3,0,0">
                     <TextBlock.Text>
                         <MultiBinding StringFormat="Timestamp: {0}">
                             <Binding Path="CurrentSignature.Timestamp"/>
                         </MultiBinding>
                     </TextBlock.Text>
                 </TextBlock>
-                <TextBlock>
+                <TextBlock Style="{StaticResource CaptionText}" FontFamily="{StaticResource MonoFont}" Margin="0,3,0,0">
                     <TextBlock.Text>
                         <MultiBinding StringFormat="Digest: {0}...">
                             <Binding Path="CurrentSignature.Digest" Converter="{StaticResource DigestTruncateConverter}"/>
@@ -51,11 +83,13 @@
                     </TextBlock.Text>
                 </TextBlock>
             </StackPanel>
+        </Border>
 
-            <!-- Verification result (visible when IsVerified is not null) -->
-            <TextBlock Text="&#x2713; Signature Valid" Foreground="Green" FontWeight="Bold">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
+        <!-- Verification outcome -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal">
+            <Border Background="{StaticResource SuccessSubtleBrush}" BorderBrush="{StaticResource SuccessSubtleBrush}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Pill}">
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsVerified}" Value="True">
@@ -63,11 +97,18 @@
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <TextBlock Text="&#x2717; Signature Invalid" Foreground="Red" FontWeight="Bold">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                               Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Signature valid" Style="{StaticResource CaptionText}" FontWeight="SemiBold"
+                               Foreground="{StaticResource SuccessBrush}" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource DangerSubtleBrush}" BorderBrush="{StaticResource DangerSubtleBrush}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Pill}">
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsVerified}" Value="False">
@@ -75,9 +116,14 @@
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </TextBlock.Style>
-            </TextBlock>
-
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                               Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Signature invalid" Style="{StaticResource CaptionText}" FontWeight="SemiBold"
+                               Foreground="{StaticResource DangerBrush}" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
-    </Border>
+    </Grid>
 </UserControl>
