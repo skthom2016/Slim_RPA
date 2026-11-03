@@ -1,5 +1,6 @@
 namespace Tracto.Designer.Infrastructure.Serialization;
 
+using System.IO;
 using System.Text.Json;
 using Tracto.Designer.Core.Scripting;
 
@@ -31,6 +32,14 @@ public sealed class JsonScriptSerializer : IScriptSerializer
     {
         using var document = JsonDocument.Parse(content);
         var doc = document.RootElement;
+        if (doc.TryGetProperty("scripts", out var scriptsEl) && scriptsEl.ValueKind == JsonValueKind.Array)
+        {
+            var names = string.Join(", ", scriptsEl.EnumerateArray()
+                .Select(x => x.TryGetProperty("name", out var n) ? n.GetString() : "?"));
+            throw new InvalidDataException(
+                $"This is a flow file with {scriptsEl.GetArrayLength()} scripts ({names}), not a single script. " +
+                "Run it with run-flow.ps1, or import one script file at a time.");
+        }
         var s = new Script
         {
             Id            = doc.GetProperty("id").GetString() ?? "",
