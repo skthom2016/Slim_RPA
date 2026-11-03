@@ -92,6 +92,19 @@ public sealed class RecordingSessionService : IRecordingSessionService
         StateChanged?.Invoke(this, newState);
     }
 
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            if (_state == SessionState.Idle && _transcript.Count == 0) return;
+            _transcript.Clear();
+            _engineType = null;
+            _sessionId = null;
+            _state = SessionState.Idle;
+        }
+        StateChanged?.Invoke(this, SessionState.Idle);
+    }
+
     public void AppendTranscriptEntry(TranscriptEntry entry)
     {
         lock (_lock)

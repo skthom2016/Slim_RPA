@@ -29,6 +29,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     private readonly IVoiceTranscriptionAdapter _voice;
     private readonly IScriptDraftGenerator _draftGenerator;
     private CaptureEngineType? _selectedEngineType = CaptureEngineType.Desktop;
+    private ScriptSegment? _watchedSegment;
 
     public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter)
     {
@@ -43,6 +44,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         StopCommand          = new RelayCommand(_ => _session.Stop(),      _ => IsRecording || IsPaused);
         DiscardCommand       = new RelayCommand(_ => _session.Discard(),   _ => !IsStopped);
         GenerateDraftCommand = new RelayCommand(_ => ExecuteGenerateDraft(), _ => IsStopped && _session.Transcript.Count > 0);
+        NewScriptCommand     = new RelayCommand(_ => StartNewScript());
         Validation = new ValidationViewModel(validator, ScriptEditor);
         AiBridge = new AiAuthoringViewModel(mcpServer);
         TestRunner = new TestPanelViewModel(testRunner, ScriptEditor);
@@ -73,26 +75,37 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>
-    /// A segmented script already names a runtime per segment, so recording follows the
-    /// selected segment instead of a manual choice: the Engine picker is read-only and this
-    /// is false. For a plain script (no segments yet) you choose the engine yourself.
-    /// </summary>
-    public bool CanChooseEngine => !ScriptEditor.IsSegmented;
-
+    // The segment being edited decides which engine records: there is no separate engine
+    // picker. Selecting a browser segment records the browser, a desktop segment the desktop.
     private void OnScriptEditorChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ScriptEditorViewModel.IsSegmented) or nameof(ScriptEditorViewModel.SelectedSegment))
+            WatchSelectedSegment();
+    }
+
+    // Also follows a runtime changed on the segment that is already selected.
+    private void WatchSelectedSegment()
+    {
+        if (_watchedSegment is not null) _watchedSegment.PropertyChanged -= OnSegmentChanged;
+        _watchedSegment = ScriptEditor.SelectedSegment;
+        if (_watchedSegment is not null) _watchedSegment.PropertyChanged += OnSegmentChanged;
+        SyncEngineToSegment();
+    }
+
+    private void OnSegmentChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ScriptSegment.Runtime)) SyncEngineToSegment();
+    }
+
+    private void SyncEngineToSegment()
+    {
+        if (_watchedSegment is null) return;
+        SelectedEngineType = _watchedSegment.Runtime.ToLowerInvariant() switch
         {
-            OnPropertyChanged(nameof(CanChooseEngine));
-            if (ScriptEditor.IsSegmented && ScriptEditor.SelectedSegment is { } seg)
-                SelectedEngineType = seg.Runtime.ToLowerInvariant() switch
-                {
-                    "browser"  => CaptureEngineType.Browser,
-                    "terminal" => CaptureEngineType.Terminal,
-                    _          => CaptureEngineType.Desktop
-                };
-        }
+            "browser"  => CaptureEngineType.Browser,
+            "terminal" => CaptureEngineType.Terminal,
+            _          => CaptureEngineType.Desktop
+        };
     }
 
     public SessionState CurrentState => _session.CurrentState;
@@ -123,6 +136,19 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     public ICommand StopCommand          { get; }
     public ICommand DiscardCommand       { get; }
     public ICommand GenerateDraftCommand { get; }
+    public ICommand NewScriptCommand     { get; }
+
+    /// <summary>
+    /// Clears the editor and the recording session so another flow can be built without
+    /// restarting the Designer. A stopped session cannot be discarded, so it is reset here.
+    /// </summary>
+    private void StartNewScript()
+    {
+        if (_captureEngine.IsRunning) _captureEngine.Stop();
+        if (BrowserAdapter.IsConnected) _ = BrowserAdapter.StopAsync();
+        _session.Reset();
+        ScriptEditor.NewScript();
+    }
 
     private void ExecuteGenerateDraft()
     {
@@ -173,6 +199,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         ScriptEditor.PropertyChanged -= OnScriptEditorChanged;
+        if (_watchedSegment is not null) _watchedSegment.PropertyChanged -= OnSegmentChanged;
         _session.StateChanged -= OnStateChanged;
         _captureEngine.Dispose();
         TestRunner.Dispose();

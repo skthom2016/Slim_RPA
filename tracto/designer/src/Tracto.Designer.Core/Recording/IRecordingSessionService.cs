@@ -12,5 +12,12 @@ public interface IRecordingSessionService
     void Resume();
     void Stop();
     void Discard();
+
+    /// <summary>
+    /// Clears the transcript and returns to Idle from any state, so a new recording can start.
+    /// Unlike <see cref="Discard"/> this is allowed once a session has been stopped.
+    /// </summary>
+    void Reset();
+
     void AppendTranscriptEntry(TranscriptEntry entry);
 }

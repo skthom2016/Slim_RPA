@@ -101,7 +101,9 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         DeleteStepCommand      = new RelayCommand(_ => DeleteStep(), _ => SelectedStep is not null);
         MoveUpCommand          = new RelayCommand(_ => MoveUp(),     _ => CanMoveUp());
         MoveDownCommand        = new RelayCommand(_ => MoveDown(),   _ => CanMoveDown());
-        AddSegmentCommand      = new RelayCommand(_ => AddSegment(), _ => _script is not null);
+        // Always available: with no script open yet it starts one, so a new flow can be built
+        // straight after the Designer opens.
+        AddSegmentCommand      = new RelayCommand(_ => AddSegment());
         // The last segment is not deleted: "Make Single" turns it back into a plain script.
         DeleteSegmentCommand   = new RelayCommand(_ => DeleteSegment(), _ => _selectedSegment is not null && _script is { Segments.Count: > 1 });
         MoveSegmentUpCommand   = new RelayCommand(_ => MoveSegment(-1), _ => CanMoveSegment(-1));
@@ -113,6 +115,13 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     {
         Script = script;
         RenumberAll();
+    }
+
+    /// <summary>Replaces whatever is open with an empty script, ready for a new flow.</summary>
+    public void NewScript()
+    {
+        Script = new Script();
+        SelectedStep = null;
     }
 
     /// <summary>
@@ -186,19 +195,21 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 
     private void AddSegment()
     {
-        if (_script is null) return;
+        // No script open yet: start a blank one so the first segment has somewhere to go.
+        if (_script is null) Script = new Script();
+        var script = _script!;
 
         // The first segment of a single-runtime script takes the script's runtime and steps.
-        if (!_script.IsSegmented)
+        if (!script.IsSegmented)
         {
             var first = new ScriptSegment
             {
                 Name = "Segment 1",
-                Runtime = ScriptSegment.Runtimes.Contains(_script.TargetRuntime) ? _script.TargetRuntime : "desktop"
+                Runtime = ScriptSegment.Runtimes.Contains(script.TargetRuntime) ? script.TargetRuntime : "desktop"
             };
-            foreach (var step in _script.Steps.ToList()) first.Steps.Add(step);
-            _script.Steps.Clear();
-            _script.Segments.Add(first);
+            foreach (var step in script.Steps.ToList()) first.Steps.Add(step);
+            script.Steps.Clear();
+            script.Segments.Add(first);
             if (first.Steps.Count == 0)
             {
                 SelectedSegment = first;
@@ -208,12 +219,12 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 
         var segment = new ScriptSegment
         {
-            Name = $"Segment {_script.Segments.Count + 1}",
+            Name = $"Segment {script.Segments.Count + 1}",
             // A different runtime from the previous segment is the usual reason to add one.
-            Runtime = _script.Segments.LastOrDefault()?.Runtime == "desktop" ? "browser" : "desktop"
+            Runtime = script.Segments.LastOrDefault()?.Runtime == "desktop" ? "browser" : "desktop"
         };
-        var at = _selectedSegment is null ? _script.Segments.Count : _script.Segments.IndexOf(_selectedSegment) + 1;
-        _script.Segments.Insert(at, segment);
+        var at = _selectedSegment is null ? script.Segments.Count : script.Segments.IndexOf(_selectedSegment) + 1;
+        script.Segments.Insert(at, segment);
         SelectedSegment = segment;
     }
 

@@ -150,4 +150,45 @@ public class RecordingSessionServiceTests
         svc.Discard();
         svc.ActiveEngineType.Should().BeNull();
     }
+    [Fact]
+    public void Reset_From_Stopped_Returns_To_Idle_So_Another_Recording_Can_Start()
+    {
+        var svc = Svc();
+        svc.Start(Opts());
+        svc.AppendTranscriptEntry(new TranscriptEntry(1, DateTimeOffset.Now, "t",
+            new RawEvent(1, DateTimeOffset.Now, RawEventType.Click, "p", "w", null, null, null, null, false, null, 0, 0),
+            null, null));
+        svc.Stop();
+
+        svc.Reset();
+
+        svc.CurrentState.Should().Be(SessionState.Idle);
+        svc.Transcript.Should().BeEmpty();
+        svc.ActiveEngineType.Should().BeNull();
+        svc.Invoking(x => x.Start(Opts())).Should().NotThrow();
+    }
+
+    [Fact]
+    public void Reset_From_Recording_Returns_To_Idle()
+    {
+        var svc = Svc();
+        svc.Start(Opts());
+
+        svc.Reset();
+
+        svc.CurrentState.Should().Be(SessionState.Idle);
+    }
+
+    [Fact]
+    public void Reset_From_Idle_Is_A_No_Op()
+    {
+        var svc = Svc();
+        var raised = 0;
+        svc.StateChanged += (_, _) => raised++;
+
+        svc.Reset();
+
+        svc.CurrentState.Should().Be(SessionState.Idle);
+        raised.Should().Be(0);
+    }
 }

@@ -435,4 +435,35 @@ public class SegmentedScriptTests
 
         json.IndexOf("\"action\"").Should().BeLessThan(json.IndexOf("\"description\""));
     }
+    [Fact]
+    public void Editor_Add_Segment_Works_With_No_Script_Open()
+    {
+        var vm = new ScriptEditorViewModel();
+
+        vm.AddSegmentCommand.CanExecute(null).Should().BeTrue();
+        vm.AddSegmentCommand.Execute(null);
+
+        vm.Script.Should().NotBeNull();
+        vm.IsSegmented.Should().BeTrue();
+        vm.Script!.Segments.Should().HaveCount(1);
+        vm.SelectedSegment.Should().BeSameAs(vm.Script.Segments[0]);
+        vm.ActiveSteps.Should().BeSameAs(vm.Script.Segments[0].Steps);
+    }
+
+    [Fact]
+    public void Editor_New_Script_Clears_Everything()
+    {
+        var vm = EditorWith(TwoSegments());
+        vm.SelectedStep = vm.ActiveSteps![0];
+
+        vm.NewScript();
+
+        vm.Script.Should().NotBeNull();
+        vm.IsSegmented.Should().BeFalse();
+        vm.Script!.Segments.Should().BeEmpty();
+        vm.Script.Steps.Should().BeEmpty();
+        vm.Script.Params.Should().BeEmpty();
+        vm.SelectedStep.Should().BeNull();
+        vm.SelectedSegment.Should().BeNull();
+    }
 }
