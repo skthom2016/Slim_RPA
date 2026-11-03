@@ -29,8 +29,9 @@ func (h *CancelHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var runState, runAttemptID string
-	err := h.db.QueryRow(`SELECT State,AttemptId FROM RunRecords WHERE Id=?`, runID).Scan(&runState, &runAttemptID)
+	var runState, runAttemptID, runtimeType string
+	err := h.db.QueryRow(`SELECT State,AttemptId,RuntimeType FROM RunRecords WHERE Id=?`, runID).
+		Scan(&runState, &runAttemptID, &runtimeType)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -49,6 +50,31 @@ func (h *CancelHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	p, _ := json.Marshal(map[string]any{"requestedBy": *req.RequestedBy})
+
+	// Parent of a segmented script: cancel the segment that is active. A running segment is
+	// told to stop and the parent closes when its result arrives; a queued one is cancelled
+	// at once together with the parent.
+	if runtimeType == segmentedRuntime {
+		childID, childState, childAttempt, ok := activeSegmentRun(h.db, runID)
+		if ok && strings.EqualFold(childState, "Running") {
+			h.db.Exec(`UPDATE LeaseRecords SET CancellationRequested=1 WHERE RunId=? AND State='Accepted'`, childID)
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+				uuid.NewString(), childID, childAttempt, "RUN_CANCEL_REQUESTED", now, string(p))
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+				uuid.NewString(), runID, runAttemptID, "RUN_CANCEL_REQUESTED", now, string(p))
+			respond(w, http.StatusOK, map[string]string{"runId": runID})
+			return
+		}
+		if ok {
+			h.db.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=? WHERE Id=?`, now, childID)
+			h.db.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND State<>'Expired'`, childID)
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+				uuid.NewString(), childID, childAttempt, "RUN_CANCELLED", now, string(p))
+		}
+		finishParent(h.db, runID, "Cancelled", "cancelled by "+*req.RequestedBy)
+		respond(w, http.StatusOK, map[string]string{"runId": runID})
+		return
+	}
 
 	tx, err := h.db.Begin()
 	if err != nil {

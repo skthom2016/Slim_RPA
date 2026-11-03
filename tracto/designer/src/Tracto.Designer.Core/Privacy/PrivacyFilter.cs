@@ -38,24 +38,40 @@ public sealed class PrivacyFilter(PrivacySettings settings) : IPrivacyFilter
             Id = script.Id,
             Name = script.Name,
             Version = script.Version,
-            TargetRuntime = script.TargetRuntime
+            TargetRuntime = script.TargetRuntime,
+            Params = new Dictionary<string, string>(script.Params)
         };
         foreach (var step in script.Steps)
+            filtered.Steps.Add(FilterStep(step));
+        foreach (var seg in script.Segments)
         {
-            var filteredStep = new ScriptStep
+            var filteredSeg = new ScriptSegment
             {
-                StepNumber  = step.StepNumber,
-                Description = SensitivePatternDetector.Scrub(step.Description, settings.Policy),
-                Action      = step.Action,
-                Condition   = step.Condition
+                Name = seg.Name,
+                Runtime = seg.Runtime,
+                Mode = seg.Mode
             };
-            foreach (var (k, v) in step.Parameters)
-            {
-                var fv = v is null ? null : SensitivePatternDetector.Scrub(v, settings.Policy);
-                filteredStep.Parameters[k] = fv;
-            }
-            filtered.Steps.Add(filteredStep);
+            foreach (var step in seg.Steps)
+                filteredSeg.Steps.Add(FilterStep(step));
+            filtered.Segments.Add(filteredSeg);
         }
         return filtered;
+    }
+
+    private ScriptStep FilterStep(ScriptStep step)
+    {
+        var filteredStep = new ScriptStep
+        {
+            StepNumber  = step.StepNumber,
+            Description = SensitivePatternDetector.Scrub(step.Description, settings.Policy),
+            Action      = step.Action,
+            Condition   = step.Condition
+        };
+        foreach (var (k, v) in step.Parameters)
+        {
+            var fv = v is null ? null : SensitivePatternDetector.Scrub(v, settings.Policy);
+            filteredStep.Parameters[k] = fv;
+        }
+        return filteredStep;
     }
 }

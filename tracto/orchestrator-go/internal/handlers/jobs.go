@@ -98,6 +98,25 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A segmented script becomes a parent run plus one child run per segment.
+	if seg := loadSegmentedScript(h.db, req.ScriptArtifactId, req.ScriptVersion); seg != nil {
+		runID, err := startSegmentedRun(h.db, seg, runSpec{
+			TriggerType:   req.TriggerType,
+			InputRefs:     req.InputRefs,
+			SecretRefs:    req.SecretRefs,
+			Params:        req.Params,
+			Deadline:      req.Deadline,
+			EventId:       req.EventId,
+			BusinessJobId: req.BusinessJobId,
+		})
+		if err != nil {
+			errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
+		respond(w, http.StatusOK, map[string]any{"runId": runID, "state": "RUNNING", "segments": len(seg.Segments)})
+		return
+	}
+
 	runID, err := insertRun(h.db, runSpec{
 		ArtifactId:    req.ScriptArtifactId,
 		Version:       req.ScriptVersion,
@@ -286,11 +305,12 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 // GET /jobs/{runId}
 func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
-	var state string
-	var flowID sql.NullString
-	var flowStep sql.NullInt64
-	err := h.db.QueryRow(`SELECT State,FlowId,FlowStepIndex FROM RunRecords WHERE Id=?`, runID).
-		Scan(&state, &flowID, &flowStep)
+	var state, runtimeType, artifactID, version string
+	var parentID sql.NullString
+	var segmentIndex sql.NullInt64
+	err := h.db.QueryRow(`SELECT State,RuntimeType,ScriptArtifactId,ScriptVersion,ParentRunId,SegmentIndex
+	    FROM RunRecords WHERE Id=?`, runID).
+		Scan(&state, &runtimeType, &artifactID, &version, &parentID, &segmentIndex)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -300,24 +320,32 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{
-		"runId":   runID,
-		"state":   strings.ToUpper(state),
-		"params":  loadParams(h.db, runID),
-		"outputs": loadOutputs(h.db, runID),
+		"runId":            runID,
+		"state":            strings.ToUpper(state),
+		"scriptArtifactId": artifactID,
+		"scriptVersion":    version,
+		"runtimeType":      runtimeType,
+		"params":           loadParams(h.db, runID),
+		"outputs":          loadOutputs(h.db, runID),
 	}
-	if flowID.Valid && flowID.String != "" {
-		resp["flowId"] = flowID.String
-		resp["flowStepIndex"] = flowStep.Int64
+	if runtimeType == segmentedRuntime {
+		resp["segments"] = segmentStatuses(h.db, runID, artifactID, version)
+	}
+	if parentID.Valid && parentID.String != "" {
+		resp["parentRunId"] = parentID.String
+		resp["segmentIndex"] = segmentIndex.Int64
 	}
 	respond(w, http.StatusOK, resp)
 }
 
-// GET /jobs?state=Queued&limit=50
+// GET /jobs?state=Queued&limit=50&includeSegments=false
 // Lists runs, newest first. Optional query params:
-//   state  — filter by state (case-insensitive); omit for all states
-//   limit  — max rows returned (default 50, max 200)
+//   state            — filter by state (case-insensitive); omit for all states
+//   limit            — max rows returned (default 50, max 200)
+//   includeSegments  — also list the child runs of segmented scripts (default false)
 func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	stateFilter := r.URL.Query().Get("state")
+	includeSegments := r.URL.Query().Get("includeSegments") == "true"
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
 		fmt.Sscanf(l, "%d", &limit)
@@ -335,29 +363,27 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		ScriptArtifactId string  `json:"scriptArtifactId"`
 		ScriptVersion    string  `json:"scriptVersion"`
 		TriggerType      string  `json:"triggerType"`
+		RuntimeType      string  `json:"runtimeType"`
 		WorkerId         *string `json:"workerId,omitempty"`
 		CreatedAt        string  `json:"createdAt"`
 		UpdatedAt        *string `json:"updatedAt,omitempty"`
 		NeedsAttention   bool    `json:"needsAttention"`
+		ParentRunId      *string `json:"parentRunId,omitempty"`
 	}
 
-	var query string
+	query := `SELECT Id, State, ScriptArtifactId, ScriptVersion, TriggerType, RuntimeType,
+	                 WorkerId, CreatedAt, UpdatedAt, NeedsAttention, ParentRunId
+	          FROM RunRecords WHERE 1=1`
 	var args []any
-
 	if stateFilter != "" {
-		query = `SELECT Id, State, ScriptArtifactId, ScriptVersion, TriggerType,
-		                WorkerId, CreatedAt, UpdatedAt, NeedsAttention
-		         FROM RunRecords
-		         WHERE UPPER(State)=UPPER(?)
-		         ORDER BY CreatedAt DESC LIMIT ?`
-		args = []any{stateFilter, limit}
-	} else {
-		query = `SELECT Id, State, ScriptArtifactId, ScriptVersion, TriggerType,
-		                WorkerId, CreatedAt, UpdatedAt, NeedsAttention
-		         FROM RunRecords
-		         ORDER BY CreatedAt DESC LIMIT ?`
-		args = []any{limit}
+		query += ` AND UPPER(State)=UPPER(?)`
+		args = append(args, stateFilter)
 	}
+	if !includeSegments {
+		query += ` AND ParentRunId IS NULL`
+	}
+	query += ` ORDER BY CreatedAt DESC LIMIT ?`
+	args = append(args, limit)
 
 	rows, err := h.db.Query(query, args...)
 	if err != nil {
@@ -369,12 +395,11 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	jobs := []jobRow{}
 	for rows.Next() {
 		var j jobRow
-		var workerID sql.NullString
-		var updatedAt sql.NullString
+		var workerID, updatedAt, parentID sql.NullString
 		var needsAttention int
 		if err := rows.Scan(
 			&j.RunId, &j.State, &j.ScriptArtifactId, &j.ScriptVersion,
-			&j.TriggerType, &workerID, &j.CreatedAt, &updatedAt, &needsAttention,
+			&j.TriggerType, &j.RuntimeType, &workerID, &j.CreatedAt, &updatedAt, &needsAttention, &parentID,
 		); err != nil {
 			continue
 		}
@@ -385,6 +410,9 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		if updatedAt.Valid {
 			j.UpdatedAt = &updatedAt.String
+		}
+		if parentID.Valid && parentID.String != "" {
+			j.ParentRunId = &parentID.String
 		}
 		jobs = append(jobs, j)
 	}

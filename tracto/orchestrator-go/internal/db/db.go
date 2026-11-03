@@ -32,8 +32,9 @@ func Open(path string) (*sql.DB, error) {
 // not alter existing tables, so each is added here when missing.
 var addedColumns = []struct{ Table, Column, Type string }{
 	{"RunRecords", "ParamsJson", "TEXT"},
-	{"RunRecords", "FlowId", "TEXT"},
-	{"RunRecords", "FlowStepIndex", "INTEGER"},
+	{"RunRecords", "ParentRunId", "TEXT"},
+	{"RunRecords", "SegmentIndex", "INTEGER"},
+	{"ArtifactRecords", "ParentArtifactId", "TEXT"},
 }
 
 func addColumns(db *sql.DB) error {

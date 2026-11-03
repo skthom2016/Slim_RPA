@@ -20,8 +20,8 @@ type runSpec struct {
 	Deadline      *string
 	EventId       *string
 	BusinessJobId *string
-	FlowId        *string
-	FlowStepIndex *int
+	ParentRunId   *string // set for a segment run of a segmented script
+	SegmentIndex  *int
 }
 
 // insertRun creates a run in state Queued and journals RUN_CREATED and RUN_QUEUED.
@@ -47,22 +47,13 @@ func insertRun(db *sql.DB, s runSpec) (string, error) {
 	attemptID := uuid.NewString()
 	correlationID := uuid.NewString()
 
-	var businessJobId, eventId, deadline, flowId sql.NullString
-	if s.BusinessJobId != nil {
-		businessJobId = sql.NullString{String: *s.BusinessJobId, Valid: true}
-	}
-	if s.EventId != nil {
-		eventId = sql.NullString{String: *s.EventId, Valid: true}
-	}
-	if s.Deadline != nil {
-		deadline = sql.NullString{String: *s.Deadline, Valid: true}
-	}
-	if s.FlowId != nil {
-		flowId = sql.NullString{String: *s.FlowId, Valid: true}
-	}
-	var flowStep sql.NullInt64
-	if s.FlowStepIndex != nil {
-		flowStep = sql.NullInt64{Int64: int64(*s.FlowStepIndex), Valid: true}
+	businessJobId := nullStr(s.BusinessJobId)
+	eventId := nullStr(s.EventId)
+	deadline := nullStr(s.Deadline)
+	parentRunId := nullStr(s.ParentRunId)
+	var segmentIndex sql.NullInt64
+	if s.SegmentIndex != nil {
+		segmentIndex = sql.NullInt64{Int64: int64(*s.SegmentIndex), Valid: true}
 	}
 
 	// Read before the transaction opens: the database allows a single connection.
@@ -78,13 +69,13 @@ func insertRun(db *sql.DB, s runSpec) (string, error) {
 		INSERT INTO RunRecords(Id,WorkflowId,State,AttemptId,CreatedAt,CorrelationId,
 		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,
 		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention,RuntimeType,
-		    ParamsJson,FlowId,FlowStepIndex)
+		    ParamsJson,ParentRunId,SegmentIndex)
 		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)`,
 		runID, s.ArtifactId, "Created", attemptID, now, correlationID,
 		s.ArtifactId, s.Version, schemaVersion,
 		string(inputJSON), string(secretJSON),
 		deadline, eventId, triggerType, businessJobId,
-		runtimeType, string(paramsJSON), flowId, flowStep,
+		runtimeType, string(paramsJSON), parentRunId, segmentIndex,
 	)
 	if err != nil {
 		return "", err
@@ -123,7 +114,7 @@ func loadParams(db *sql.DB, runID string) map[string]string {
 	return params
 }
 
-// loadOutputs returns the outputs a run reported (never nil).
+// loadOutputs returns the outputs a run reported, or collected from its segments (never nil).
 func loadOutputs(db *sql.DB, runID string) map[string]string {
 	outputs := map[string]string{}
 	rows, err := db.Query(`SELECT Name,Value FROM RunOutputs WHERE RunId=? ORDER BY Name`, runID)

@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Tracto.Designer.Core.Publication;
+using Tracto.Designer.Infrastructure.Serialization;
 
 public sealed class OrchestratorPublisher : IScriptPublisher
 {
@@ -27,25 +28,12 @@ public sealed class OrchestratorPublisher : IScriptPublisher
 
         var s = req.Script;
 
-        // Build a ScriptEnvelope that the Desktop Runtime can execute
+        // Build the ScriptEnvelope the runtimes and the Orchestrator read. A segmented script
+        // carries its segments; the Orchestrator queues one run per segment.
         var envelope = new
         {
             schemaVersion = "1",
-            script = new
-            {
-                id            = s.Id,
-                name          = s.Name,
-                version       = s.Version,
-                targetRuntime = s.TargetRuntime,
-                steps         = s.Steps.Select(st => new
-                {
-                    stepNumber  = st.StepNumber,
-                    action      = st.Action,
-                    description = st.Description,
-                    condition   = st.Condition,
-                    parameters  = st.Parameters
-                })
-            }
+            script = ScriptDocument.Build(s)
         };
 
         var envelopeJson = JsonSerializer.Serialize(envelope, _json);

@@ -18,7 +18,8 @@ public sealed class LocalSimulationTestRunner(IScriptValidator validator) : IScr
         }
 
         var stepResults = new List<StepTestResult>();
-        var total = script.Steps.Count;
+        var steps = script.AllSteps.ToList();
+        var total = steps.Count;
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
@@ -29,7 +30,7 @@ public sealed class LocalSimulationTestRunner(IScriptValidator validator) : IScr
                 var stepSw = System.Diagnostics.Stopwatch.StartNew();
                 await Task.Delay(50, ct).ConfigureAwait(false);
                 stepSw.Stop();
-                stepResults.Add(new StepTestResult(script.Steps[i].StepNumber, true, "Simulated OK", stepSw.Elapsed));
+                stepResults.Add(new StepTestResult(steps[i].StepNumber, true, "Simulated OK", stepSw.Elapsed));
                 progress?.Report((i + 1) * 100 / total);
             }
         }

@@ -119,20 +119,40 @@ public sealed class McpToolHandler(
     {
         if (_currentScript is null)
             return new McpToolResult(false, string.Empty, "No script loaded. Record a session and generate a draft first.");
+        static object StepDto(ScriptStep s) => new
+        {
+            stepNumber  = s.StepNumber,
+            description = s.Description,
+            action      = s.Action,
+            parameters  = s.Parameters,
+            condition   = s.Condition
+        };
+
+        if (_currentScript.IsSegmented)
+        {
+            return new McpToolResult(true, JsonSerializer.Serialize(new
+            {
+                id       = _currentScript.Id,
+                name     = _currentScript.Name,
+                version  = _currentScript.Version,
+                @params  = _currentScript.Params,
+                segments = _currentScript.Segments.Select(g => new
+                {
+                    name    = g.Name,
+                    runtime = g.Runtime,
+                    mode    = g.Mode,
+                    steps   = g.Steps.Select(StepDto)
+                })
+            }));
+        }
+
         var envelope = new
         {
             id            = _currentScript.Id,
             name          = _currentScript.Name,
             version       = _currentScript.Version,
             targetRuntime = _currentScript.TargetRuntime,
-            steps         = _currentScript.Steps.Select(s => new
-            {
-                stepNumber  = s.StepNumber,
-                description = s.Description,
-                action      = s.Action,
-                parameters  = s.Parameters,
-                condition   = s.Condition
-            })
+            steps         = _currentScript.Steps.Select(StepDto)
         };
         return new McpToolResult(true, JsonSerializer.Serialize(envelope));
     }
@@ -221,12 +241,24 @@ public sealed class McpToolHandler(
                 {
                     int n     = stepPatch.GetProperty("stepNumber").GetInt32();
                     string? desc = stepPatch.TryGetProperty("description", out var d) ? d.GetString() : null;
-                    var existing  = _currentScript.Steps.FirstOrDefault(s => s.StepNumber == n);
+
+                    // Step numbers restart in every segment, so a patch on a segmented
+                    // script names its segment (1-based).
+                    IEnumerable<ScriptStep> pool = _currentScript.Steps;
+                    if (_currentScript.IsSegmented)
+                    {
+                        if (!stepPatch.TryGetProperty("segment", out var segEl) || !segEl.TryGetInt32(out var segNo) ||
+                            segNo < 1 || segNo > _currentScript.Segments.Count)
+                            return new McpToolResult(false, string.Empty,
+                                "This script is segmented: each step patch needs \"segment\" (1-based segment number).");
+                        pool = _currentScript.Segments[segNo - 1].Steps;
+                    }
+                    var existing  = pool.FirstOrDefault(s => s.StepNumber == n);
                     if (existing is not null && desc is not null)
                         existing.Description = desc;
                 }
             }
-            return new McpToolResult(true, JsonSerializer.Serialize(new { applied = true, stepCount = _currentScript.Steps.Count }));
+            return new McpToolResult(true, JsonSerializer.Serialize(new { applied = true, stepCount = _currentScript.AllSteps.Count() }));
         }
         catch (JsonException ex) { return new McpToolResult(false, string.Empty, $"Invalid JSON: {ex.Message}"); }
     }
@@ -290,6 +322,10 @@ public sealed class McpToolHandler(
         "VAL-010" => "Renumber steps sequentially starting from 1.",
         "VAL-011" => "Add a description for this step.",
         "VAL-012" => "Specify an action type for this step.",
+        "VAL-020" => "Set the segment runtime to 'desktop', 'browser', or 'terminal'.",
+        "VAL-021" => "Add at least one step to the segment, or delete the segment.",
+        "VAL-024" => "Move the top-level steps into a segment.",
+        "VAL-025" => "Give every parameter a name.",
         _          => string.Empty
     };
 

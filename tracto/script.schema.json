@@ -1,146 +1,458 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Tracto Script",
-  "description": "Designer-format script for the Tracto Desktop Runtime",
-  "type": "object",
-  "required": ["id", "name", "version", "targetRuntime", "steps"],
-  "additionalProperties": false,
-  "properties": {
-    "id": {
-      "type": "string",
-      "description": "Unique artifact ID used as the Orchestrator artifact key (e.g. 'notepad-hello-world-001')",
-      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+  "description": "Designer-format script: either a flat script for one runtime (targetRuntime + steps) or a segmented script that chains several runtimes (segments). Uploaded scripts are wrapped as {\"schemaVersion\":\"1\",\"script\":{...}}.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/flatScript"
     },
-    "name": {
-      "type": "string",
-      "description": "Human-readable script name shown in the Designer"
-    },
-    "version": {
-      "type": "string",
-      "description": "Semantic version (e.g. '1.0.0')",
-      "pattern": "^\\d+\\.\\d+\\.\\d+$"
-    },
-    "targetRuntime": {
-      "type": "string",
-      "enum": ["desktop"],
-      "description": "Runtime type — currently only 'desktop' is supported"
-    },
-    "steps": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["stepNumber", "action", "parameters"],
-        "additionalProperties": false,
-        "properties": {
-          "stepNumber": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "1-based sequential step number"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "key",
-              "type",
-              "delay",
-              "click",
-              "scroll",
-              "navigate",
-              "focus",
-              "app.launch",
-              "http.get",
-              "http.post",
-              "notepad.type",
-              "file.saveAs"
-            ],
-            "description": "Action handler name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional human-readable description of what this step does"
-          },
-          "parameters": {
-            "type": "object",
-            "description": "All parameter values must be strings (the runtime casts to int/bool as needed)",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        }
-      }
+    {
+      "$ref": "#/definitions/segmentedScript"
     }
-  },
+  ],
   "definitions": {
     "action_key": {
       "description": "key action: required 'key' param. Use {LWIN}s for Win+S, {ENTER}, %{F4} for Alt+F4, ^s for Ctrl+S",
-      "required_params": ["key"],
-      "optional_params": ["window"],
-      "outputs": ["sendKeysValue"]
+      "required_params": [
+        "key"
+      ],
+      "optional_params": [
+        "window"
+      ],
+      "outputs": [
+        "sendKeysValue"
+      ]
     },
     "action_type": {
       "description": "type action: required 'value' param. Supports ${varName.field} expansion and \\n for newline",
-      "required_params": ["value"],
-      "optional_params": ["window"],
-      "outputs": ["charactersTyped"]
+      "required_params": [
+        "value"
+      ],
+      "optional_params": [
+        "window"
+      ],
+      "outputs": [
+        "charactersTyped"
+      ]
     },
     "action_delay": {
       "description": "delay action: required 'ms' param (max 30000)",
-      "required_params": ["ms"],
+      "required_params": [
+        "ms"
+      ],
       "optional_params": []
     },
     "action_click": {
       "description": "click action: required 'coordinates' param as 'x,y' string",
-      "required_params": ["coordinates"],
-      "optional_params": ["window", "rightClick"],
-      "outputs": ["x", "y"]
+      "required_params": [
+        "coordinates"
+      ],
+      "optional_params": [
+        "window",
+        "rightClick"
+      ],
+      "outputs": [
+        "x",
+        "y"
+      ]
     },
     "action_scroll": {
       "description": "scroll action: required 'coordinates' param as 'x,y'. delta defaults to 120 (positive=up)",
-      "required_params": ["coordinates"],
-      "optional_params": ["delta", "window"]
+      "required_params": [
+        "coordinates"
+      ],
+      "optional_params": [
+        "delta",
+        "window"
+      ]
     },
     "action_navigate": {
       "description": "navigate action: required 'window' param (partial window title, case-insensitive)",
-      "required_params": ["window"],
+      "required_params": [
+        "window"
+      ],
       "optional_params": [],
-      "outputs": ["windowHandle"]
+      "outputs": [
+        "windowHandle"
+      ]
     },
     "action_focus": {
       "description": "focus action: activates a window or control",
       "required_params": [],
-      "optional_params": ["window", "target"],
-      "outputs": ["windowHandle"]
+      "optional_params": [
+        "window",
+        "target"
+      ],
+      "outputs": [
+        "windowHandle"
+      ]
     },
     "action_app_launch": {
       "description": "app.launch action: launches or attaches to a Windows app",
-      "required_params": ["executable"],
-      "optional_params": ["args", "timeoutMs", "attachIfRunning"],
-      "outputs": ["processId", "windowTitle"]
+      "required_params": [
+        "executable"
+      ],
+      "optional_params": [
+        "args",
+        "timeoutMs",
+        "attachIfRunning"
+      ],
+      "outputs": [
+        "processId",
+        "windowTitle"
+      ]
     },
     "action_http_get": {
       "description": "http.get action: HTTP GET; use storeAs to chain outputs as ${storeAs.statusCode}, ${storeAs.body}, ${storeAs.json}",
-      "required_params": ["url"],
-      "optional_params": ["timeoutMs", "storeAs"],
-      "outputs": ["statusCode", "body", "json"]
+      "required_params": [
+        "url"
+      ],
+      "optional_params": [
+        "timeoutMs",
+        "storeAs"
+      ],
+      "outputs": [
+        "statusCode",
+        "body",
+        "json"
+      ]
     },
     "action_http_post": {
       "description": "http.post action: HTTP POST with a body; top-level scalar fields of a JSON reply become ${storeAs.field}",
-      "required_params": ["url"],
-      "optional_params": ["body", "contentType", "timeoutMs", "storeAs"],
-      "outputs": ["statusCode", "body", "json"]
+      "required_params": [
+        "url"
+      ],
+      "optional_params": [
+        "body",
+        "contentType",
+        "timeoutMs",
+        "storeAs"
+      ],
+      "outputs": [
+        "statusCode",
+        "body",
+        "json"
+      ]
     },
     "action_notepad_type": {
       "description": "notepad.type action: pastes text into Notepad via the clipboard",
-      "required_params": ["text"],
-      "optional_params": ["windowTitle"],
-      "outputs": ["charactersTyped"]
+      "required_params": [
+        "text"
+      ],
+      "optional_params": [
+        "windowTitle"
+      ],
+      "outputs": [
+        "charactersTyped"
+      ]
     },
     "action_file_saveAs": {
       "description": "file.saveAs action: saves via Save As dialog. filePath supports %ENV% expansion",
-      "required_params": ["filePath"],
-      "optional_params": ["windowTitle", "overwrite", "saveAsShortcut"],
-      "outputs": ["savedPath", "fileSizeBytes"]
+      "required_params": [
+        "filePath"
+      ],
+      "optional_params": [
+        "windowTitle",
+        "overwrite",
+        "saveAsShortcut"
+      ],
+      "outputs": [
+        "savedPath",
+        "fileSizeBytes"
+      ]
+    },
+    "action_file_read": {
+      "description": "file.read action: reads a text file into variables ${storeAs.text}, ${storeAs.firstLine}, ${storeAs.lineCount}",
+      "required_params": [
+        "path"
+      ],
+      "optional_params": [
+        "maxChars",
+        "storeAs"
+      ],
+      "outputs": [
+        "text",
+        "firstLine",
+        "lineCount"
+      ]
+    },
+    "action_clipboard_get": {
+      "description": "clipboard.get action: reads the clipboard text into ${storeAs.text} and ${storeAs.firstLine}",
+      "required_params": [],
+      "optional_params": [
+        "storeAs"
+      ],
+      "outputs": [
+        "text",
+        "firstLine"
+      ]
+    },
+    "segmentStep": {
+      "type": "object",
+      "required": [
+        "stepNumber",
+        "action"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "stepNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based step number, restarting at 1 in every segment"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Action handler name of the segment's runtime"
+        },
+        "description": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "All parameter values must be strings"
+        }
+      }
+    },
+    "desktopSegmentStep": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/segmentStep"
+        }
+      ],
+      "required": [
+        "parameters"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "key",
+            "type",
+            "delay",
+            "click",
+            "scroll",
+            "navigate",
+            "focus",
+            "app.launch",
+            "http.get",
+            "http.post",
+            "notepad.type",
+            "file.saveAs",
+            "clipboard.get",
+            "file.read"
+          ]
+        }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "required": [
+        "runtime",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Label shown in the Designer and in the job's segment list"
+        },
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "desktop",
+            "browser",
+            "terminal"
+          ],
+          "description": "Runtime that executes this segment"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "headed",
+            "headless"
+          ],
+          "description": "Browser segments only. Runs this segment headed or headless, whatever the browser host is configured for. Omit to follow the host's BROWSER_MODE setting."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/segmentStep"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "runtime": {
+            "const": "desktop"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/definitions/desktopSegmentStep"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "runtime": {
+                "enum": [
+                  "desktop",
+                  "terminal"
+                ]
+              }
+            },
+            "required": [
+              "runtime"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": false
+            }
+          }
+        }
+      ]
+    },
+    "flatScript": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "version",
+        "targetRuntime",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique artifact ID used as the Orchestrator artifact key (e.g. 'notepad-hello-world-001')",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable script name shown in the Designer"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version (e.g. '1.0.0')",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "targetRuntime": {
+          "type": "string",
+          "enum": [
+            "desktop"
+          ],
+          "description": "Runtime type — currently only 'desktop' is supported"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "stepNumber",
+              "action",
+              "parameters"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "stepNumber": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "1-based sequential step number"
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "key",
+                  "type",
+                  "delay",
+                  "click",
+                  "scroll",
+                  "navigate",
+                  "focus",
+                  "app.launch",
+                  "http.get",
+                  "http.post",
+                  "notepad.type",
+                  "file.saveAs",
+                  "clipboard.get",
+                  "file.read"
+                ],
+                "description": "Action handler name"
+              },
+              "description": {
+                "type": "string",
+                "description": "Optional human-readable description of what this step does"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "All parameter values must be strings (the runtime casts to int/bool as needed)",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "segmentedScript": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "version",
+        "segments"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique artifact ID used as the Orchestrator artifact key (e.g. 'notepad-hello-world-001')",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable script name shown in the Designer"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version (e.g. '1.0.0')",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "params": {
+          "type": "object",
+          "description": "Default job parameters, read in any segment as ${param.name}. A job's own params override them.",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Segments run in order, each on its own runtime. A storeAs output of one segment reaches later segments as ${param.<storeAs>.<field>}.",
+          "items": {
+            "$ref": "#/definitions/segment"
+          }
+        }
+      }
     }
   }
 }

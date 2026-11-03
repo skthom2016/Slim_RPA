@@ -104,8 +104,14 @@ public sealed partial class BrowserRunEngine(
             return new RunOutcome("Failed", "VALIDATION", "Artifact is not valid JSON.", steps, outputs);
         }
 
-        _log.LogInformation("Run {RunId}: script \"{Name}\" v{Version} — {Count} step(s), mode={Mode}, channel={Channel}",
-            lease.RunId, script.Name, script.Version, script.Steps.Count, options.BrowserMode,
+        // The script may set its own mode; otherwise the host's own setting applies. How long
+        // the browser stays open after the last step is always the host's PauseAfterRunMs —
+        // that is a background viewing convenience, not something a script declares.
+        var mode = script.Mode ?? options.BrowserMode;
+
+        _log.LogInformation("Run {RunId}: script \"{Name}\" v{Version} — {Count} step(s), mode={Mode} ({ModeSource}), channel={Channel}",
+            lease.RunId, script.Name, script.Version, script.Steps.Count, mode,
+            script.Mode is null ? "host setting" : "set by the script",
             string.IsNullOrEmpty(options.Channel) ? "bundled-chromium" : options.Channel);
 
         // ── 3. Browser ───────────────────────────────────────────────────────
@@ -144,7 +150,7 @@ public sealed partial class BrowserRunEngine(
         IPage page;
         try
         {
-            var context = await contexts.AcquireContextAsync(lease.RunId, options.BrowserMode, ct).ConfigureAwait(false);
+            var context = await contexts.AcquireContextAsync(lease.RunId, mode, ct).ConfigureAwait(false);
             page = await context.NewPageAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -232,8 +238,10 @@ public sealed partial class BrowserRunEngine(
         }
 
         // ── 5. Close ─────────────────────────────────────────────────────────
-        if (options.BrowserMode == BrowserMode.Headed && options.PauseAfterRunMs > 0 && terminal != "Cancelled")
+        if (mode == BrowserMode.Headed && options.PauseAfterRunMs > 0 && terminal != "Cancelled")
         {
+            _log.LogInformation("Run {RunId}: leaving the browser open for {Ms} ms before it closes.",
+                lease.RunId, options.PauseAfterRunMs);
             try { await Task.Delay(options.PauseAfterRunMs, CancellationToken.None).ConfigureAwait(false); }
             catch (Exception) { /* nothing to recover */ }
         }

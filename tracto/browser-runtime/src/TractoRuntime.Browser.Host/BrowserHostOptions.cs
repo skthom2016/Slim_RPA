@@ -29,7 +29,7 @@ public sealed record BrowserHostOptions
     public int RunTimeoutMs { get; init; } = 600_000;
 
     /// <summary>Time the browser stays open after the last step so a person can see the end state (headed only).</summary>
-    public int PauseAfterRunMs { get; init; } = 3_000;
+    public int PauseAfterRunMs { get; init; } = 2_000;
 
     /// <summary>How long a step waits for its target element to appear before reporting it as not found.</summary>
     public int LocatorWaitMs { get; init; } = 15_000;

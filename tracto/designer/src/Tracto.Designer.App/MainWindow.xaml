@@ -13,7 +13,9 @@
             <Label Content="Engine:" VerticalAlignment="Center" />
             <ComboBox Width="120"
                       ItemsSource="{Binding EngineTypes}"
-                      SelectedItem="{Binding SelectedEngineType}" />
+                      SelectedItem="{Binding SelectedEngineType}"
+                      IsEnabled="{Binding CanChooseEngine}"
+                      ToolTip="For a segmented script this follows the selected segment's runtime; pick the segment in the editor instead." />
             <Separator />
             <Button Content="Start"   Command="{Binding StartCommand}"   Margin="2,0" />
             <Button Content="Pause"   Command="{Binding PauseCommand}"   Margin="2,0" />
@@ -63,6 +65,9 @@
             </StatusBarItem>
             <StatusBarItem>
                 <TextBlock Text="{Binding AiBridge.Status}" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding ExportImport.LastMessage}" TextWrapping="Wrap" MaxWidth="560" />
             </StatusBarItem>
         </StatusBar>
 

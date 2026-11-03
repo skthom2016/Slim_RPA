@@ -77,6 +77,10 @@ func expireStaleLeases(db *sql.DB, logger *slog.Logger) {
 			p, _ := json.Marshal(map[string]string{"reason": "lease_expired_unknown", "leaseId": s.leaseID})
 			tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
 				jID, s.runID, s.attemptID, "RUN_RECONCILED_UNKNOWN", now, string(p))
+			// A segment run that ends Unknown takes its parent with it.
+			tx.Exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=1,UnknownReason=?,UpdatedAt=?
+			         WHERE State='Running' AND Id=(SELECT ParentRunId FROM RunRecords WHERE Id=?)`,
+				"A segment run ended Unknown: "+s.runID, now, s.runID)
 		}
 
 		// Release worker slot
@@ -187,6 +191,28 @@ func DeadlineMonitor(ctx context.Context, db *sql.DB, logger *slog.Logger) {
 				touts = append(touts, t)
 			}
 			rows.Close()
+
+			// A parent run of a segmented script carries the deadline; its active segment
+			// run is timed out with it.
+			for _, parent := range touts {
+				childRows, err := db.Query(
+					`SELECT Id,AttemptId,WorkerId FROM RunRecords
+					 WHERE ParentRunId=? AND State NOT IN ('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')`,
+					parent.id)
+				if err != nil {
+					continue
+				}
+				for childRows.Next() {
+					var t timedOut
+					var wid sql.NullString
+					childRows.Scan(&t.id, &t.attemptID, &wid)
+					if wid.Valid {
+						t.workerID = wid.String
+					}
+					touts = append(touts, t)
+				}
+				childRows.Close()
+			}
 
 			for _, t := range touts {
 				tx, _ := db.Begin()

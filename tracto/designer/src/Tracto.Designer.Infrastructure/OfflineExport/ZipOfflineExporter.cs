@@ -18,7 +18,7 @@ public sealed class ZipOfflineExporter : IOfflineExporter
             var packageId = Guid.NewGuid();
             var manifest = new OfflinePackageManifest(
                 packageId, DateTimeOffset.UtcNow,
-                req.Script.Id, req.Script.Name, req.Script.Version, req.Script.TargetRuntime,
+                req.Script.Id, req.Script.Name, req.Script.Version, req.Script.EffectiveRuntime,
                 "1.0.0", req.IsIsolated, req.Signature?.Digest);
 
             var dir = Path.GetDirectoryName(req.OutputPath);

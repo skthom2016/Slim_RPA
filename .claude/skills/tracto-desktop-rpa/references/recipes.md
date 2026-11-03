@@ -108,7 +108,7 @@ Source app: click in or focus it, select, `Ctrl+C`. Target app: focus, `Ctrl+V`.
 
 **Verified:** Select all + copy in Notepad puts the text on the clipboard. **Not reliable:** copying text out of a PDF open in a browser (see recipe 9).
 
-The script cannot inspect the clipboard. `notepad.type` also sets the clipboard, so a later `Ctrl+V` pastes the last `notepad.type` text.
+To look at the copied text instead of pasting it, use `clipboard.get` (recipe 14). `notepad.type` also sets the clipboard, so a later `Ctrl+V` pastes the last `notepad.type` text.
 
 ## 8. Close windows
 `key` with `Alt+F4` and a specific `window` (**verified**).
@@ -189,6 +189,57 @@ There are no loops. Write the steps out N times (generate them in code if N is l
 ## 13. Paste a table into Excel
 **Not run.** Excel splits tab-separated text across cells when it is pasted. The `text` from `/batch` is tab-separated, so: open Excel with the workbook (recipe 6), `delay` 5000, `notepad.type` with `windowTitle` `"Excel"` and the text (`notepad.type` pastes into any window it can match by title), or set the clipboard through a `notepad.type` into Notepad and copy it. Position the cursor first with `key Ctrl+Home` or `Ctrl+G` and a cell address. Verify on the target machine before relying on it.
 
+## 14. Read a text file or the clipboard into variables
+
+**Read a file** (`file.read`, **not verified by a run**):
+```json
+{ "stepNumber": 1, "action": "file.read", "description": "Read the input file", "parameters": { "path": "C:\\data\\input.txt", "storeAs": "doc" } },
+{ "stepNumber": 2, "action": "notepad.type", "description": "Use its text", "parameters": { "text": "${doc.firstLine} (${doc.lineCount} lines)" } }
+```
+Outputs: `${doc.text}`, `${doc.firstLine}`, `${doc.lineCount}`. No window opens and nothing needs to be focused. The step fails when the file is missing, over 5 MB, or locked.
+
+**Read what an app copied** (`clipboard.get`, **verified** with Notepad):
+```json
+{ "stepNumber": 1, "action": "key", "description": "Select all", "parameters": { "key": "Ctrl+A", "window": "input.txt - Notepad" } },
+{ "stepNumber": 2, "action": "key", "description": "Copy", "parameters": { "key": "Ctrl+C", "window": "input.txt - Notepad" } },
+{ "stepNumber": 3, "action": "delay", "description": "Let the clipboard settle", "parameters": { "ms": "500" } },
+{ "stepNumber": 4, "action": "clipboard.get", "description": "Read the copied text", "parameters": { "storeAs": "copied" } }
+```
+Outputs: `${copied.text}`, `${copied.firstLine}`. The step fails when the clipboard has no text, which usually means the copy went to the wrong window. Read the clipboard before any `notepad.type`, which overwrites it. A PDF viewer in a browser does not reliably put text on the clipboard (recipe 9).
+
+## 15. Pass text from a desktop step to a browser (segmented script)
+**Verified** (`notepad-to-bing`: ran to `SUCCEEDED`; the first line of the note was searched on Bing).
+
+One file, two segments. The desktop segment reads the text; the browser segment uses it as `${param.note.firstLine}`. The full file is `references/templates/segmented-notepad-to-bing.json`; the shape is:
+
+```json
+{
+  "id": "notepad-to-bing", "name": "Notepad To Bing", "version": "1.0.0",
+  "params": { "notePath": "C:\\data\\search-text.txt", "noteName": "search-text.txt" },
+  "segments": [
+    { "name": "Read the note", "runtime": "desktop", "steps": [
+      { "stepNumber": 1, "action": "app.launch", "parameters": { "executable": "notepad.exe", "args": "${param.notePath}" } },
+      { "stepNumber": 2, "action": "delay", "parameters": { "ms": "2000" } },
+      { "stepNumber": 3, "action": "key", "parameters": { "key": "Ctrl+A", "window": "${param.noteName} - Notepad" } },
+      { "stepNumber": 4, "action": "key", "parameters": { "key": "Ctrl+C", "window": "${param.noteName} - Notepad" } },
+      { "stepNumber": 5, "action": "delay", "parameters": { "ms": "500" } },
+      { "stepNumber": 6, "action": "clipboard.get", "parameters": { "storeAs": "note" } },
+      { "stepNumber": 7, "action": "key", "parameters": { "key": "Alt+F4", "window": "${param.noteName} - Notepad" } }
+    ] },
+    { "name": "Search Bing", "runtime": "browser", "steps": [
+      { "stepNumber": 1, "action": "navigate", "parameters": { "url": "https://www.bing.com/" } },
+      { "stepNumber": 2, "action": "fill", "parameters": { "css": "#sb_form_q", "value": "${param.note.firstLine}" } }
+    ] }
+  ]
+}
+```
+
+- The desktop segment stores the text as `note`; inside that segment it is `${note.firstLine}`, in the next segment it is `${param.note.firstLine}`.
+- `params` supply defaults (here the file path and name). A job can override them, so the same script can read a different file per run.
+- The file must be saved (no `*` in the title), so Alt+F4 closes Notepad without a prompt. Match the Notepad title by file name.
+- For the reverse direction (browser result into a desktop step), store the value in the browser step (`storeAs: "first"`) and use `${param.first}` in a later desktop segment. The browser host also exposes the same value as `${param.first.value}`. This direction was not run; the forward direction above was.
+- Run it with a desktop worker and a browser worker both online; each segment waits until a worker of its runtime pulls it. The desktop machine must be idle and unlocked (SKILL.md rule 8).
+
 ---
 
 ## When a script misbehaves
@@ -200,6 +251,7 @@ There are no loops. Write the steps out N times (generate them in code if N is l
 | Step failed right after a program started | Console program, document path or running browser used with `app.launch`. Use the Run dialog. |
 | `UnknownAction:<name>` | The action does not exist, or the Host running the job is an older build. |
 | `CONFIGURATION` on a step | A required parameter is missing or empty, or a number/boolean/coordinate is malformed. |
-| Literal `${something}` in typed text | The variable was never defined, or the `storeAs` name differs. Run the validator. |
+| Literal `${something}` in typed text | The variable was never defined, or the `storeAs` name differs. Run the validator. For a value from an earlier segment, write `${param.name.field}`; for a job parameter, check it is in `params` or in the job's `params`. |
+| A later segment never starts | The earlier segment failed or was cancelled, or no worker of that runtime is online. |
 | `HTTP 4xx/5xx: ...` | The reply body after the colon says why. |
 | Script has no steps / malformed | An envelope or `payload` was written by hand. Use the flat format. |

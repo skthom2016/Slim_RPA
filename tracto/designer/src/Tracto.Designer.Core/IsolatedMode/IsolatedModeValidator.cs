@@ -11,13 +11,16 @@ public sealed class IsolatedModeValidator
         var violations = new List<IsolatedViolation>();
 
         // Rule 1: Browser runtime not allowed in isolated mode
-        if (script.TargetRuntime.Equals("browser", StringComparison.OrdinalIgnoreCase))
+        var usesBrowser = script.IsSegmented
+            ? script.Segments.Any(g => g.Runtime.Equals("browser", StringComparison.OrdinalIgnoreCase))
+            : script.TargetRuntime.Equals("browser", StringComparison.OrdinalIgnoreCase);
+        if (usesBrowser)
             violations.Add(new("ISO-001", "Browser runtime requires network access — not allowed in isolated mode."));
 
         if (!settings.RestrictNetworkAccess) return new IsolatedValidationResult(violations);
 
         // Rules only checked when RestrictNetworkAccess=true
-        foreach (var step in script.Steps)
+        foreach (var step in script.AllSteps)
         {
             foreach (var (key, value) in step.Parameters)
             {

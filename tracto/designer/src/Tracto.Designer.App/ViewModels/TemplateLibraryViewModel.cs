@@ -72,7 +72,7 @@ public sealed class TemplateLibraryViewModel : INotifyPropertyChanged
     private void UseTemplate()
     {
         if (_selected is null) return;
-        if (_editor.Script is { Steps.Count: > 0 })
+        if (_editor.Script?.AllSteps.Any() == true)
         {
             if (!_dialog.Confirm(
                 "Replace current script with template? Unsaved steps will be lost.",

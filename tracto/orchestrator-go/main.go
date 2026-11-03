@@ -77,16 +77,10 @@ func main() {
 
 	// Jobs
 	jh := handlers.NewJobHandler(database)
-	fh := handlers.NewFlowHandler(database)
 	r.Post("/jobs", jh.CreateJob)
 	r.Get("/jobs", jh.ListJobs)
 	r.Post("/jobs/pull", jh.PullJob)
 	r.Get("/jobs/{runId}", jh.GetJob)
-
-	// Flows: ordered scripts across runtimes; outputs of one run become params of the next
-	r.Post("/flows", fh.Create)
-	r.Get("/flows", fh.List)
-	r.Get("/flows/{flowId}", fh.Get)
 
 	// Lease & heartbeat
 	lh := handlers.NewLeaseHandler(database)

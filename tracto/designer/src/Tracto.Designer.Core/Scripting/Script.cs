@@ -35,7 +35,25 @@ public sealed class Script : INotifyPropertyChanged
         set { _targetRuntime = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Steps of a single-runtime script. Empty when the script is segmented.</summary>
     public ObservableCollection<ScriptStep> Steps { get; } = [];
+
+    /// <summary>
+    /// Runtime-specific parts of a segmented script, run in order. When this has items, the
+    /// script has no TargetRuntime of its own and <see cref="Steps"/> is not used.
+    /// </summary>
+    public ObservableCollection<ScriptSegment> Segments { get; } = [];
+
+    /// <summary>Default parameters, read by steps as ${param.name}. Used by segmented scripts.</summary>
+    public Dictionary<string, string> Params { get; set; } = [];
+
+    public bool IsSegmented => Segments.Count > 0;
+
+    /// <summary>"segmented" for a segmented script, otherwise the TargetRuntime.</summary>
+    public string EffectiveRuntime => IsSegmented ? "segmented" : TargetRuntime;
+
+    /// <summary>Every step in run order: the segments' steps for a segmented script.</summary>
+    public IEnumerable<ScriptStep> AllSteps => IsSegmented ? Segments.SelectMany(s => s.Steps) : Steps;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

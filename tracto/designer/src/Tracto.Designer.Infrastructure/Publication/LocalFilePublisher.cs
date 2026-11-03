@@ -3,6 +3,7 @@ namespace Tracto.Designer.Infrastructure.Publication;
 using System.IO;
 using System.Text.Json;
 using Tracto.Designer.Core.Publication;
+using Tracto.Designer.Infrastructure.Serialization;
 
 public sealed class LocalFilePublisher : IScriptPublisher
 {
@@ -51,19 +52,21 @@ public sealed class LocalFilePublisher : IScriptPublisher
                 publicationId = pubId,
                 publishedAt = DateTimeOffset.UtcNow,
                 signature = new { req.Signature.SignerId, req.Signature.Algorithm, req.Signature.Digest },
-                script = new
-                {
-                    s.Id,
-                    s.Name,
-                    s.Version,
-                    s.TargetRuntime,
-                    steps = s.Steps.Select(st => new { st.StepNumber, st.Action, st.Description, st.Parameters, st.Condition })
-                }
+                script = s.IsSegmented
+                    ? ScriptDocument.Build(s)
+                    : (object)new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.Version,
+                        s.TargetRuntime,
+                        steps = s.Steps.Select(st => new { st.StepNumber, st.Action, st.Description, st.Parameters, st.Condition })
+                    }
             };
 
             await File.WriteAllTextAsync(filePath, JsonSerializer.Serialize(envelope, _json), ct).ConfigureAwait(false);
 
-            catalog.Add(new CatalogEntry(s.Id, s.Name, s.Version, s.TargetRuntime, DateTimeOffset.UtcNow, fileName, req.Signature.Digest));
+            catalog.Add(new CatalogEntry(s.Id, s.Name, s.Version, s.EffectiveRuntime, DateTimeOffset.UtcNow, fileName, req.Signature.Digest));
             await File.WriteAllTextAsync(catalogPath, JsonSerializer.Serialize(catalog, _json), ct).ConfigureAwait(false);
 
             return PublicationResult.Ok(pubId);

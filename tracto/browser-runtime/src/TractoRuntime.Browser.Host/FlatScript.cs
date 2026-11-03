@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TractoRuntime.Browser.Contracts;
 
 namespace TractoRuntime.Browser.Host;
 
@@ -16,6 +17,12 @@ public sealed class FlatScript
     [JsonPropertyName("targetRuntime")] public string? TargetRuntime { get; set; }
     [JsonPropertyName("steps")]         public List<FlatStep> Steps { get; set; } = [];
 
+    /// <summary>
+    /// <c>headed</c> or <c>headless</c> for this script only. Null leaves the host's own
+    /// BROWSER_MODE setting in charge.
+    /// </summary>
+    [JsonIgnore] public BrowserMode? Mode { get; private set; }
+
     private static readonly JsonSerializerOptions Json =
         new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
@@ -28,8 +35,24 @@ public sealed class FlatScript
             ? inner
             : root;
 
-        return scriptElement.Deserialize<FlatScript>(Json)
+        var script = scriptElement.Deserialize<FlatScript>(Json)
             ?? throw new ScriptValidationException("Artifact payload is not a script.");
+
+        script.Mode = ReadMode(scriptElement);
+        return script;
+    }
+
+    private static BrowserMode? ReadMode(JsonElement script)
+    {
+        if (!script.TryGetProperty("mode", out var el) || el.ValueKind == JsonValueKind.Null)
+            return null;
+        if (el.ValueKind != JsonValueKind.String)
+            throw new ScriptValidationException("'mode' must be the text \"headed\" or \"headless\".");
+
+        var text = el.GetString()?.Trim() ?? string.Empty;
+        if (text.Equals("headed", StringComparison.OrdinalIgnoreCase)) return BrowserMode.Headed;
+        if (text.Equals("headless", StringComparison.OrdinalIgnoreCase)) return BrowserMode.Headless;
+        throw new ScriptValidationException($"'mode' is \"{text}\"; it must be \"headed\" or \"headless\".");
     }
 }
 

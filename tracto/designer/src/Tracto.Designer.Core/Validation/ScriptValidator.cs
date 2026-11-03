@@ -19,6 +19,17 @@ public sealed class ScriptValidator : IScriptValidator
             errors.Add(new("VAL-002", Error, "Script Name is required."));
         if (string.IsNullOrWhiteSpace(script.Version) || !SemVer.IsMatch(script.Version))
             errors.Add(new("VAL-003", Error, "Script Version must follow semver format (e.g. 1.0.0)."));
+
+        if (script.IsSegmented)
+            ValidateSegmented(script, errors);
+        else
+            ValidateFlat(script, errors);
+
+        return new ScriptValidationResult(errors);
+    }
+
+    private static void ValidateFlat(Script script, List<ValidationError> errors)
+    {
         if (string.IsNullOrWhiteSpace(script.TargetRuntime))
             errors.Add(new("VAL-004", Error, "TargetRuntime is required (desktop, browser, or terminal)."));
 
@@ -26,20 +37,57 @@ public sealed class ScriptValidator : IScriptValidator
         if (script.Steps.Count == 0)
             errors.Add(new("VAL-005", Warning, "Script has no steps. Add steps before publishing."));
 
-        // Step-level checks
-        for (int i = 0; i < script.Steps.Count; i++)
+        ValidateSteps(script.Steps, "", errors);
+    }
+
+    private static void ValidateSegmented(Script script, List<ValidationError> errors)
+    {
+        if (script.Steps.Count > 0)
+            errors.Add(new("VAL-024", Error,
+                "A segmented script keeps all steps inside its segments; remove the top-level steps."));
+
+        foreach (var key in script.Params.Keys)
         {
-            var step = script.Steps[i];
+            if (string.IsNullOrWhiteSpace(key))
+                errors.Add(new("VAL-025", Error, "A parameter name is empty."));
+        }
+
+        for (int i = 0; i < script.Segments.Count; i++)
+        {
+            var seg = script.Segments[i];
+            var label = $"Segment {i + 1} ({(string.IsNullOrWhiteSpace(seg.Name) ? "unnamed" : seg.Name)})";
+
+            if (!ScriptSegment.Runtimes.Contains(seg.Runtime, StringComparer.OrdinalIgnoreCase))
+                errors.Add(new("VAL-020", Error, $"{label}: runtime must be desktop, browser or terminal."));
+            if (seg.Steps.Count == 0)
+                errors.Add(new("VAL-021", Error, $"{label} has no steps."));
+
+            if (!string.IsNullOrWhiteSpace(seg.Mode))
+            {
+                if (!seg.IsBrowser)
+                    errors.Add(new("VAL-022", Error, $"{label}: mode applies to a browser segment only."));
+                else if (!seg.Mode.Equals("headed", StringComparison.OrdinalIgnoreCase) &&
+                         !seg.Mode.Equals("headless", StringComparison.OrdinalIgnoreCase))
+                    errors.Add(new("VAL-022", Error, $"{label}: mode must be headed or headless."));
+            }
+
+            ValidateSteps(seg.Steps, label + ": ", errors);
+        }
+    }
+
+    private static void ValidateSteps(IList<ScriptStep> steps, string prefix, List<ValidationError> errors)
+    {
+        for (int i = 0; i < steps.Count; i++)
+        {
+            var step = steps[i];
             int n = step.StepNumber;
 
             if (n != i + 1)
-                errors.Add(new("VAL-010", Error, $"Step at index {i} has StepNumber={n}; expected {i + 1}.", n));
+                errors.Add(new("VAL-010", Error, $"{prefix}Step at index {i} has StepNumber={n}; expected {i + 1}.", n));
             if (string.IsNullOrWhiteSpace(step.Description))
-                errors.Add(new("VAL-011", Error, $"Step {n} description is required.", n));
+                errors.Add(new("VAL-011", Error, $"{prefix}Step {n} description is required.", n));
             if (string.IsNullOrWhiteSpace(step.Action))
-                errors.Add(new("VAL-012", Error, $"Step {n} action is required.", n));
+                errors.Add(new("VAL-012", Error, $"{prefix}Step {n} action is required.", n));
         }
-
-        return new ScriptValidationResult(errors);
     }
 }

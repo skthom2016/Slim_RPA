@@ -138,7 +138,7 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		string(evidenceJSON), req.BusinessJobId, now,
 	)
 
-	// Store the run's outputs for later flow steps and for GET /jobs/{runId}
+	// Store the run's outputs for later segments and for GET /jobs/{runId}
 	for name, value := range req.Outputs {
 		tx.Exec(`INSERT OR REPLACE INTO RunOutputs(RunId,Name,Value,CreatedAt) VALUES(?,?,?,?)`,
 			runID, name, value, now)
@@ -177,8 +177,8 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Flow membership: queue the next step, or close the flow
-	advanceFlow(h.db, runID, dbState)
+	// Segment of a segmented script: queue the next segment, or close the parent run
+	advanceSegments(h.db, runID, dbState)
 
 	// Trigger continuation (best-effort, non-blocking)
 	go triggerContinuation(h.db, runID, dbState, req.BusinessJobId)

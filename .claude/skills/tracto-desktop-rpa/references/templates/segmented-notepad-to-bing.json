@@ -1,0 +1,36 @@
+{
+  "id": "notepad-to-bing",
+  "name": "Notepad To Bing",
+  "version": "1.0.0",
+  "params": {
+    "notePath": "C:\\data\\search-text.txt",
+    "noteName": "search-text.txt"
+  },
+  "segments": [
+    {
+      "name": "Read the note",
+      "runtime": "desktop",
+      "steps": [
+        { "stepNumber": 1, "action": "app.launch", "description": "Open the text file in Notepad", "parameters": { "executable": "notepad.exe", "args": "${param.notePath}" } },
+        { "stepNumber": 2, "action": "delay", "description": "Wait for Notepad", "parameters": { "ms": "2000" } },
+        { "stepNumber": 3, "action": "key", "description": "Select all text", "parameters": { "key": "Ctrl+A", "window": "${param.noteName} - Notepad" } },
+        { "stepNumber": 4, "action": "key", "description": "Copy it", "parameters": { "key": "Ctrl+C", "window": "${param.noteName} - Notepad" } },
+        { "stepNumber": 5, "action": "delay", "description": "Let the clipboard settle", "parameters": { "ms": "500" } },
+        { "stepNumber": 6, "action": "clipboard.get", "description": "Read the copied text into ${note.text} and ${note.firstLine}", "parameters": { "storeAs": "note" } },
+        { "stepNumber": 7, "action": "key", "description": "Close Notepad (the file is saved, so no prompt)", "parameters": { "key": "Alt+F4", "window": "${param.noteName} - Notepad" } }
+      ]
+    },
+    {
+      "name": "Search Bing",
+      "runtime": "browser",
+      "steps": [
+        { "stepNumber": 1, "action": "navigate", "description": "Open Bing", "parameters": { "url": "https://www.bing.com/" } },
+        { "stepNumber": 2, "action": "fill", "description": "Type the first line of the note into the search box", "parameters": { "css": "#sb_form_q", "value": "${param.note.firstLine}" } },
+        { "stepNumber": 3, "action": "delay", "description": "Let the page attach its handlers before Enter", "parameters": { "ms": "500" } },
+        { "stepNumber": 4, "action": "press", "description": "Search", "parameters": { "css": "#sb_form_q", "key": "Enter" } },
+        { "stepNumber": 5, "action": "wait", "description": "Wait for the results list", "parameters": { "css": "#b_results", "timeoutMs": "15000" } },
+        { "stepNumber": 6, "action": "getText", "description": "Read the first result title", "parameters": { "css": "#b_results li.b_algo h2 >> nth=0", "storeAs": "first" } }
+      ]
+    }
+  ]
+}

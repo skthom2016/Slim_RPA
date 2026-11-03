@@ -47,6 +47,7 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
             FileName   = $"{_editor.Script.Id}_{_editor.Script.Version}{_selectedFormat}",
             DefaultExt = _selectedFormat.TrimStart('.')
         };
+        if (ScriptsFolder() is { } folder) dlg.InitialDirectory = folder;
         if (dlg.ShowDialog() != true) return;
         try
         {
@@ -66,6 +67,7 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
             Title  = "Import Script",
             Filter = "Script Files|*.json;*.yaml|JSON Script|*.json|YAML Script|*.yaml"
         };
+        if (ScriptsFolder() is { } folder) dlg.InitialDirectory = folder;
         if (dlg.ShowDialog() != true) return;
         try
         {
@@ -75,9 +77,18 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
             var content  = File.ReadAllText(dlg.FileName);
             var imported = ser.Deserialize(content);
             _editor.Script = imported;
-            LastMessage = $"Imported '{imported.Name}' ({imported.Steps.Count} steps)";
+            LastMessage = imported.IsSegmented
+                ? $"Imported '{imported.Name}' ({imported.Segments.Count} segments, {imported.AllSteps.Count()} steps)"
+                : $"Imported '{imported.Name}' ({imported.Steps.Count} steps)";
         }
         catch (Exception ex) { LastMessage = $"Import failed: {ex.Message}"; }
+    }
+
+    // The folder the dialogs open in: Downloads\rpa-scripts when it exists.
+    private static string? ScriptsFolder()
+    {
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "rpa-scripts");
+        return Directory.Exists(dir) ? dir : null;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

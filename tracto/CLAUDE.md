@@ -22,10 +22,10 @@ Tracto is a Windows desktop RPA platform with three components:
 
 ## Script Format
 
-There are **two JSON formats**. Do not confuse them.
+Scripts are written in the **Designer format**, which has two shapes: flat (one runtime) and segmented (several runtimes in one file). Uploads wrap either shape in a **runtime envelope**. Do not confuse the Designer format with the envelope.
 
 ### Designer Format (flat) — use this when creating scripts
-This is what you write to a `.json` file, import into Designer, or upload to Orchestrator.
+This is what you write to a `.json` file or import into Designer.
 
 ```json
 {
@@ -44,15 +44,37 @@ This is what you write to a `.json` file, import into Designer, or upload to Orc
 }
 ```
 
-### Runtime Format (ScriptEnvelope) — internal only, never write this
-The Orchestrator wraps the Designer format in a `ScriptEnvelope` when handing it to the runtime:
+### Segmented Format — one file, several runtimes
+A job that spans runtimes (for example read text in Notepad, then search it in a browser) is one file with `segments` instead of `targetRuntime` and `steps`. It never has a top-level `targetRuntime`.
+
+```json
+{
+  "id": "notepad-to-bing",
+  "name": "Notepad To Bing",
+  "version": "1.0.0",
+  "params": { "notePath": "C:\\data\\search-text.txt", "noteName": "search-text.txt" },
+  "segments": [
+    { "name": "Read the note", "runtime": "desktop", "steps": [ { "stepNumber": 1, "action": "clipboard.get", "parameters": { "storeAs": "note" } } ] },
+    { "name": "Search Bing",   "runtime": "browser", "steps": [ { "stepNumber": 1, "action": "fill", "parameters": { "css": "#sb_form_q", "value": "${param.note.firstLine}" } } ] }
+  ]
+}
+```
+
+- `runtime` is `desktop`, `browser` or `terminal`. Steps restart at `stepNumber` 1 in every segment. A script with one segment behaves like a flat script.
+- `params` are default values, overridden by the `params` of `POST /jobs`. Read them in any segment as `${param.name}`.
+- A `storeAs` output of one segment reaches later segments as `${param.<storeAs>.<field>}`. Outputs flow forward only.
+- Segments run in order, each when the previous one succeeded; a failed or cancelled segment ends the run.
+- Browser segments use the flat browser format; see `browser-runtime/README.md`.
+
+### Runtime Format (ScriptEnvelope)
+Uploaded scripts (flat or segmented) are wrapped in a `ScriptEnvelope`, and the Desktop Host rejects a bare script:
 ```json
 { "schemaVersion": "1", "script": { ...designer format here... } }
 ```
-You never need to produce the ScriptEnvelope format. The Designer and `OrchestratorPublisher.cs` handle the wrapping automatically.
+The Designer and `OrchestratorPublisher.cs` wrap scripts automatically. When uploading by hand, put the envelope inside the base64 payload (see "Upload a Script to Orchestrator").
 
 ### Validation
-Validate any script you generate against `tracto/script.schema.json`.
+Validate any script you generate against `tracto/script.schema.json` (flat or segmented), or run `node .claude/skills/tracto-desktop-rpa/scripts/validate.js <file>`.
 
 ---
 
@@ -75,6 +97,8 @@ All parameter values are **strings** (the runtime casts to int/bool internally).
 | `http.post` | `url` | `body`, `contentType`, `timeoutMs`, `storeAs` | `statusCode`, `body`, `json`, plus top-level fields of a JSON reply |
 | `notepad.type` | `text` | `windowTitle` | `charactersTyped` |
 | `file.saveAs` | `filePath` | `windowTitle`, `overwrite`, `saveAsShortcut` | `savedPath`, `fileSizeBytes` |
+| `file.read` | `path` | `maxChars` | `text`, `firstLine`, `lineCount` |
+| `clipboard.get` | — | — | `text`, `firstLine` |
 
 Full details with examples: `tracto/docs/action-catalog.md`
 
@@ -102,14 +126,17 @@ Use `storeAs` on a step to expose its outputs as `${storeAs.field}` in later ste
 
 ## Upload a Script to Orchestrator
 
+The payload is the script wrapped in the envelope, base64-encoded. The same steps upload a flat or a segmented script.
+
 ```powershell
-$content = Get-Content "path\to\script.json" -Raw
-$payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($content))
-$body = @{ schemaVersion = "1"; payload = $payload } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:5080/artifacts/<script-id>/versions/<version>" -Method PUT -Body $body -ContentType "application/json"
+$script   = Get-Content "path\to\script.json" -Raw | ConvertFrom-Json
+$envelope = @{ schemaVersion = "1"; script = $script } | ConvertTo-Json -Depth 20 -Compress
+$payload  = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($envelope))
+$body     = @{ schemaVersion = "1"; payload = $payload } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5080/artifacts/$($script.id)/versions/$($script.version)" -Method PUT -Body $body -ContentType "application/json"
 ```
 
-Replace `<script-id>` with the script's `id` field and `<version>` with its `version` field.
+The URL uses the script's `id` and `version`. For a segmented script they must equal the script's own `id` and `version`; the Orchestrator rejects a mismatch with `422 INVALID_SCRIPT`, and also rejects an unknown `runtime`, an empty `steps` or an empty `segments`. Publishing a segmented script also stores one hidden artifact per segment (`<id>.seg1`, `<id>.seg2`, ...), which `GET /artifacts` hides unless `includeSegments=true`.
 
 ## Submit a Job
 
@@ -119,9 +146,12 @@ $body = @{
     scriptArtifactId = "<script-id>"
     scriptVersion    = "<version>"
     triggerType      = "Manual"
+    params           = @{ notePath = "C:\data\other.txt" }   # optional; overrides the script's params
 } | ConvertTo-Json
 Invoke-RestMethod -Uri "http://localhost:5080/jobs" -Method POST -Body $body -ContentType "application/json"
 ```
+
+A segmented script returns one parent `runId` with `"state": "RUNNING"` and a `segments` count. `GET /jobs` lists parent runs only; add `includeSegments=true` to include the per-segment runs.
 
 ## Check Job Status
 
@@ -129,6 +159,16 @@ Invoke-RestMethod -Uri "http://localhost:5080/jobs" -Method POST -Body $body -Co
 Invoke-RestMethod "http://localhost:5080/jobs/<runId>"
 Invoke-RestMethod "http://localhost:5080/jobs/<runId>/telemetry"
 ```
+
+`GET /jobs/{runId}` returns `state`, `params` and `outputs`. For a segmented script it also returns `segments`:
+```json
+{ "state": "RUNNING",
+  "segments": [
+    { "index": 0, "name": "Read the note", "runtime": "desktop", "runId": "...", "state": "SUCCEEDED", "outputs": { "note.firstLine": "..." } },
+    { "index": 1, "name": "Search Bing",   "runtime": "browser", "runId": "...", "state": "RUNNING",   "outputs": {} }
+  ] }
+```
+A segment that has not started is `PENDING`. When a segment fails or is cancelled the parent takes that state and later segments stay `PENDING`. `POST /jobs/{runId}/cancel` on the parent cancels the active segment.
 
 ---
 

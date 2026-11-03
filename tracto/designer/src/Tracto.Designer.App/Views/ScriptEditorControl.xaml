@@ -5,8 +5,12 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="600">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -21,8 +25,51 @@
                 <TextBox Text="{Binding Script.Version, UpdateSourceTrigger=PropertyChanged}"
                          Width="80" VerticalAlignment="Center" Margin="2,0,0,0"/>
             </StackPanel>
-            <!-- Step editing buttons -->
+
+            <!-- Segments: shown when the script has segments. Each segment runs on its own runtime,
+                 in order; later segments receive the outputs of earlier ones. -->
+            <StackPanel Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,4">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Label Content="Parameters (name=value per line):" VerticalAlignment="Top"/>
+                    <TextBox Text="{Binding ParamsText, UpdateSourceTrigger=LostFocus}"
+                             Width="360" Height="48" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                             ToolTip="Default values; steps read them as ${param.name}. A job can override them."/>
+                </StackPanel>
+                <Label Content="Segments (run top to bottom):" Padding="5,2"/>
+                <ListBox ItemsSource="{Binding Script.Segments}"
+                         SelectedItem="{Binding SelectedSegment}"
+                         DisplayMemberPath="Title"
+                         MaxHeight="96"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                            Visibility="{Binding HasSelectedSegment, Converter={StaticResource BoolToVisibility}}">
+                    <Label Content="Segment name:" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding SelectedSegment.Name, UpdateSourceTrigger=PropertyChanged}"
+                             Width="200" VerticalAlignment="Center" Margin="2,0,12,0"/>
+                    <Label Content="Runtime:" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding RuntimeOptions}"
+                              SelectedItem="{Binding SelectedSegment.Runtime}"
+                              Width="100" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                </StackPanel>
+                <!-- Browser segments only: override the browser host's own headed/headless setting for this segment. -->
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                            Visibility="{Binding SelectedSegment.IsBrowser, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                    <Label Content="Browser mode:" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding ModeOptions}"
+                              SelectedItem="{Binding SelectedSegment.Mode}"
+                              Width="100" VerticalAlignment="Center" Margin="2,0,0,0"
+                              ToolTip="Leave empty to use the browser host's own BROWSER_MODE setting."/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Segment and step editing buttons -->
             <StackPanel Orientation="Horizontal">
+                <Button Content="Add Segment"    Command="{Binding AddSegmentCommand}"
+                        ToolTip="Add a segment after the selected one. The first segment takes the script's existing steps."/>
+                <Button Content="Delete Segment" Command="{Binding DeleteSegmentCommand}"      Margin="4,0,0,0"/>
+                <Button Content="Segment Up"     Command="{Binding MoveSegmentUpCommand}"      Margin="4,0,0,0"/>
+                <Button Content="Segment Down"   Command="{Binding MoveSegmentDownCommand}"    Margin="4,0,0,0"/>
+                <Button Content="Make Single"    Command="{Binding MergeToSingleCommand}"      Margin="4,0,12,0"
+                        ToolTip="Turn a script with one segment back into a single-runtime script."/>
                 <Button Content="Add Step"  Command="{Binding AddStepCommand}"/>
                 <Button Content="Delete"    Command="{Binding DeleteStepCommand}" Margin="4,0,0,0"/>
                 <Button Content="Move Up"   Command="{Binding MoveUpCommand}"    Margin="4,0,0,0"/>
@@ -30,8 +77,12 @@
             </StackPanel>
         </StackPanel>
 
-        <ListView Grid.Row="1"
-                  ItemsSource="{Binding Script.Steps}"
+        <TextBlock Grid.Row="1" Margin="8,0,0,2" FontStyle="Italic"
+                   Visibility="{Binding IsSegmented, Converter={StaticResource BoolToVisibility}}"
+                   Text="{Binding SelectedSegment.Title, StringFormat=Steps of: {0}}"/>
+
+        <ListView Grid.Row="2"
+                  ItemsSource="{Binding ActiveSteps}"
                   SelectedItem="{Binding SelectedStep}">
             <ListView.ItemTemplate>
                 <DataTemplate>

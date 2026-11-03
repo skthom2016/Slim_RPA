@@ -46,6 +46,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         Validation = new ValidationViewModel(validator, ScriptEditor);
         AiBridge = new AiAuthoringViewModel(mcpServer);
         TestRunner = new TestPanelViewModel(testRunner, ScriptEditor);
+        ScriptEditor.PropertyChanged += OnScriptEditorChanged;
         Signing      = new SigningViewModel(scriptSigner, ScriptEditor);
         Publication  = new PublicationViewModel(publisher, ScriptEditor, Signing, TestRunner);
         ExportImport = new ExportImportViewModel(ScriptEditor);
@@ -69,6 +70,28 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
             _selectedEngineType = value;
             OnPropertyChanged();
             ((RelayCommand)StartCommand).RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>
+    /// A segmented script already names a runtime per segment, so recording follows the
+    /// selected segment instead of a manual choice: the Engine picker is read-only and this
+    /// is false. For a plain script (no segments yet) you choose the engine yourself.
+    /// </summary>
+    public bool CanChooseEngine => !ScriptEditor.IsSegmented;
+
+    private void OnScriptEditorChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ScriptEditorViewModel.IsSegmented) or nameof(ScriptEditorViewModel.SelectedSegment))
+        {
+            OnPropertyChanged(nameof(CanChooseEngine));
+            if (ScriptEditor.IsSegmented && ScriptEditor.SelectedSegment is { } seg)
+                SelectedEngineType = seg.Runtime.ToLowerInvariant() switch
+                {
+                    "browser"  => CaptureEngineType.Browser,
+                    "terminal" => CaptureEngineType.Terminal,
+                    _          => CaptureEngineType.Desktop
+                };
         }
     }
 
@@ -109,7 +132,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
             _session.Transcript,
             _session.ActiveEngineType ?? CaptureEngineType.Desktop,
             $"Session {shortId}");
-        ScriptEditor.LoadScript(script);
+        ScriptEditor.ApplyDraft(script);
     }
 
     private void StartRecording()
@@ -149,6 +172,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        ScriptEditor.PropertyChanged -= OnScriptEditorChanged;
         _session.StateChanged -= OnStateChanged;
         _captureEngine.Dispose();
         TestRunner.Dispose();

@@ -34,7 +34,7 @@ Settings come from environment variables, then `appsettings.json` (`Host` sectio
 | `BROWSER_VIEWPORT_WIDTH` / `_HEIGHT` | `1280` / `720` | Page size |
 | `LOCATOR_WAIT_MS` | `15000` | How long a step waits for its target to appear |
 | `BROWSER_ALLOW_CSS` | `true` | Allow `css` selectors in scripts |
-| `PAUSE_AFTER_RUN_MS` | `3000` | Keep the window open after the last step (headed only) |
+| `PAUSE_AFTER_RUN_MS` | `2000` | Keep the window open after the last step (headed only). Host setting only — not a script field. |
 | `RUN_TIMEOUT_MS` | `600000` | Whole-run limit |
 | `TRACTO_SECRET_<NAME>` | – | Value for `${secret:NAME}` in a script |
 

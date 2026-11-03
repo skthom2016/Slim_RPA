@@ -7,6 +7,8 @@ public sealed class YamlScriptSerializer : IScriptSerializer
 {
     public string Serialize(Script script)
     {
+        if (script.IsSegmented)
+            throw new NotSupportedException("A segmented script can be saved as JSON only.");
         var sb = new StringBuilder();
         sb.AppendLine($"id: {Escape(script.Id)}");
         sb.AppendLine($"name: {Escape(script.Name)}");
@@ -34,6 +36,8 @@ public sealed class YamlScriptSerializer : IScriptSerializer
     {
         var s = new Script();
         var lines = content.Split('\n');
+        if (lines.Any(l => l.TrimEnd() == "segments:"))
+            throw new NotSupportedException("A segmented script can be opened from JSON only.");
         ScriptStep? currentStep = null;
         bool inParams = false;
 

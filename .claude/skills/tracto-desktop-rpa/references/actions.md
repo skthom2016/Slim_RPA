@@ -1,6 +1,8 @@
 # Actions
 
-Twelve actions exist. Anything else fails with `UnknownAction:<name>`. All parameter values are strings. Every action also accepts `storeAs` (a name) to expose its outputs as `${name.output}`; without `storeAs` the outputs go to bare names such as `${statusCode}`, which collide between steps, so always set `storeAs` when you will use an output.
+Fourteen desktop actions exist. Anything else fails with `UnknownAction:<name>`. (A browser segment of a segmented script uses the browser runtime's own actions, which are not listed here.) All parameter values are strings. Every action also accepts `storeAs` (a name) to expose its outputs as `${name.output}`; without `storeAs` the outputs go to bare names such as `${statusCode}`, which collide between steps, so always set `storeAs` when you will use an output.
+
+Job parameters: a job can carry named values (a segmented script's `params`, the `params` of `POST /jobs`, and the outputs of earlier segments). Any parameter value of any action may use them as `${param.name}`; the validator warns when a name is not declared.
 
 Error categories you will see in the runtime log: `CONFIGURATION` (a required parameter is missing or malformed), `NOT_FOUND` (window not found), `EXECUTION_FAILED` (the action threw or an HTTP call returned non-2xx), `TIMEOUT`.
 
@@ -132,6 +134,29 @@ Saves the document in a window using its Save As dialog: sends the save shortcut
 Outputs: `savedPath`, `fileSizeBytes` (0 if the file is not there afterwards).
 
 **Verified:** pasting text then `file.saveAs` in Notepad created the file with the right content. The Save As dialog is titled "Save as"; matching is case-insensitive so this works. It saves the window that matches `windowTitle` first, so pass a specific title: once text is pasted, Notepad's title is the first line of that text (see `app.launch`), so use that, not `"Untitled - Notepad"`. If the title no longer matches, the step fails with `NOT_FOUND`. If the Save As dialog cannot be driven (for example the destination folder does not exist), the step can still report success while the dialog stays open or nothing is saved. If the document already has a name, Ctrl+S saves silently without showing the dialog, and the path is ignored. A failed save still reports success; check `fileSizeBytes`.
+
+---
+
+## `file.read`
+Reads a text file into variables.
+
+| Parameter | Required | Notes |
+|---|---|---|
+| `path` | yes | Full path. `%USERPROFILE%`-style variables are expanded. A relative path resolves against the Host's working directory, so use a full path. |
+| `maxChars` | no | Longest text returned, default `"100000"` |
+
+Outputs (with `storeAs: "x"`): `${x.text}` (content with line endings normalised to `\n`, trailing blank lines and spaces removed), `${x.firstLine}` (first non-empty line, trimmed), `${x.lineCount}`.
+
+Fails `NOT_FOUND` when the file does not exist, and `EXECUTION_FAILED` when it is larger than 5 MB or cannot be read (for example locked by another program). Encodings: UTF-8, plus UTF-8/16/32 with a byte-order mark; other encodings may show wrong characters. The file is read directly and no application is opened. **Not verified by a run.**
+
+## `clipboard.get`
+Reads the text currently on the clipboard into variables. Pair it with a copy in the source app: `key Ctrl+A`, `key Ctrl+C` (with that app's `window`), a short `delay`, then `clipboard.get`.
+
+No parameters except `storeAs`.
+
+Outputs (with `storeAs: "x"`): `${x.text}` (line endings normalised to `\n`, trailing blank lines and spaces removed) and `${x.firstLine}` (first non-empty line, trimmed).
+
+Fails `EXECUTION_FAILED` when the clipboard holds no text (for example the copy went to the wrong window). It retries a few times if another program holds the clipboard briefly. **Verified** in the Notepad to Bing run: Ctrl+A and Ctrl+C in a Notepad window, `clipboard.get`, and `${note.firstLine}` held the file's text. `notepad.type` overwrites the clipboard, so read it before any `notepad.type`.
 
 ---
 

@@ -166,6 +166,39 @@ Saves a document via the host application's Save As dialog (Ctrl+S).
 
 ---
 
+## `file.read`
+Reads a text file into variables.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `path` | ✅ | Full path of the file. `%USERPROFILE%`-style variables are expanded. |
+| `maxChars` | ❌ | Longest text returned (default: `"100000"`). |
+| `storeAs` | ❌ | Variable namespace prefix for outputs (e.g. `"doc"`). |
+
+**Outputs:** `text` (content with line endings normalised to `\n`, trailing blank lines and spaces removed), `firstLine` (first non-empty line), `lineCount`.
+
+Fails with `NOT_FOUND` when the file does not exist and `EXECUTION_FAILED` when it is larger than 5 MB or cannot be read. UTF-8 and UTF-8/16/32 with a byte-order mark are read correctly.
+
+```json
+{ "action": "file.read",    "parameters": { "path": "C:\\data\\input.txt", "storeAs": "doc" } }
+{ "action": "notepad.type", "parameters": { "text": "${doc.firstLine}" } }
+```
+
+---
+
+## `clipboard.get`
+Reads the text on the clipboard into variables. Copy first in the source application (for example `key` `Ctrl+A`, `key` `Ctrl+C` with that application's `window`, then a short `delay`).
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `storeAs` | ❌ | Variable namespace prefix for outputs (e.g. `"note"`). |
+
+**Outputs:** `text` (line endings normalised to `\n`, trailing blank lines and spaces removed), `firstLine` (first non-empty line).
+
+Fails with `EXECUTION_FAILED` when the clipboard holds no text.
+
+---
+
 ## Built-in Variables (always available, no `storeAs` needed)
 
 | Variable | Value |
@@ -174,3 +207,49 @@ Saves a document via the host application's Save As dialog (Ctrl+S).
 | `${now.local}` | Local datetime — `2026-10-26 14:30:00` |
 | `${now.date}` | Local date — `2026-10-26` |
 | `${now.time}` | Local time — `14:30:00` |
+
+---
+
+## Job parameters and outputs
+
+A run can carry named values. Any parameter value of any action may use them as `${param.name}`.
+
+| Source of a parameter | Example |
+|-----------------------|---------|
+| The `params` object of a segmented script (default values) | `"params": { "notePath": "C:\\data\\a.txt" }` → `${param.notePath}` |
+| The `params` of `POST /jobs` (override the defaults) | `{"params": {"notePath": "C:\\data\\b.txt"}}` |
+| Outputs of an earlier segment | `storeAs: "note"` on a `clipboard.get` → `${param.note.firstLine}` in a later segment |
+
+When a run finishes, the host reports its outputs to the Orchestrator: the desktop Host reports every `storeAs` output (`name.field`); the browser host reports the stored value as `name` and `name.value`. `GET /jobs/{runId}` returns `params` and `outputs`.
+
+---
+
+## Segmented scripts
+
+A segmented script runs several scripts in order, each on its own runtime. It replaces the top-level `targetRuntime` and `steps` with `segments`.
+
+```json
+{
+  "id": "notepad-to-bing",
+  "name": "Notepad To Bing",
+  "version": "1.0.0",
+  "params": { "notePath": "C:\\data\\search-text.txt", "noteName": "search-text.txt" },
+  "segments": [
+    { "name": "Read the note", "runtime": "desktop", "steps": [ { "stepNumber": 1, "action": "..." } ] },
+    { "name": "Search Bing",   "runtime": "browser", "steps": [ { "stepNumber": 1, "action": "..." } ] }
+  ]
+}
+```
+
+| Field | Rules |
+|-------|-------|
+| `id`, `name`, `version` | Same rules as a flat script. When published, `id` and `version` equal the artifact id and version. |
+| `params` | Optional object of string (number, boolean or null) defaults. |
+| `segments` | Non-empty array. |
+| `segments[].name` | Optional label. |
+| `segments[].runtime` | `desktop`, `browser` or `terminal`. |
+| `segments[].steps` | Non-empty array of flat steps for that runtime; `stepNumber` restarts at 1 in every segment. |
+
+Execution: `POST /jobs` on a segmented script returns one parent run. The Orchestrator queues segment 1 for a worker of its runtime; when it succeeds, segment 2 is queued with the parameters plus every output so far, and so on. A segment that fails or is cancelled ends the parent run with that state, and later segments stay `PENDING`. `GET /jobs/{runId}` lists each segment with `index`, `name`, `runtime`, `runId`, `state` and `outputs`. Each segment is stored as a hidden artifact `<id>.seg<n>`.
+
+The script is uploaded wrapped as `{"schemaVersion":"1","script":{...}}` inside the base64 payload (see `tracto/CLAUDE.md`).
