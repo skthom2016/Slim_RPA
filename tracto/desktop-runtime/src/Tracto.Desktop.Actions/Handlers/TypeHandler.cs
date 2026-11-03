@@ -37,7 +37,7 @@ public sealed class TypeHandler : IActionHandler
             var hwnd = NativeMethods.FindWindowByTitle(window);
             if (hwnd != IntPtr.Zero)
             {
-                NativeMethods.SetForegroundWindow(hwnd);
+                NativeMethods.ActivateWindow(hwnd);
                 await Task.Delay(300, ctx.CancellationToken);
             }
             else

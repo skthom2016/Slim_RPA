@@ -68,6 +68,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IActionHandler, FileSaveAsHandler>();
         services.AddSingleton<IActionHandler, HttpGetHandler>();
         services.AddSingleton<IActionHandler, HttpPostHandler>();
+        services.AddSingleton<IActionHandler, FileReadHandler>();
+        services.AddSingleton<IActionHandler, ClipboardGetHandler>();
 
         // ActionDispatcher collects all IActionHandler registrations.
         services.AddSingleton<ActionDispatcher>();
@@ -170,9 +172,10 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
             RunState runState;
             List<StepResult> steps;
 
+            var outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                (runState, steps) = await _engine.RunAsync(job, jobCts.Token);
+                (runState, steps) = await _engine.RunAsync(job, _orch.GetParams(job.LeaseId), outputs, jobCts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -194,6 +197,7 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
             try
             {
+                _orch.SetOutputs(job.LeaseId, outputs);
                 await submitter.SubmitAsync(
                     _orch, job, runState, steps,
                     unknownReason: runState == RunState.Unknown ? "UnhandledHostException" : null,

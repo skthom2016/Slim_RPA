@@ -23,6 +23,18 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
     private readonly string? _interactiveSessionId;
     private readonly ConcurrentDictionary<string, (string RunId, string AttemptId)> _leaseCache = new();
 
+    // Params the Orchestrator queued the run with, and outputs the run produced, keyed by leaseId.
+    private readonly ConcurrentDictionary<string, Dictionary<string, string>> _params = new();
+    private readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> _outputs = new();
+
+    /// <summary>Params for a leased run, exposed to the script as <c>${param.name}</c>.</summary>
+    public IReadOnlyDictionary<string, string> GetParams(string leaseId) =>
+        _params.TryGetValue(leaseId, out var p) ? p : new Dictionary<string, string>();
+
+    /// <summary>Outputs to send with the run's final result (storeAs values; never secrets).</summary>
+    public void SetOutputs(string leaseId, IReadOnlyDictionary<string, string> outputs) =>
+        _outputs[leaseId] = outputs;
+
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     public HttpOrchestratorBridge(HttpClient http, string runtimeType, string? interactiveSessionId)
@@ -89,6 +101,7 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
                 JobSchemaVersion: "1");
 
             _leaseCache[lease.LeaseId] = (lease.RunId, lease.AttemptId);
+            _params[lease.LeaseId] = dto.Params ?? new Dictionary<string, string>();
             return new JobOffered(lease);
         }
 
@@ -161,18 +174,22 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
             _                   => "Unknown"
         };
 
+        _outputs.TryRemove(result.LeaseId, out var outputs);
+
         var body = new
         {
             attemptId,
             terminalState,
             errorCategory  = run.ErrorCategory?.ToString(),
             unknownReason  = run.UnknownReason,
-            evidenceRefs   = (string[]?)null
+            evidenceRefs   = (string[]?)null,
+            outputs        = outputs ?? new Dictionary<string, string>()
         };
 
         var resp = await _http.PostAsJsonAsync($"/jobs/{runIdStr}/result", body, JsonOpts, ct);
         resp.EnsureSuccessStatusCode();
         _leaseCache.TryRemove(result.LeaseId, out _);
+        _params.TryRemove(result.LeaseId, out _);
     }
 
     // ── Reconcile ─────────────────────────────────────────────────────────────
@@ -211,6 +228,7 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
         [JsonPropertyName("artifactId")]     public string? ArtifactId     { get; set; }
         [JsonPropertyName("artifactVersion")] public string? ArtifactVersion { get; set; }
         [JsonPropertyName("artifactHash")]   public string? ArtifactHash   { get; set; }
+        [JsonPropertyName("params")]         public Dictionary<string, string>? Params { get; set; }
 
         // Computed helper — not a JSON field.
         [JsonIgnore] public string? LeaseId => LeaseIdGuid?.ToString();

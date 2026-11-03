@@ -40,7 +40,7 @@ public sealed class FocusHandler : IActionHandler
             return ActionResult.Ok(new Dictionary<string, object?> { ["windowHandle"] = "0" });
         }
 
-        NativeMethods.SetForegroundWindow(hwnd);
+        NativeMethods.ActivateWindow(hwnd);
         await Task.Delay(200, ctx.CancellationToken);
 
         _logger.LogInformation("focus: window '{Window}' ({Handle:X}), target='{Target}'",

@@ -39,7 +39,7 @@ public sealed class NavigateHandler : IActionHandler
             return ActionResult.Ok(new Dictionary<string, object?> { ["windowHandle"] = "0" });
         }
 
-        NativeMethods.SetForegroundWindow(hwnd);
+        NativeMethods.ActivateWindow(hwnd);
         await Task.Delay(300, ctx.CancellationToken);
 
         _logger.LogInformation("navigate: activated window '{Window}' ({Handle:X})", window, hwnd);

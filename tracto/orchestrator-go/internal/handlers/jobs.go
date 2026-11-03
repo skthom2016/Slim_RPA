@@ -29,6 +29,7 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		TriggerType            string   `json:"triggerType"`
 		ContinuationScriptRef  *string  `json:"continuationScriptRef"`
 		BusinessJobId          *string  `json:"businessJobId"`
+		Params                 map[string]string `json:"params"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -97,74 +98,19 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	inputJSON, _ := json.Marshal(req.InputRefs)
-	secretJSON, _ := json.Marshal(req.SecretRefs)
-
-	triggerType := req.TriggerType
-	if triggerType == "" {
-		triggerType = "Manual"
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	runID := uuid.NewString()
-	attemptID := uuid.NewString()
-	correlationID := uuid.NewString()
-
-	var businessJobId sql.NullString
-	if req.BusinessJobId != nil {
-		businessJobId = sql.NullString{String: *req.BusinessJobId, Valid: true}
-	}
-	var eventId sql.NullString
-	if req.EventId != nil {
-		eventId = sql.NullString{String: *req.EventId, Valid: true}
-	}
-	var deadline sql.NullString
-	if req.Deadline != nil {
-		deadline = sql.NullString{String: *req.Deadline, Valid: true}
-	}
-
-	// Read before the transaction opens: the database allows a single connection.
-	runtimeType := h.scriptRuntimeType(req.ScriptArtifactId, req.ScriptVersion)
-
-	tx, err := h.db.Begin()
+	runID, err := insertRun(h.db, runSpec{
+		ArtifactId:    req.ScriptArtifactId,
+		Version:       req.ScriptVersion,
+		SchemaVersion: req.SchemaVersion,
+		TriggerType:   req.TriggerType,
+		InputRefs:     req.InputRefs,
+		SecretRefs:    req.SecretRefs,
+		Params:        req.Params,
+		Deadline:      req.Deadline,
+		EventId:       req.EventId,
+		BusinessJobId: req.BusinessJobId,
+	})
 	if err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`
-		INSERT INTO RunRecords(Id,WorkflowId,State,AttemptId,CreatedAt,CorrelationId,
-		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,
-		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention,RuntimeType)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?)`,
-		runID, req.ScriptArtifactId, "Created", attemptID, now, correlationID,
-		req.ScriptArtifactId, req.ScriptVersion, req.SchemaVersion,
-		string(inputJSON), string(secretJSON),
-		deadline, eventId, triggerType, businessJobId,
-		runtimeType,
-	)
-	if err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-
-	// Transition Created → Queued atomically
-	_, err = tx.Exec(`UPDATE RunRecords SET State='Queued', UpdatedAt=? WHERE Id=?`, now, runID)
-	if err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-
-	// Journal: RUN_CREATED + RUN_QUEUED
-	for _, evType := range []string{"RUN_CREATED", "RUN_QUEUED"} {
-		jID := uuid.NewString()
-		p, _ := json.Marshal(map[string]string{"runId": runID, "triggerType": triggerType})
-		tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
-			jID, runID, attemptID, evType, now, string(p))
-	}
-
-	if err := tx.Commit(); err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
@@ -176,9 +122,9 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 // "browser", "terminal"), lower-cased, or "" when it cannot be determined. A run with an
 // empty RuntimeType can be pulled by any worker, so a declared runtime keeps browser jobs
 // away from desktop workers and the reverse.
-func (h *JobHandler) scriptRuntimeType(artifactID, version string) string {
+func scriptRuntimeType(db *sql.DB, artifactID, version string) string {
 	var payload []byte
-	if err := h.db.QueryRow(
+	if err := db.QueryRow(
 		`SELECT Payload FROM ArtifactContents WHERE ArtifactId=? AND Version=?`,
 		artifactID, version).Scan(&payload); err != nil {
 		return ""
@@ -276,6 +222,8 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	h.db.QueryRow(`SELECT ContentHash FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
 		artifactID, artifactVersion).Scan(&artifactHash)
 
+	params := loadParams(h.db, runID)
+
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	expiresAt := time.Now().UTC().Add(30 * time.Second).Format(time.RFC3339Nano)
 	leaseID := uuid.NewString()
@@ -331,6 +279,7 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 		"artifactHash":    artifactHash,
 		"inputRefs":       inputRefs,
 		"secretRefs":      secretRefs,
+		"params":          params,
 	})
 }
 
@@ -338,7 +287,10 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 	var state string
-	err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, runID).Scan(&state)
+	var flowID sql.NullString
+	var flowStep sql.NullInt64
+	err := h.db.QueryRow(`SELECT State,FlowId,FlowStepIndex FROM RunRecords WHERE Id=?`, runID).
+		Scan(&state, &flowID, &flowStep)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -347,10 +299,17 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
-	respond(w, http.StatusOK, map[string]string{
-		"runId": runID,
-		"state": strings.ToUpper(state),
-	})
+	resp := map[string]any{
+		"runId":   runID,
+		"state":   strings.ToUpper(state),
+		"params":  loadParams(h.db, runID),
+		"outputs": loadOutputs(h.db, runID),
+	}
+	if flowID.Valid && flowID.String != "" {
+		resp["flowId"] = flowID.String
+		resp["flowStepIndex"] = flowStep.Int64
+	}
+	respond(w, http.StatusOK, resp)
 }
 
 // GET /jobs?state=Queued&limit=50

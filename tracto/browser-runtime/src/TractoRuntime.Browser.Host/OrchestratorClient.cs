@@ -12,7 +12,8 @@ public sealed record JobLease(
     string LeaseId,
     string ArtifactId,
     string ArtifactVersion,
-    string ArtifactHash);
+    string ArtifactHash,
+    IReadOnlyDictionary<string, string> Params);
 
 /// <summary>Thin client for the Orchestrator's worker HTTP API.</summary>
 public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClient> logger)
@@ -62,7 +63,8 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         }
 
         return new JobLease(dto.RunId, dto.AttemptId, dto.LeaseId,
-            dto.ArtifactId, dto.ArtifactVersion, dto.ArtifactHash ?? string.Empty);
+            dto.ArtifactId, dto.ArtifactVersion, dto.ArtifactHash ?? string.Empty,
+            dto.Params ?? new Dictionary<string, string>());
     }
 
     public async Task AcceptLeaseAsync(JobLease lease, string workerId, CancellationToken ct)
@@ -114,6 +116,7 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         string? errorCategory,
         string? unknownReason,
         string? payload,
+        IReadOnlyDictionary<string, string> outputs,
         CancellationToken ct)
     {
         var body = new
@@ -123,7 +126,8 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
             errorCategory,
             unknownReason,
             evidenceRefs  = Array.Empty<string>(),
-            payload
+            payload,
+            outputs
         };
 
         using var resp = await http.PostAsJsonAsync($"jobs/{lease.RunId}/result", body, Json, ct)
@@ -144,6 +148,7 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         [JsonPropertyName("artifactId")]      public string? ArtifactId      { get; set; }
         [JsonPropertyName("artifactVersion")] public string? ArtifactVersion { get; set; }
         [JsonPropertyName("artifactHash")]    public string? ArtifactHash    { get; set; }
+        [JsonPropertyName("params")]          public Dictionary<string, string>? Params { get; set; }
     }
 
     private sealed class ArtifactDto

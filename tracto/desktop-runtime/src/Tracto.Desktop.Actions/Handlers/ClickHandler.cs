@@ -41,7 +41,7 @@ public sealed class ClickHandler : IActionHandler
             var hwnd = NativeMethods.FindVisibleWindowByTitle(window);
             if (hwnd != IntPtr.Zero)
             {
-                NativeMethods.SetForegroundWindow(hwnd);
+                NativeMethods.ActivateWindow(hwnd);
                 await Task.Delay(300, ctx.CancellationToken);
                 windowFound = NativeMethods.TryGetWindowOrigin(hwnd, out windowLeft, out windowTop);
             }

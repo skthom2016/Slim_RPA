@@ -10,6 +10,62 @@ internal static class NativeMethods
     internal static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_RESTORE = 9;
+
+    /// <summary>
+    /// Brings a window to the foreground and reports whether it got there. A plain
+    /// SetForegroundWindow is refused when the calling process does not own the foreground,
+    /// which is the normal case for a background worker, and the keystrokes that follow would
+    /// land in whatever window the person was using. Attaching to the foreground thread's input
+    /// queue for the call is the documented way for automation to take the foreground.
+    /// </summary>
+    internal static bool ActivateWindow(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return false;
+        if (IsIconic(hWnd)) ShowWindow(hWnd, SW_RESTORE);
+        if (GetForegroundWindow() == hWnd) return true;
+
+        var foreground = GetForegroundWindow();
+        var foregroundThread = foreground == IntPtr.Zero ? 0 : GetWindowThreadProcessId(foreground, IntPtr.Zero);
+        var thisThread = GetCurrentThreadId();
+        var attached = foregroundThread != 0 && foregroundThread != thisThread &&
+                       AttachThreadInput(thisThread, foregroundThread, true);
+        try
+        {
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
+        }
+        finally
+        {
+            if (attached) AttachThreadInput(thisThread, foregroundThread, false);
+        }
+
+        for (var i = 0; i < 10 && GetForegroundWindow() != hWnd; i++)
+            Thread.Sleep(30);
+        return GetForegroundWindow() == hWnd;
+    }
+
+    [DllImport("user32.dll")]
     internal static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [DllImport("user32.dll")]

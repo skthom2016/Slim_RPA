@@ -46,7 +46,7 @@ public sealed class FileSaveAsHandler : IActionHandler
         if (hwnd == IntPtr.Zero)
             return ActionResult.Fail("NOT_FOUND", $"No window with title containing '{windowTitle}' found");
 
-        NativeMethods.SetForegroundWindow(hwnd);
+        NativeMethods.ActivateWindow(hwnd);
         await Task.Delay(300, ctx.CancellationToken);
 
         SendKeys.SendWait(saveAsShortcut);
@@ -62,7 +62,7 @@ public sealed class FileSaveAsHandler : IActionHandler
         }
         else
         {
-            NativeMethods.SetForegroundWindow(saveAsHwnd);
+            NativeMethods.ActivateWindow(saveAsHwnd);
             await Task.Delay(300, ctx.CancellationToken);
 
             // Select all text in the filename field and replace with our path
@@ -85,7 +85,7 @@ public sealed class FileSaveAsHandler : IActionHandler
                 var confirmHwnd = FindWindowByTitle("Confirm Save As");
                 if (confirmHwnd != IntPtr.Zero)
                 {
-                    NativeMethods.SetForegroundWindow(confirmHwnd);
+                    NativeMethods.ActivateWindow(confirmHwnd);
                     await Task.Delay(200, ctx.CancellationToken);
                     SendKeys.SendWait("{ENTER}");
                     await Task.Delay(500, ctx.CancellationToken);

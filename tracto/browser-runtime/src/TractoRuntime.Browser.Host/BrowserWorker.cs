@@ -108,6 +108,7 @@ public sealed class BrowserWorker(
                 outcome.ErrorCategory,
                 outcome.UnknownReason,
                 BrowserRunEngine.BuildResultPayload(outcome),
+                outcome.Outputs,
                 CancellationToken.None).ConfigureAwait(false);
 
             log.LogInformation("Run {RunId} complete — {State}{Detail}",

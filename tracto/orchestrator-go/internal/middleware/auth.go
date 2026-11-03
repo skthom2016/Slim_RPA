@@ -17,6 +17,7 @@ func JWTAuth(signingKey string, db *sql.DB, logger *slog.Logger) func(http.Handl
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 			protected := strings.HasPrefix(path, "/jobs") ||
+				strings.HasPrefix(path, "/flows") ||
 				strings.HasPrefix(path, "/workers") ||
 				strings.HasPrefix(path, "/admin")
 			if !protected {

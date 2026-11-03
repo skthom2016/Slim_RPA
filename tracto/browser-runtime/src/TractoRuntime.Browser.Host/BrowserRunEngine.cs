@@ -133,6 +133,13 @@ public sealed partial class BrowserRunEngine(
             domExtractionService: new DomExtractionService(resolver, loggerFactory.CreateLogger<DomExtractionService>()));
 
         var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in lease.Params)
+            vars["param." + name] = value;
+        if (lease.Params.Count > 0)
+            _log.LogInformation("Run {RunId}: {Count} param(s): {Names}", lease.RunId, lease.Params.Count,
+                string.Join(", ", lease.Params.Keys));
+
+        var listStrategy = new SelectorStrategy(loggerFactory.CreateLogger<SelectorStrategy>());
 
         IPage page;
         try
@@ -176,6 +183,10 @@ public sealed partial class BrowserRunEngine(
                 {
                     await Task.Delay(ms, ct).ConfigureAwait(false);
                     result = new ActionResult { Succeeded = true };
+                }
+                else if (translated.Action == StepTranslator.GetTextsAction)
+                {
+                    result = await GetTextsAsync(page, translated, listStrategy, ct).ConfigureAwait(false);
                 }
                 else
                 {
@@ -240,6 +251,58 @@ public sealed partial class BrowserRunEngine(
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <c>getTexts</c>: the visible text of every element the target matches, joined with the
+    /// step's separator, limited to the first <c>limit</c> when given. Outputs <c>value</c>
+    /// and <c>count</c>.
+    /// </summary>
+    private static async Task<ActionResult> GetTextsAsync(
+        IPage page, TranslatedStep step, SelectorStrategy strategy, CancellationToken ct)
+    {
+        var timeoutMs = (float)(step.Timeout?.TotalMilliseconds ?? 30_000);
+        try
+        {
+            var locator = await strategy.ResolveAsync(page, step.ListSelector!, ct).ConfigureAwait(false);
+            await locator.First.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Attached, Timeout = timeoutMs
+            }).ConfigureAwait(false);
+
+            var texts = (await locator.AllInnerTextsAsync().ConfigureAwait(false))
+                .Select(t => t.Trim())
+                .Where(t => t.Length > 0)
+                .ToList();
+            if (step.ListLimit > 0 && texts.Count > step.ListLimit)
+                texts = texts.Take(step.ListLimit).ToList();
+
+            return new ActionResult
+            {
+                Succeeded = true,
+                Evidence = new Dictionary<string, object?>
+                {
+                    ["value"] = string.Join(step.ListSeparator, texts),
+                    ["count"] = texts.Count.ToString()
+                }
+            };
+        }
+        catch (TimeoutException ex)
+        {
+            return new ActionResult
+            {
+                Succeeded = false, ErrorCategory = ErrorCategory.TARGET_NOT_FOUND,
+                DetailCode = "browser.locatorNotFound", ErrorMessage = ex.Message
+            };
+        }
+        catch (PlaywrightException ex)
+        {
+            return new ActionResult
+            {
+                Succeeded = false, ErrorCategory = ErrorCategory.INTERNAL,
+                DetailCode = "browser.getTextsFailed", ErrorMessage = ex.Message
+            };
+        }
+    }
 
     /// <summary>
     /// On a failed step, records the page URL and title and saves a screenshot under the
@@ -340,7 +403,16 @@ public sealed partial class BrowserRunEngine(
 
             var name = storeAs is null ? k : $"{storeAs}.{k}";
             vars[name] = text;
-            if (storeAs is not null) outputs[name] = text;
+            if (storeAs is null) continue;
+
+            outputs[name] = text;
+            // The main value is also reachable by the plain storeAs name: ${first} and,
+            // in the next flow step, ${param.first}.
+            if (k == "value")
+            {
+                vars[storeAs] = text;
+                outputs[storeAs] = text;
+            }
         }
     }
 

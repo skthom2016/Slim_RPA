@@ -61,8 +61,15 @@ internal sealed class ScriptExecutionEngine
         _log        = log;
     }
 
+    /// <param name="job">The leased job.</param>
+    /// <param name="parameters">Values the run was queued with; exposed as <c>${param.name}</c>.</param>
+    /// <param name="outputs">Filled with the values the script stored (<c>storeAs</c>), for the Orchestrator.</param>
+    /// <param name="ct">Cancellation from the Orchestrator or host shutdown.</param>
     public async Task<(RunState State, List<StepResult> Steps)> RunAsync(
-        JobContext job, CancellationToken ct)
+        JobContext job,
+        IReadOnlyDictionary<string, string> parameters,
+        Dictionary<string, string> outputs,
+        CancellationToken ct)
     {
         var steps = new List<StepResult>();
 
@@ -146,7 +153,37 @@ internal sealed class ScriptExecutionEngine
             ["now.date"]  = DateTimeOffset.Now.ToString("yyyy-MM-dd"),
             ["now.time"]  = DateTimeOffset.Now.ToString("HH:mm:ss"),
         };
+        foreach (var (name, value) in parameters)
+            runVars["param." + name] = value;
+        if (parameters.Count > 0)
+            _log.LogInformation("{Count} param(s): {Names}", parameters.Count, string.Join(", ", parameters.Keys));
 
+        try
+        {
+            return await RunStepsAsync(envelope, runVars, steps, ct);
+        }
+        finally
+        {
+            // Everything a step stored under storeAs becomes a run output. Built-ins and
+            // params are the run's inputs, not its outputs.
+            foreach (var (k, v) in runVars)
+            {
+                if (k.StartsWith("now.", StringComparison.OrdinalIgnoreCase) ||
+                    k.StartsWith("param.", StringComparison.OrdinalIgnoreCase) ||
+                    !k.Contains('.'))
+                    continue;
+                if (v is string s) outputs[k] = s;
+                else if (v is not null && v is not System.Text.Json.JsonElement) outputs[k] = v.ToString() ?? string.Empty;
+            }
+        }
+    }
+
+    private async Task<(RunState State, List<StepResult> Steps)> RunStepsAsync(
+        ScriptEnvelope envelope,
+        Dictionary<string, object?> runVars,
+        List<StepResult> steps,
+        CancellationToken ct)
+    {
         foreach (var step in envelope.Script.Steps)
         {
             var stepId    = $"step.{step.StepNumber}";

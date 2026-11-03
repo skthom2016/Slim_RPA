@@ -31,7 +31,7 @@ public sealed class ScrollHandler : IActionHandler
             var hwnd = NativeMethods.FindWindowByTitle(window);
             if (hwnd != IntPtr.Zero)
             {
-                NativeMethods.SetForegroundWindow(hwnd);
+                NativeMethods.ActivateWindow(hwnd);
                 await Task.Delay(200, ctx.CancellationToken);
             }
         }

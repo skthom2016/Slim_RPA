@@ -135,6 +135,28 @@ CREATE TABLE IF NOT EXISTS FinalResultRecords (
 
 CREATE UNIQUE INDEX IF NOT EXISTS IX_FinalResultRecords_RunId ON FinalResultRecords(RunId);
 
+-- Values a run produced (storeAs outputs). Read by later runs of the same flow as params.
+CREATE TABLE IF NOT EXISTS RunOutputs (
+    RunId     TEXT NOT NULL,
+    Name      TEXT NOT NULL,
+    Value     TEXT NOT NULL DEFAULT '',
+    CreatedAt TEXT NOT NULL,
+    PRIMARY KEY (RunId, Name)
+);
+
+-- A flow runs several scripts in order, possibly on different runtimes; each run receives
+-- the flow params plus the outputs of every earlier run.
+CREATE TABLE IF NOT EXISTS FlowRecords (
+    FlowId      TEXT NOT NULL PRIMARY KEY,
+    Name        TEXT NOT NULL DEFAULT '',
+    StepsJson   TEXT NOT NULL,
+    ParamsJson  TEXT NOT NULL DEFAULT '{}',
+    State       TEXT NOT NULL DEFAULT 'Running',
+    CurrentStep INTEGER NOT NULL DEFAULT 0,
+    CreatedAt   TEXT NOT NULL,
+    UpdatedAt   TEXT
+);
+
 CREATE TABLE IF NOT EXISTS CallbackRecords (
     Id            TEXT NOT NULL PRIMARY KEY,
     EventId       TEXT NOT NULL,

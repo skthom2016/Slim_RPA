@@ -36,7 +36,7 @@ public sealed class NotepadTypeHandler : IActionHandler
         if (hwnd == IntPtr.Zero)
             return ActionResult.Fail("NOT_FOUND", $"No window with title containing '{titleHint}' found");
 
-        NativeMethods.SetForegroundWindow(hwnd);
+        NativeMethods.ActivateWindow(hwnd);
         await Task.Delay(300, ctx.CancellationToken);
 
         // Clipboard must be set on an STA thread

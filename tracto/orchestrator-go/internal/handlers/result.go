@@ -50,6 +50,7 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		BusinessJobId  *string  `json:"businessJobId"`
 		UnknownReason  *string  `json:"unknownReason"`
 		Payload        *string  `json:"payload"`
+		Outputs        map[string]string `json:"outputs"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -70,6 +71,13 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		errResp(w, http.StatusUnprocessableEntity, "SENSITIVE_PAYLOAD",
 			"payload contains secret material and was rejected")
 		return
+	}
+	for name, value := range req.Outputs {
+		if containsSecret(name) || containsSecret(value) {
+			errResp(w, http.StatusUnprocessableEntity, "SENSITIVE_PAYLOAD",
+				"output '"+name+"' contains secret material and was rejected")
+			return
+		}
 	}
 
 	var runAttemptID, runState string
@@ -130,6 +138,12 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		string(evidenceJSON), req.BusinessJobId, now,
 	)
 
+	// Store the run's outputs for later flow steps and for GET /jobs/{runId}
+	for name, value := range req.Outputs {
+		tx.Exec(`INSERT OR REPLACE INTO RunOutputs(RunId,Name,Value,CreatedAt) VALUES(?,?,?,?)`,
+			runID, name, value, now)
+	}
+
 	// Release worker slot
 	slotReleased := false
 	if workerId.Valid && workerId.String != "" {
@@ -162,6 +176,9 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
+
+	// Flow membership: queue the next step, or close the flow
+	advanceFlow(h.db, runID, dbState)
 
 	// Trigger continuation (best-effort, non-blocking)
 	go triggerContinuation(h.db, runID, dbState, req.BusinessJobId)

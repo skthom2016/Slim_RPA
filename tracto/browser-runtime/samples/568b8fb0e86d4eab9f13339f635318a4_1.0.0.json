@@ -1,0 +1,187 @@
+{
+  "id": "568b8fb0e86d4eab9f13339f635318a4",
+  "name": "Session bde3eaef",
+  "version": "1.0.0",
+  "targetRuntime": "browser",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "description": "Open https://outlook.cloud.microsoft/mail",
+      "action": "navigate",
+      "condition": null,
+      "parameters": {
+        "url": "https://outlook.cloud.microsoft/mail"
+      }
+    },
+    {
+      "stepNumber": 2,
+      "description": "Open https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=9199bf20-a13f-4107-85dc-02114787ef48\u0026scope=https%3A%2F%2Foutlook.office.com%2F.default%20openid%20profile%20offline_access\u0026redirect_uri=https%3A%2F%2Foutlook.cloud.microsoft%2Fmail%2F\u0026client-request-id=af4493a7-ca13-b79a-1b75-45b76b18c492\u0026response_mode=fragment\u0026client_info=1\u0026clidata=1\u0026prompt=select_account\u0026nonce=01a1a036-2e19-7168-8e3a-945550f05253\u0026state=eyJpZCI6IjAxYTFhMDM2LTJlMTktN2QxNy04ZDFkLTZhZmNmNjQ4N2ZhNSIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D%7CaHR0cHM6Ly9vdXRsb29rLmNsb3VkLm1pY3Jvc29mdC9tYWls\u0026claims=%7B%22access_token%22%3A%7B%22xms_cc%22%3A%7B%22values%22%3A%5B%22CP1%22%5D%7D%7D%7D\u0026x-client-SKU=msal.js.browser\u0026x-client-VER=5.12.0\u0026response_type=code\u0026code_challenge=iCv5tbF1TfshLU1BndhLU6rhwT-U1MQEXdXJaQeNRgs\u0026code_challenge_method=S256\u0026sso_reload=true",
+      "action": "navigate",
+      "condition": null,
+      "parameters": {
+        "url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=9199bf20-a13f-4107-85dc-02114787ef48\u0026scope=https%3A%2F%2Foutlook.office.com%2F.default%20openid%20profile%20offline_access\u0026redirect_uri=https%3A%2F%2Foutlook.cloud.microsoft%2Fmail%2F\u0026client-request-id=af4493a7-ca13-b79a-1b75-45b76b18c492\u0026response_mode=fragment\u0026client_info=1\u0026clidata=1\u0026prompt=select_account\u0026nonce=01a1a036-2e19-7168-8e3a-945550f05253\u0026state=eyJpZCI6IjAxYTFhMDM2LTJlMTktN2QxNy04ZDFkLTZhZmNmNjQ4N2ZhNSIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D%7CaHR0cHM6Ly9vdXRsb29rLmNsb3VkLm1pY3Jvc29mdC9tYWls\u0026claims=%7B%22access_token%22%3A%7B%22xms_cc%22%3A%7B%22values%22%3A%5B%22CP1%22%5D%7D%7D%7D\u0026x-client-SKU=msal.js.browser\u0026x-client-VER=5.12.0\u0026response_type=code\u0026code_challenge=iCv5tbF1TfshLU1BndhLU6rhwT-U1MQEXdXJaQeNRgs\u0026code_challenge_method=S256\u0026sso_reload=true"
+      }
+    },
+    {
+      "stepNumber": 3,
+      "description": "Wait 5000 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "5000"
+      }
+    },
+    {
+      "stepNumber": 4,
+      "description": "Enter \u0022tibin@neelitech.com\u0022 in textbox \u0022Enter your email, phone, or Skype.\u0022",
+      "action": "fill",
+      "condition": null,
+      "parameters": {
+        "label": "Enter your email, phone, or Skype.",
+        "value": "tibin@neelitech.com"
+      }
+    },
+    {
+      "stepNumber": 5,
+      "description": "Click div \u003E div \u003E div:nth-of-type(4) \u003E div \u003E div \u003E div",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "css": "div \u003E div \u003E div:nth-of-type(4) \u003E div \u003E div \u003E div"
+      }
+    },
+    {
+      "stepNumber": 6,
+      "description": "Wait 1200 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "1200"
+      }
+    },
+    {
+      "stepNumber": 7,
+      "description": "Click button \u0022Next\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "Next"
+      }
+    },
+    {
+      "stepNumber": 8,
+      "description": "Open https://login.microsoftonline.com/common/resume?ctx=rQQIABABBAABBgIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cxgAAAAAAG3w4sR_lkuOjE1peStZ5Y2HLFK4EBePz_Wtl7T71phEs0UjvopZozJ_nIbVn_l6XMjeEYMPZgptEf2RIRpoDNiNu1vuetwWPOC0Jes322TBkjR-iAUaHsxLPU-Rz75eUDpmq_RoAUrpWMiTGYhlYSewyDN72POXr48AQKyXw0G_6WRyD9kJ33sicgUegjY2-TxMruaAXpi-awwbOth4Rqz3zp2ktcg-CVjaaCLC1FNIEN6XZ2h0j-3kgaGPIFENafE_PRYQEAHzd6n9eh25rWFaIxndh-MOWgboBUi820SroCPLZZvIgoOaUCLQcselSxI8MImsIF4SjuR_toAWdHaSZOvrZOPJWhvLnrVeXJKeR8H7tbfTFvzttNp7G_lT9MHH9sMvuqYk4kMyXHEcgYEmCjDoDhPqRf455RPfhPYiO-KHbiav2EuNPxCeq16KaUlazS4FXku6pMDDr2FwRzZcw08PdltYuPis1Uzh8cwRhhHeehEuJMG9UZlW-4HgORnRHwxeUyQRCYAsw1wMDuQ2ACPqMkm4NMU6W5bZVC_pz_d-c2Cpw1L8fy5proei9JJ2_J5-Zsn1AsEbJNzIS3gC1xC46P7HzuTYY54D6XPv94nZudmqBJFcOV2_pX81B6g3HSK9y2fh3DqyDIyKfkhPa6K2WJLD_a_7msOVHe90WTKJMdiRgddHTXqhealPsygNBFh-HCwZikDCAx2o7Tyx5IQI26fBjNbj_8_Xh7brLzu1SHpl1r19jIqFU5RKa0OQZ3AFgOc5LlH59leEG3j7lvSE7gki_D_z8UesZtn7R3KI0iYJHRpNGsR8WGlsg0Np-EvknaKiZSUbCFdef4m092RNec-WZQFdcd_aqGdq8U4KkPtSd0Fe8zhgTiv4V0xMNfB7-QsSuH6U8UMn5d9ywN5R_D90OorA73196Dge7rTkutxWTzicP3jc6oQkpRw6zNT3S8CIH_LNSIkhVHcxpcDe-CSDIi0_-kS-hClpHJB_Dr4y_ltalcK_6pYPcjOzyJxMd4bSOWxB1nP6jGJZP1P_95euHcjpkkO0NbbilNT1t0Qj1eyRf4MR2I16A6epLFgKcsEtZUMP_WkBG80oAtGjO6TLqTiTRuHGyW01\u0026username=tibin%40neelitech.com\u0026npc=7",
+      "action": "navigate",
+      "condition": null,
+      "parameters": {
+        "url": "https://login.microsoftonline.com/common/resume?ctx=rQQIABABBAABBgIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cxgAAAAAAG3w4sR_lkuOjE1peStZ5Y2HLFK4EBePz_Wtl7T71phEs0UjvopZozJ_nIbVn_l6XMjeEYMPZgptEf2RIRpoDNiNu1vuetwWPOC0Jes322TBkjR-iAUaHsxLPU-Rz75eUDpmq_RoAUrpWMiTGYhlYSewyDN72POXr48AQKyXw0G_6WRyD9kJ33sicgUegjY2-TxMruaAXpi-awwbOth4Rqz3zp2ktcg-CVjaaCLC1FNIEN6XZ2h0j-3kgaGPIFENafE_PRYQEAHzd6n9eh25rWFaIxndh-MOWgboBUi820SroCPLZZvIgoOaUCLQcselSxI8MImsIF4SjuR_toAWdHaSZOvrZOPJWhvLnrVeXJKeR8H7tbfTFvzttNp7G_lT9MHH9sMvuqYk4kMyXHEcgYEmCjDoDhPqRf455RPfhPYiO-KHbiav2EuNPxCeq16KaUlazS4FXku6pMDDr2FwRzZcw08PdltYuPis1Uzh8cwRhhHeehEuJMG9UZlW-4HgORnRHwxeUyQRCYAsw1wMDuQ2ACPqMkm4NMU6W5bZVC_pz_d-c2Cpw1L8fy5proei9JJ2_J5-Zsn1AsEbJNzIS3gC1xC46P7HzuTYY54D6XPv94nZudmqBJFcOV2_pX81B6g3HSK9y2fh3DqyDIyKfkhPa6K2WJLD_a_7msOVHe90WTKJMdiRgddHTXqhealPsygNBFh-HCwZikDCAx2o7Tyx5IQI26fBjNbj_8_Xh7brLzu1SHpl1r19jIqFU5RKa0OQZ3AFgOc5LlH59leEG3j7lvSE7gki_D_z8UesZtn7R3KI0iYJHRpNGsR8WGlsg0Np-EvknaKiZSUbCFdef4m092RNec-WZQFdcd_aqGdq8U4KkPtSd0Fe8zhgTiv4V0xMNfB7-QsSuH6U8UMn5d9ywN5R_D90OorA73196Dge7rTkutxWTzicP3jc6oQkpRw6zNT3S8CIH_LNSIkhVHcxpcDe-CSDIi0_-kS-hClpHJB_Dr4y_ltalcK_6pYPcjOzyJxMd4bSOWxB1nP6jGJZP1P_95euHcjpkkO0NbbilNT1t0Qj1eyRf4MR2I16A6epLFgKcsEtZUMP_WkBG80oAtGjO6TLqTiTRuHGyW01\u0026username=tibin%40neelitech.com\u0026npc=7"
+      }
+    },
+    {
+      "stepNumber": 9,
+      "description": "Wait 2200 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "2200"
+      }
+    },
+    {
+      "stepNumber": 10,
+      "description": "Click button \u0022Use my password\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "Use my password"
+      }
+    },
+    {
+      "stepNumber": 11,
+      "description": "Wait 5000 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "5000"
+      }
+    },
+    {
+      "stepNumber": 12,
+      "description": "Enter the password in textbox \u0022Enter the password for tibin@neelitech.com\u0022 (set TRACTO_SECRET_ENTER_THE_PASSWORD_FOR_TIBIN_NEELITECH_COM on the worker)",
+      "action": "fill",
+      "condition": null,
+      "parameters": {
+        "label": "Enter the password for tibin@neelitech.com",
+        "value": "${secret:ENTER_THE_PASSWORD_FOR_TIBIN_NEELITECH_COM}"
+      }
+    },
+    {
+      "stepNumber": 13,
+      "description": "Click button \u0022Sign in\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "Sign in"
+      }
+    },
+    {
+      "stepNumber": 14,
+      "description": "Wait 5000 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "5000"
+      }
+    },
+    {
+      "stepNumber": 15,
+      "description": "Click button \u0022No\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "No"
+      }
+    },
+    {
+      "stepNumber": 16,
+      "description": "Wait 5000 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "5000"
+      }
+    },
+    {
+      "stepNumber": 17,
+      "description": "Click button \u0022Tibin Thomas\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "Tibin Thomas"
+      }
+    },
+    {
+      "stepNumber": 18,
+      "description": "Wait 4700 ms",
+      "action": "delay",
+      "condition": null,
+      "parameters": {
+        "ms": "4700"
+      }
+    },
+    {
+      "stepNumber": 19,
+      "description": "Click button \u0022Sign out of this account\u0022",
+      "action": "click",
+      "condition": null,
+      "parameters": {
+        "role": "button",
+        "name": "Sign out of this account"
+      }
+    }
+  ]
+}

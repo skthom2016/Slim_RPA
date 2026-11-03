@@ -8,7 +8,11 @@ public sealed record TranslatedStep(
     string Action,
     BrowserStep? Browser,
     int? DelayMs,
-    string? StoreAs);
+    string? StoreAs,
+    SelectorRef? ListSelector = null,
+    int ListLimit = 0,
+    string ListSeparator = "\n",
+    TimeSpan? Timeout = null);
 
 /// <summary>
 /// Converts flat Designer steps (string parameters) into the runtime's typed
@@ -18,6 +22,10 @@ public sealed record TranslatedStep(
 public static class StepTranslator
 {
     public const string DelayAction = "delay";
+
+    /// <summary>Reads the text of every element a target matches, joined into one value.</summary>
+    public const string GetTextsAction = "browser.element.getTexts";
+
     private const int MaxDelayMs = 60_000;
 
     /// <summary>Runtime action names, advertised to the Orchestrator at registration.</summary>
@@ -40,6 +48,7 @@ public static class StepTranslator
         "browser.element.getText",
         "browser.element.getAttr",
         "browser.element.getValue",
+        GetTextsAction,
         DelayAction
     ];
 
@@ -83,6 +92,8 @@ public static class StepTranslator
         ["browser.getAttr"]  = "browser.element.getAttr",
         ["getValue"]         = "browser.element.getValue",
         ["browser.getValue"] = "browser.element.getValue",
+        ["getTexts"]         = GetTextsAction,
+        ["browser.getTexts"] = GetTextsAction,
         ["sleep"]            = DelayAction,
         ["browser.delay"]    = DelayAction
     };
@@ -142,6 +153,17 @@ public static class StepTranslator
             if (!int.TryParse(t, out var tms) || tms <= 0)
                 throw new ScriptValidationException($"{stepId}: timeoutMs must be a positive integer.");
             timeout = TimeSpan.FromMilliseconds(tms);
+        }
+
+        if (action == GetTextsAction)
+        {
+            if (selector is null)
+                throw new ScriptValidationException($"{stepId}: getTexts needs a target that matches the elements to read.");
+            var limit = 0;
+            if (Get(p, "limit") is { } lim && (!int.TryParse(lim, out limit) || limit < 0))
+                throw new ScriptValidationException($"{stepId}: limit must be a non-negative integer.");
+            var separator = Get(p, "separator") ?? "\n";
+            return new TranslatedStep(stepId, action, null, null, storeAs, selector, limit, separator, timeout);
         }
 
         string? value = null;
