@@ -2,6 +2,8 @@
 
 This file gives Claude Code everything it needs to generate, validate, and upload Tracto scripts on any machine.
 
+To create, edit, clean or validate a desktop script, use the `tracto-desktop-rpa` skill (`.claude/skills/tracto-desktop-rpa/` at the repository root). It documents every action, recipe and limit, and ships a validator.
+
 ---
 
 ## What is Tracto?
