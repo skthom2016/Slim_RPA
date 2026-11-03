@@ -87,6 +87,19 @@ never silently takes the first. Narrow it (`nth=0`, a parent, role + name).
 Full runtime names (`browser.page.navigate`, `browser.element.click`, …) are accepted too.
 Every step accepts `timeoutMs`.
 
+## Recording a script in the Designer
+
+In the Designer choose **Engine: Browser**, pick the browser (bundled Chromium by default), set
+the start URL and press **Start**. The Designer opens a fresh browser with its own throwaway
+profile and records what you do: field entries, clicks, checkboxes, selects and Enter/Tab/Escape.
+Elements are recorded by role and name, label, placeholder, test id, text or CSS, in that order of
+preference, and password fields are written as `${secret:NAME}` references, never as text.
+**Stop**, then **Generate Draft** produces a flat browser script that the host runs as is.
+Untick **Launch** to attach to a browser you started yourself with `--remote-debugging-port`.
+
+If the launched browser reports "Sandbox cannot access executable", endpoint protection is
+blocking Chromium's sandbox helper; allow it rather than turning the sandbox off.
+
 ## Samples
 
 `samples/` holds scripts verified against the runtime and `run-sample.ps1`, which publishes a

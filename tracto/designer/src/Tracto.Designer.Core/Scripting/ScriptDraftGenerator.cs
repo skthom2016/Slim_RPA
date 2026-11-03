@@ -7,6 +7,9 @@ public sealed class ScriptDraftGenerator : IScriptDraftGenerator
 {
     public Script GenerateDraft(IReadOnlyList<TranscriptEntry> transcript, CaptureEngineType engineType, string sessionName)
     {
+        if (engineType == CaptureEngineType.Browser)
+            return BrowserDraftGenerator.Generate(transcript, sessionName);
+
         var script = new Script
         {
             Name = string.IsNullOrWhiteSpace(sessionName) ? "Recorded Script" : sessionName,

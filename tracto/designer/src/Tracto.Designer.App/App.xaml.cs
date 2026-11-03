@@ -74,8 +74,10 @@ public partial class App : Application
         // Privacy
         sc.AddSingleton<PrivacySettings>();
         sc.AddSingleton<IPrivacyFilter, PrivacyFilter>();
-        sc.AddSingleton<IBrowserCaptureEngine, NullBrowserCaptureEngine>(); // default to null; CdpBrowserCaptureEngine used when author connects
-        sc.AddSingleton<BrowserCaptureAdapter>();
+        sc.AddSingleton<IBrowserCaptureEngine, CdpBrowserCaptureEngine>();
+        sc.AddSingleton<BrowserCaptureAdapter>(sp => new BrowserCaptureAdapter(
+            sp.GetRequiredService<IBrowserCaptureEngine>(),
+            sp.GetRequiredService<IRecordingSessionService>()));
         sc.AddSingleton<ITemplateLibrary, BuiltInTemplateLibrary>();
         // DS-17 Credential Vault
         sc.AddSingleton<ICredentialVault, WindowsCredentialVault>();

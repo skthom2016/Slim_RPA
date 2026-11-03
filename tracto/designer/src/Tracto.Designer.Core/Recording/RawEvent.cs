@@ -15,4 +15,5 @@ public sealed record RawEvent(
     int ScreenX,
     int ScreenY,
     int? WindowOffsetX = null,
-    int? WindowOffsetY = null);
+    int? WindowOffsetY = null,
+    IReadOnlyDictionary<string, string?>? Attributes = null);

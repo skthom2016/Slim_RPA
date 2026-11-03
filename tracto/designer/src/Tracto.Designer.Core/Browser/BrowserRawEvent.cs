@@ -7,4 +7,5 @@ public sealed record BrowserRawEvent(
     string? ElementSelector,
     string? ElementText,
     string? InputValue,
-    bool IsPasswordInput);
+    bool IsPasswordInput,
+    BrowserTarget? Target = null);

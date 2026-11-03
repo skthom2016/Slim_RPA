@@ -74,7 +74,8 @@ public class BrowserCaptureTests
     public void BrowserCaptureOptions_Defaults()
     {
         var opts = new BrowserCaptureOptions();
-        opts.BrowserType.Should().Be(BrowserType.Chrome);
+        opts.BrowserType.Should().Be(BrowserType.Chromium);
+        opts.LaunchBrowser.Should().BeTrue();
         opts.DebugPort.Should().Be(9222);
         opts.TargetUrl.Should().BeNull();
     }

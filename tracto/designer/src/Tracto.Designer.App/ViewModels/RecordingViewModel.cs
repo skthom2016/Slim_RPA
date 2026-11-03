@@ -30,7 +30,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     private readonly IScriptDraftGenerator _draftGenerator;
     private CaptureEngineType? _selectedEngineType = CaptureEngineType.Desktop;
 
-    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, IBrowserCaptureEngine browserCaptureEngine, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter)
+    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter)
     {
         _session = session;
         _captureEngine = captureEngine;
@@ -52,7 +52,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         Audit = new AuditViewModel(auditService);
         PrivacySettings = new PrivacySettingsViewModel(privacySettings);
         Templates = new TemplateLibraryViewModel(templateLibrary, ScriptEditor, new MessageBoxDialogService());
-        BrowserAdapter = new BrowserAdapterViewModel(browserCaptureEngine);
+        BrowserAdapter = new BrowserAdapterViewModel(browserCaptureAdapter);
         IsolatedMode = new IsolatedModeViewModel(isolatedModeSettings, isolatedModeValidator, ScriptEditor);
         Credentials = new CredentialVaultViewModel(credentialVault);
         OfflineExport = new OfflineExportViewModel(offlineExporter, ScriptEditor, Signing);
@@ -119,6 +119,8 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         _session.Start(opts);
         if (SelectedEngineType.Value == CaptureEngineType.Desktop)
             _captureEngine.Start();
+        else if (SelectedEngineType.Value == CaptureEngineType.Browser)
+            _ = BrowserAdapter.StartAsync();
         if (_voice.IsAvailable)
             _ = _voice.StartAsync();
     }
@@ -127,6 +129,8 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     {
         if ((state == SessionState.Stopped || state == SessionState.Idle) && _captureEngine.IsRunning)
             _captureEngine.Stop();
+        if ((state == SessionState.Stopped || state == SessionState.Idle) && BrowserAdapter.IsConnected)
+            _ = BrowserAdapter.StopAsync();
         if (state == SessionState.Stopped || state == SessionState.Idle)
             _ = _voice.StopAsync();
         OnPropertyChanged(nameof(CurrentState));
