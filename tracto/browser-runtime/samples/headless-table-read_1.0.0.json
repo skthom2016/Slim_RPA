@@ -1,0 +1,44 @@
+{
+  "id": "headless-table-read",
+  "name": "Headless Table Read",
+  "version": "1.0.0",
+  "targetRuntime": "browser",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "navigate",
+      "description": "Open the tables page",
+      "parameters": { "url": "https://the-internet.herokuapp.com/tables" }
+    },
+    {
+      "stepNumber": 2,
+      "action": "wait",
+      "description": "Wait for the first table to render",
+      "parameters": { "css": "#table1", "timeoutMs": "15000" }
+    },
+    {
+      "stepNumber": 3,
+      "action": "assert",
+      "description": "Confirm the page is the tables page",
+      "parameters": { "kind": "urlEquals", "expected": "https://the-internet.herokuapp.com/tables" }
+    },
+    {
+      "stepNumber": 4,
+      "action": "getText",
+      "description": "Read the first row's last name",
+      "parameters": { "css": "#table1 tbody tr >> nth=0 >> td >> nth=0", "storeAs": "lastName" }
+    },
+    {
+      "stepNumber": 5,
+      "action": "getText",
+      "description": "Read the first row's email",
+      "parameters": { "css": "#table1 tbody tr >> nth=0 >> td >> nth=2", "storeAs": "email" }
+    },
+    {
+      "stepNumber": 6,
+      "action": "assert",
+      "description": "Check the first row's email is the expected one",
+      "parameters": { "kind": "textEquals", "css": "#table1 tbody tr >> nth=0 >> td >> nth=2", "expected": "jsmith@gmail.com" }
+    }
+  ]
+}
