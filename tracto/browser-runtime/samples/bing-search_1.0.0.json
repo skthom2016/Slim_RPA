@@ -1,0 +1,44 @@
+{
+  "id": "bing-search",
+  "name": "Bing Search",
+  "version": "1.0.0",
+  "targetRuntime": "browser",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "navigate",
+      "description": "Open Bing",
+      "parameters": { "url": "https://www.bing.com/" }
+    },
+    {
+      "stepNumber": 2,
+      "action": "fill",
+      "description": "Type the search text into the search box",
+      "parameters": { "css": "#sb_form_q", "value": "Playwright for .NET" }
+    },
+    {
+      "stepNumber": 3,
+      "action": "delay",
+      "description": "Let the page attach its handlers to the search box before Enter",
+      "parameters": { "ms": "500" }
+    },
+    {
+      "stepNumber": 4,
+      "action": "press",
+      "description": "Submit the search from the search box",
+      "parameters": { "css": "#sb_form_q", "key": "Enter" }
+    },
+    {
+      "stepNumber": 5,
+      "action": "wait",
+      "description": "Wait for the results list",
+      "parameters": { "css": "#b_results", "timeoutMs": "15000" }
+    },
+    {
+      "stepNumber": 6,
+      "action": "getText",
+      "description": "Read the first result title (nth=0 picks one of the matches explicitly)",
+      "parameters": { "css": "#b_results li.b_algo h2 >> nth=0", "storeAs": "first" }
+    }
+  ]
+}

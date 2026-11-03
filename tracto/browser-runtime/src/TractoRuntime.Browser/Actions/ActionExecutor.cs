@@ -692,7 +692,21 @@ public sealed class ActionExecutor(
         logger.LogInformation(
             "Step {StepId}: pressing keyboard shortcut '{Key}'.", step.StepId, key);
 
-        await page.Keyboard.PressAsync(key).ConfigureAwait(false);
+        if (step.Selector is { } selector)
+        {
+            // Scoped press: focus the declared element first so the key reaches it even when
+            // another control (an autocomplete list, an overlay) took focus in the meantime.
+            var locator = await selectorStrategy
+                .ResolveAsync(page, selector, ct)
+                .ConfigureAwait(false);
+
+            await locator.PressAsync(key, new LocatorPressOptions { Timeout = timeoutMs })
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await page.Keyboard.PressAsync(key).ConfigureAwait(false);
+        }
 
         logger.LogInformation("Step {StepId}: keyboard shortcut dispatched.", step.StepId);
         return new ActionResult { Succeeded = true };

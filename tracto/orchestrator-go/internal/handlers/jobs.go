@@ -123,6 +123,9 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		deadline = sql.NullString{String: *req.Deadline, Valid: true}
 	}
 
+	// Read before the transaction opens: the database allows a single connection.
+	runtimeType := h.scriptRuntimeType(req.ScriptArtifactId, req.ScriptVersion)
+
 	tx, err := h.db.Begin()
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
@@ -133,12 +136,13 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`
 		INSERT INTO RunRecords(Id,WorkflowId,State,AttemptId,CreatedAt,CorrelationId,
 		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,
-		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)`,
+		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention,RuntimeType)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?)`,
 		runID, req.ScriptArtifactId, "Created", attemptID, now, correlationID,
 		req.ScriptArtifactId, req.ScriptVersion, req.SchemaVersion,
 		string(inputJSON), string(secretJSON),
 		deadline, eventId, triggerType, businessJobId,
+		runtimeType,
 	)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
@@ -166,6 +170,33 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, map[string]string{"runId": runID, "state": "QUEUED"})
+}
+
+// scriptRuntimeType returns the targetRuntime declared by a stored script ("desktop",
+// "browser", "terminal"), lower-cased, or "" when it cannot be determined. A run with an
+// empty RuntimeType can be pulled by any worker, so a declared runtime keeps browser jobs
+// away from desktop workers and the reverse.
+func (h *JobHandler) scriptRuntimeType(artifactID, version string) string {
+	var payload []byte
+	if err := h.db.QueryRow(
+		`SELECT Payload FROM ArtifactContents WHERE ArtifactId=? AND Version=?`,
+		artifactID, version).Scan(&payload); err != nil {
+		return ""
+	}
+	var doc struct {
+		TargetRuntime string `json:"targetRuntime"`
+		Script        struct {
+			TargetRuntime string `json:"targetRuntime"`
+		} `json:"script"`
+	}
+	if json.Unmarshal(payload, &doc) != nil {
+		return ""
+	}
+	rt := doc.Script.TargetRuntime
+	if rt == "" {
+		rt = doc.TargetRuntime
+	}
+	return strings.ToLower(strings.TrimSpace(rt))
 }
 
 // POST /jobs/pull

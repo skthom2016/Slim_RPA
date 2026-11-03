@@ -142,6 +142,7 @@ Quick start order:
 3. `hello-world` → `dotnet run --project hello-world/src/Tracto.HelloWorld.Api` (port 3000)
 4. Submit a job via Orchestrator UI (`▶ Run` button on an artifact)
 5. `desktop-runtime` → `dotnet run --project desktop-runtime/src/Tracto.Desktop.Host --no-launch-profile -p:Platform=x64`
+6. `browser-runtime` → `dotnet run --project browser-runtime/src/TractoRuntime.Browser.Host` (headed Chromium; see `browser-runtime/README.md`)
 
 ---
 

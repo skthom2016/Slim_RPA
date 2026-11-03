@@ -1,0 +1,44 @@
+{
+  "id": "login-demo",
+  "name": "Login Demo",
+  "version": "1.0.0",
+  "targetRuntime": "browser",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "action": "navigate",
+      "description": "Open the login page",
+      "parameters": { "url": "https://the-internet.herokuapp.com/login" }
+    },
+    {
+      "stepNumber": 2,
+      "action": "fill",
+      "description": "Enter the user name",
+      "parameters": { "label": "Username", "value": "tomsmith" }
+    },
+    {
+      "stepNumber": 3,
+      "action": "fill",
+      "description": "Enter the password from the worker's environment",
+      "parameters": { "label": "Password", "value": "${secret:DEMO_PASSWORD}" }
+    },
+    {
+      "stepNumber": 4,
+      "action": "click",
+      "description": "Press Login",
+      "parameters": { "role": "button", "name": "Login" }
+    },
+    {
+      "stepNumber": 5,
+      "action": "assert",
+      "description": "Confirm we landed on the secure page",
+      "parameters": { "kind": "urlEquals", "expected": "https://the-internet.herokuapp.com/secure" }
+    },
+    {
+      "stepNumber": 6,
+      "action": "getText",
+      "description": "Read the success banner",
+      "parameters": { "css": "#flash", "storeAs": "banner" }
+    }
+  ]
+}

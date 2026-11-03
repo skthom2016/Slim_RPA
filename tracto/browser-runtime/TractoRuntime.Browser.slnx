@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/TractoRuntime.Browser/TractoRuntime.Browser.csproj" />
+    <Project Path="src/TractoRuntime.Browser.Host/TractoRuntime.Browser.Host.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TractoRuntime.Browser.Tests/TractoRuntime.Browser.Tests.csproj" />
