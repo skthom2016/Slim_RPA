@@ -142,7 +142,7 @@ public sealed class CdpBrowserCaptureEngine : IBrowserCaptureEngine
             if (options.LaunchBrowser)
             {
                 _launcher = new BrowserLauncher();
-                _launcher.Launch(options.BrowserType, options.DebugPort, options.StartUrl);
+                _launcher.Launch(options.BrowserType, options.DebugPort, options.StartUrl, options.UserDataDir);
             }
 
             var (wsUrl, pageUrl) = await FindPageWebSocketAsync(options, _cts.Token).ConfigureAwait(false);

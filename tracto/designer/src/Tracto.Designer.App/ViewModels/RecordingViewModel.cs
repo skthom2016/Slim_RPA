@@ -55,7 +55,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         Audit = new AuditViewModel(auditService);
         PrivacySettings = new PrivacySettingsViewModel(privacySettings);
         Templates = new TemplateLibraryViewModel(templateLibrary, ScriptEditor, new MessageBoxDialogService());
-        BrowserAdapter = new BrowserAdapterViewModel(browserCaptureAdapter);
+        BrowserAdapter = new BrowserAdapterViewModel(browserCaptureAdapter, browserProfileSignIn);
         ProfileSignIn = new ProfileSignInViewModel(browserProfileSignIn, BrowserAdapter);
         IsolatedMode = new IsolatedModeViewModel(isolatedModeSettings, isolatedModeValidator, ScriptEditor);
         Credentials = new CredentialVaultViewModel(credentialVault);
@@ -171,7 +171,9 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedEngineType.Value == CaptureEngineType.Desktop)
             _captureEngine.Start();
         else if (SelectedEngineType.Value == CaptureEngineType.Browser)
-            _ = BrowserAdapter.StartAsync();
+            // Record in whatever the segment will run in, so a signed-in segment is recorded
+            // already signed in rather than on a login page.
+            _ = BrowserAdapter.StartAsync(ScriptEditor.SelectedSegment?.UseSignedInProfile == true);
         if (_voice.IsAvailable)
             _ = _voice.StartAsync();
     }

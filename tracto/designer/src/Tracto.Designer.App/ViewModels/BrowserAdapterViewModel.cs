@@ -5,24 +5,25 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Tracto.Designer.App.Commands;
 using Tracto.Designer.Core.Browser;
+using Tracto.Designer.Core.Scripting;
 
 /// <summary>
-/// Browser recording settings and control. With <see cref="LaunchBrowser"/> on (the default)
-/// Start opens the chosen browser at <see cref="StartUrl"/> and records it; off, the recorder
-/// attaches to a browser already running with the DevTools port open.
+/// Browser recording settings and control. Start always opens the chosen browser at
+/// <see cref="StartUrl"/> with a clean recording profile and records it.
 /// </summary>
 public sealed class BrowserAdapterViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly BrowserCaptureAdapter _adapter;
+    private readonly IBrowserProfileSignIn _signIn;
     private BrowserType _selectedBrowser = BrowserType.Chromium;
     private int _debugPort = 9222;
     private string _startUrl = "https://www.bing.com/";
-    private bool _launchBrowser = true;
     private string _status = "Not connected";
 
-    public BrowserAdapterViewModel(BrowserCaptureAdapter adapter)
+    public BrowserAdapterViewModel(BrowserCaptureAdapter adapter, IBrowserProfileSignIn signIn)
     {
         _adapter = adapter;
+        _signIn  = signIn;
         ConnectCommand    = new RelayCommand(async _ => await StartAsync(), _ => !_adapter.IsRunning);
         DisconnectCommand = new RelayCommand(async _ => await StopAsync(),  _ => _adapter.IsRunning);
     }
@@ -49,12 +50,6 @@ public sealed class BrowserAdapterViewModel : INotifyPropertyChanged, IDisposabl
         set { _startUrl = value; OnPropertyChanged(); }
     }
 
-    public bool LaunchBrowser
-    {
-        get => _launchBrowser;
-        set { _launchBrowser = value; OnPropertyChanged(); }
-    }
-
     public bool IsConnected => _adapter.IsRunning;
 
     public string Status
@@ -63,14 +58,30 @@ public sealed class BrowserAdapterViewModel : INotifyPropertyChanged, IDisposabl
         private set { _status = value; OnPropertyChanged(); }
     }
 
-    public async Task StartAsync()
+    /// <param name="useSignedInProfile">
+    /// Record in the machine's signed-in browser, so sites signed in from the toolbar stay
+    /// signed in while recording and the recording matches what the segment will meet at run
+    /// time. False records in a throwaway profile with nothing signed in.
+    /// </param>
+    public async Task StartAsync(bool useSignedInProfile = false)
     {
         try
         {
-            Status = _launchBrowser ? $"Launching {_selectedBrowser}..." : "Connecting...";
+            string? userDataDir = useSignedInProfile
+                ? _signIn.ResolveFolder(ScriptSegment.SharedProfile)
+                : null;
+
+            Status = useSignedInProfile
+                ? $"Launching {_selectedBrowser} in the signed-in browser..."
+                : $"Launching {_selectedBrowser}...";
+
+            // Recording always opens its own browser, so there is nothing to set up first.
             await _adapter.StartAsync(new BrowserCaptureOptions(
-                _selectedBrowser, _debugPort, null, _startUrl, _launchBrowser));
-            Status = $"Recording {_selectedBrowser} (port {_debugPort})";
+                _selectedBrowser, _debugPort, null, _startUrl, LaunchBrowser: true, UserDataDir: userDataDir));
+
+            Status = useSignedInProfile
+                ? $"Recording {_selectedBrowser} in the signed-in browser (port {_debugPort})"
+                : $"Recording {_selectedBrowser} (port {_debugPort})";
         }
         catch (Exception ex)
         {

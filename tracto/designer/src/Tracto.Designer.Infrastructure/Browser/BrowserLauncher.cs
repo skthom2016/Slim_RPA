@@ -54,12 +54,19 @@ public sealed class BrowserLauncher : IDisposable
             yield return Path.Combine(d, "chrome-win", "chrome.exe");
     }
 
-    public void Launch(BrowserType type, int debugPort, string? startUrl)
+    /// <summary>
+    /// Starts the browser with the DevTools port open. <c>userDataDir</c> is the profile folder
+    /// to run in: null uses the recorder's own throwaway folder, with nothing signed in, while
+    /// the signed-in profile records with those sign-ins already in place.
+    /// </summary>
+    public void Launch(BrowserType type, int debugPort, string? startUrl, string? userDataDir = null)
     {
         if (IsRunning) return;
 
         var exe = ResolveExecutable(type);
-        var profile = Path.Combine(Path.GetTempPath(), "tracto-designer", $"profile-{type.ToString().ToLowerInvariant()}");
+        var profile = string.IsNullOrWhiteSpace(userDataDir)
+            ? Path.Combine(Path.GetTempPath(), "tracto-designer", $"profile-{type.ToString().ToLowerInvariant()}")
+            : userDataDir;
         Directory.CreateDirectory(profile);
 
         var psi = new ProcessStartInfo(exe)

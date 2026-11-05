@@ -177,11 +177,6 @@
                                       SelectedItem="{Binding SelectedSegment.BrowserSession}"
                                       ToolTip="Whether this segment needs a signed-in browser, or an empty one."/>
                         </StackPanel>
-                        <StackPanel Margin="0,0,0,8" VerticalAlignment="Bottom">
-                            <CheckBox Content="Launch" Height="30" VerticalContentAlignment="Center"
-                                      IsChecked="{Binding DataContext.BrowserAdapter.LaunchBrowser, RelativeSource={RelativeSource AncestorType=Window}}"
-                                      ToolTip="Open a fresh browser when recording starts. Untick to attach to a browser already running with --remote-debugging-port."/>
-                        </StackPanel>
                     </WrapPanel>
 
                     <TextBlock Text="{Binding SelectedSegment.BrowserSessionSummary}"
