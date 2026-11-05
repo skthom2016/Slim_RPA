@@ -230,161 +230,199 @@
                             Command="{Binding DeleteStepCommand}" ToolTip="Delete the selected step"/>
                 </StackPanel>
             </Grid>
+            <!-- ══ Steps. Each row carries its own details, opened where it sits ══ -->
+            <ListView Grid.Row="3" ItemsSource="{Binding StepRows}" SelectedItem="{Binding SelectedRow}"
+                      HorizontalContentAlignment="Stretch" MinHeight="120">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
 
-            <Grid Grid.Row="3">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" MinHeight="90"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <ListView Grid.Row="0" ItemsSource="{Binding ActiveSteps}" SelectedItem="{Binding SelectedStep}"
-                          HorizontalContentAlignment="Stretch">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
+                            <!-- The row itself: number, description, action, and its buttons -->
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="30"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
+
                                 <Border Grid.Column="0" Width="22" Height="22" CornerRadius="11"
                                         Background="{StaticResource SubtleHoverBrush}" HorizontalAlignment="Left">
                                     <TextBlock Text="{Binding StepNumber}" Style="{StaticResource CaptionText}"
                                                FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBox Grid.Column="1"
-                                         Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="Transparent" BorderThickness="0" Padding="4,0"/>
+
+                                <!-- Reading: plain text, so a stray click cannot change it -->
+                                <TextBlock Grid.Column="1" Text="{Binding Description}" Padding="4,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding IsShowingDescription, Converter={StaticResource BoolToVisibility}}"/>
+
+                                <!-- Editing: only after the pencil, committed by the tick -->
+                                <TextBox Grid.Column="1" Margin="4,0,0,0"
+                                         AutomationProperties.AutomationId="StepDescriptionEdit"
+                                         AutomationProperties.Name="Step description"
+                                         Text="{Binding DescriptionDraft, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingDescription, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter"  Command="{Binding SaveDescriptionCommand}"/>
+                                        <KeyBinding Key="Escape" Command="{Binding CancelDescriptionCommand}"/>
+                                    </TextBox.InputBindings>
+                                </TextBox>
+
                                 <Border Grid.Column="2" Style="{StaticResource Pill}" Padding="6,1" Margin="6,0,0,0"
                                         Background="{StaticResource SubtleHoverBrush}"
-                                        BorderBrush="{StaticResource SubtleHoverBrush}">
+                                        BorderBrush="{StaticResource SubtleHoverBrush}"
+                                        VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Action}" Style="{StaticResource CaptionText}"
                                                FontSize="11" FontFamily="{StaticResource MonoFont}"
                                                Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </Border>
+
+                                <!-- Pencil to edit the description, tick to keep the change -->
+                                <Button Grid.Column="3" Style="{StaticResource IconButton}" Tag="&#xE70F;"
+                                        AutomationProperties.AutomationId="EditDescription"
+                                        Command="{Binding EditDescriptionCommand}" ToolTip="Edit this step's description"
+                                        Visibility="{Binding IsShowingDescription, Converter={StaticResource BoolToVisibility}}"/>
+                                <Button Grid.Column="3" Style="{StaticResource IconButton}" Tag="&#xE73E;"
+                                        AutomationProperties.AutomationId="SaveDescription"
+                                        Foreground="{StaticResource SuccessBrush}"
+                                        Command="{Binding SaveDescriptionCommand}" ToolTip="Save this description"
+                                        Visibility="{Binding IsEditingDescription, Converter={StaticResource BoolToVisibility}}"/>
+
+                                <!-- Chevron: opens this step's own details underneath it -->
+                                <Button Grid.Column="4"
+                                        AutomationProperties.AutomationId="ToggleStepDetails"
+                                        Command="{Binding ToggleExpandCommand}"
+                                        ToolTip="Show or hide this step's action, parameters and data">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                            <Setter Property="Tag" Value="&#xE70D;"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                    <Setter Property="Tag" Value="&#xE70E;"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
 
-                <GridSplitter Grid.Row="1" Height="8" HorizontalAlignment="Stretch" Background="Transparent"
-                              VerticalAlignment="Center" ResizeBehavior="PreviousAndNext"/>
+                            <!-- ══ This step's details, right under this step ══ -->
+                            <Border Margin="30,8,0,6" Padding="12"
+                                    Background="{StaticResource SurfaceAltBrush}"
+                                    BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                                    CornerRadius="{StaticResource ControlRadius}"
+                                    Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="230"/>
+                                        <ColumnDefinition Width="272"/>
+                                    </Grid.ColumnDefinitions>
 
-                <!-- ══ The selected step: what it does, and the data it passes on ══ -->
-                <Border Grid.Row="2" Padding="12" MaxHeight="268"
-                        Background="{StaticResource SurfaceAltBrush}"
-                        BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource ControlRadius}"
-                        Visibility="{Binding SelectedStep, Converter={StaticResource NullToVisibilityConverter}}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="240"/>
-                            <ColumnDefinition Width="286"/>
-                        </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel Width="186">
+                                                <TextBlock Text="Action" Style="{StaticResource FieldLabel}"/>
+                                                <ComboBox IsEditable="True" ItemsSource="{Binding ActionOptions}"
+                                                          AutomationProperties.AutomationId="StepAction"
+                                                          AutomationProperties.Name="Step action"
+                                                          Text="{Binding Action, UpdateSourceTrigger=PropertyChanged}"
+                                                          ToolTip="What this step does. The list holds the actions this segment's runtime knows; another name can be typed."/>
+                                            </StackPanel>
+                                            <StackPanel Width="186" Margin="12,0,0,0">
+                                                <TextBlock Text="Store result as" Style="{StaticResource FieldLabel}"/>
+                                                <TextBox Text="{Binding StoreAs, UpdateSourceTrigger=LostFocus}"
+                                                         AutomationProperties.AutomationId="StepStoreAs"
+                                                         AutomationProperties.Name="Store result as"
+                                                         ToolTip="Name this step's outputs so later steps, and later segments, can read them."/>
+                                            </StackPanel>
+                                        </StackPanel>
 
-                        <!-- Action, outputs and parameters -->
-                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
-                            <StackPanel>
-                                <TextBlock Text="Step" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock Text="{Binding StoreAsHint}" Style="{StaticResource CaptionText}"
+                                                   TextWrapping="Wrap" Margin="0,6,0,0"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
 
-                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <StackPanel Width="190">
-                                        <TextBlock Text="Action" Style="{StaticResource FieldLabel}"/>
-                                        <ComboBox IsEditable="True" ItemsSource="{Binding ActionOptions}"
-                                                  AutomationProperties.AutomationId="StepAction"
-                                                  AutomationProperties.Name="Step action"
-                                                  Text="{Binding SelectedStep.Action, UpdateSourceTrigger=PropertyChanged}"
-                                                  ToolTip="What this step does. The list holds the actions this segment's runtime knows; another name can be typed."/>
+                                        <Grid Margin="0,12,0,6">
+                                            <TextBlock Text="Parameters" Style="{StaticResource FieldLabel}" VerticalAlignment="Center"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Style="{StaticResource IconButton}" Tag="&#xE710;"
+                                                        AutomationProperties.AutomationId="AddParameter"
+                                                        Command="{Binding AddParameterCommand}" ToolTip="Add a parameter"/>
+                                                <Button Style="{StaticResource DangerIconButton}" Tag="&#xE74D;"
+                                                        AutomationProperties.AutomationId="DeleteParameter"
+                                                        Command="{Binding DeleteParameterCommand}" ToolTip="Delete the selected parameter"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <ListBox ItemsSource="{Binding StepParameters}" SelectedItem="{Binding SelectedParameter}"
+                                                 MinHeight="56" MaxHeight="150" HorizontalContentAlignment="Stretch">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="128"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                                                                 AutomationProperties.AutomationId="ParameterName"
+                                                                 AutomationProperties.Name="Parameter name"
+                                                                 FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                                 Background="Transparent" BorderThickness="0" Padding="2,0"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                 AutomationProperties.AutomationId="ParameterValue"
+                                                                 AutomationProperties.Name="Parameter value"
+                                                                 Margin="8,0,0,0" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                                 Background="Transparent" BorderThickness="0" Padding="2,0"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                     </StackPanel>
-                                    <StackPanel Width="190" Margin="12,0,0,0">
-                                        <TextBlock Text="Store result as" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding StoreAs, UpdateSourceTrigger=LostFocus}"
-                                                 AutomationProperties.AutomationId="StepStoreAs"
-                                                 AutomationProperties.Name="Store result as"
-                                                 ToolTip="Name this step's outputs so later steps, and later segments, can read them."/>
-                                    </StackPanel>
-                                </StackPanel>
 
-                                <TextBlock Text="{Binding StoreAsHint}" Style="{StaticResource CaptionText}"
-                                           TextWrapping="Wrap" Margin="0,6,0,0"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <!-- What this step may read, including an earlier segment's output -->
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Data you can use here" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,3,0,6"
+                                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                                   Text="Select a parameter, then click a value to insert it."/>
 
-                                <Grid Margin="0,14,0,6">
-                                    <TextBlock Text="Parameters" Style="{StaticResource FieldLabel}" VerticalAlignment="Center"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Style="{StaticResource IconButton}" Tag="&#xE710;"
-                                                Command="{Binding AddParameterCommand}" ToolTip="Add a parameter"/>
-                                        <Button Style="{StaticResource DangerIconButton}" Tag="&#xE74D;"
-                                                Command="{Binding DeleteParameterCommand}" ToolTip="Delete the selected parameter"/>
+                                        <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                                   Text="Nothing before this step publishes any data. Give an earlier step a name under Store result as."
+                                                   Visibility="{Binding HasAvailableData, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+
+                                        <ListBox ItemsSource="{Binding AvailableData}" MaxHeight="186"
+                                                 HorizontalContentAlignment="Stretch"
+                                                 Visibility="{Binding HasAvailableData, Converter={StaticResource BoolToVisibility}}">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding DataContext.InsertReferenceCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Padding="8,5" Margin="0,0,0,3"
+                                                            ToolTip="{Binding ProducedBy}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Reference}" FontFamily="{StaticResource MonoFont}"
+                                                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding OriginLabel}" Style="{StaticResource CaptionText}"
+                                                                       FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                     </StackPanel>
                                 </Grid>
-
-                                <ListBox ItemsSource="{Binding StepParameters}" SelectedItem="{Binding SelectedParameter}"
-                                         MinHeight="56" MaxHeight="118" HorizontalContentAlignment="Stretch">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="130"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.AutomationId="ParameterName"
-                                                         AutomationProperties.Name="Parameter name"
-                                                         FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                         Background="Transparent" BorderThickness="0" Padding="2,0"/>
-                                                <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                         AutomationProperties.AutomationId="ParameterValue"
-                                                         AutomationProperties.Name="Parameter value"
-                                                         Margin="8,0,0,0" FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                         Background="Transparent" BorderThickness="0" Padding="2,0"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </StackPanel>
-                        </ScrollViewer>
-
-                        <!-- What this step may read, including anything an earlier segment published -->
-                        <StackPanel Grid.Column="1">
-                            <TextBlock Text="Data you can use here" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,3,0,6"
-                                       Foreground="{StaticResource TextTertiaryBrush}"
-                                       Text="Select a parameter, then click a value to insert it."/>
-
-                            <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextTertiaryBrush}"
-                                       Text="Nothing before this step publishes any data. Give an earlier step a name under Store result as."
-                                       Visibility="{Binding HasAvailableData, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-
-                            <ListBox ItemsSource="{Binding AvailableData}" MaxHeight="190"
-                                     HorizontalContentAlignment="Stretch"
-                                     Visibility="{Binding HasAvailableData, Converter={StaticResource BoolToVisibility}}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Command="{Binding DataContext.InsertReferenceCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource SecondaryButton}"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                Padding="8,5" Margin="0,0,0,3"
-                                                ToolTip="{Binding ProducedBy}">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Reference}" FontFamily="{StaticResource MonoFont}"
-                                                           FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding OriginLabel}" Style="{StaticResource CaptionText}"
-                                                           FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"/>
-                                            </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                            </Border>
                         </StackPanel>
-                    </Grid>
-                </Border>
-            </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
         </Grid>
+
         </ScrollViewer>
     </Grid>
 </UserControl>

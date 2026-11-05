@@ -10,11 +10,13 @@ using Tracto.Designer.Core.Scripting;
 
 public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 {
+    private static readonly ObservableCollection<StepParameterRow> NoParameters = [];
+    private static readonly ObservableCollection<DataReference> NoData = [];
+
     private Script? _script;
-    private ScriptStep? _selectedStep;
+    private StepRowViewModel? _selectedRow;
     private ScriptSegment? _selectedSegment;
-    private StepParameterRow? _selectedParameter;
-    private ScriptStep? _watchedStep;
+    private ObservableCollection<ScriptStep>? _watchedSteps;
 
     public Script? Script
     {
@@ -25,7 +27,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
             _script = value;
             if (_script is not null) _script.Segments.CollectionChanged += OnSegmentsChanged;
             _selectedSegment = _script?.Segments.FirstOrDefault();
-            SelectedStep = null;
+            SelectedRow = null;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasScript));
             RefreshSegmentState();
@@ -34,15 +36,32 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 
     public ScriptStep? SelectedStep
     {
-        get => _selectedStep;
+        get => _selectedRow?.Step;
+        set => SelectedRow = value is null
+            ? null
+            : StepRows.FirstOrDefault(r => ReferenceEquals(r.Step, value));
+    }
+
+    /// <summary>One row per step, each owning that step's own details.</summary>
+    public ObservableCollection<StepRowViewModel> StepRows { get; } = [];
+
+    /// <summary>
+    /// The selected row. The step list binds its selection here, and the editor-level members
+    /// work through it.
+    /// </summary>
+    public StepRowViewModel? SelectedRow
+    {
+        get => _selectedRow;
         set
         {
-            if (_watchedStep is not null) _watchedStep.PropertyChanged -= OnSelectedStepChanged;
-            _selectedStep = value;
-            _watchedStep = value;
-            if (_watchedStep is not null) _watchedStep.PropertyChanged += OnSelectedStepChanged;
+            if (ReferenceEquals(_selectedRow, value)) return;
+            _selectedRow = value;
+            // The editor-level members read through the selected row, so its details have to be
+            // built even when the row itself is not open.
+            _selectedRow?.Refresh();
             OnPropertyChanged();
-            RefreshStepEditor();
+            OnPropertyChanged(nameof(SelectedStep));
+            RaiseSelectedStepDetails();
             UpdateCommandStates();
         }
     }
@@ -50,98 +69,99 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     /// <summary>The parameter row an inserted reference is written into.</summary>
     public StepParameterRow? SelectedParameter
     {
-        get => _selectedParameter;
-        set { _selectedParameter = value; OnPropertyChanged(); UpdateCommandStates(); }
+        get => SelectedRow?.SelectedParameter;
+        set
+        {
+            if (SelectedRow is null) return;
+            SelectedRow.SelectedParameter = value;
+            OnPropertyChanged();
+            UpdateCommandStates();
+        }
     }
 
     /// <summary>The selected step's parameters, editable as name and value pairs.</summary>
-    public ObservableCollection<StepParameterRow> StepParameters { get; } = [];
+    public ObservableCollection<StepParameterRow> StepParameters => SelectedRow?.StepParameters ?? NoParameters;
 
     /// <summary>What a later step or segment can read once this step has run.</summary>
-    public ObservableCollection<DataReference> AvailableData { get; } = [];
+    public ObservableCollection<DataReference> AvailableData => SelectedRow?.AvailableData ?? NoData;
 
     /// <summary>Actions the runtime of the selected segment understands.</summary>
     public IReadOnlyList<string> ActionOptions => ActionCatalog.NamesFor(StepRuntime);
 
     /// <summary>Parameters the selected action understands but the step does not carry yet.</summary>
-    public IReadOnlyList<string> SuggestedParameters
-    {
-        get
-        {
-            if (_selectedStep is null) return [];
-            var known = ActionCatalog.Find(StepRuntime, _selectedStep.Action)?.AllParameters ?? [];
-            return [.. known.Concat([ActionCatalog.StoreAs])
-                            .Where(p => !_selectedStep.Parameters.ContainsKey(p))
-                            .Distinct(StringComparer.Ordinal)];
-        }
-    }
+    public IReadOnlyList<string> SuggestedParameters => SelectedRow?.SuggestedParameters ?? [];
 
     /// <summary>
-    /// The name this step publishes its outputs under. Setting it is how data reaches a later
-    /// step, and across a segment boundary a later segment.
+    /// The name the selected step publishes its outputs under. Setting it is how data reaches a
+    /// later step, and across a segment boundary a later segment.
     /// </summary>
     public string StoreAs
     {
-        get => _selectedStep is null ? string.Empty : DataFlow.StoreAsOf(_selectedStep) ?? string.Empty;
+        get => SelectedRow?.StoreAs ?? string.Empty;
         set
         {
-            if (_selectedStep is null) return;
-            var next = value?.Trim() ?? string.Empty;
-            if (next.Length == 0) _selectedStep.Parameters.Remove(ActionCatalog.StoreAs);
-            else _selectedStep.Parameters[ActionCatalog.StoreAs] = next;
-            OnPropertyChanged();
-            RefreshStepEditor();
+            if (SelectedRow is null) return;
+            SelectedRow.StoreAs = value;
+            RaiseSelectedStepDetails();
         }
     }
 
     /// <summary>What the selected step publishes, spelled out as the references to use.</summary>
-    public string StoreAsHint
-    {
-        get
-        {
-            if (_selectedStep is null) return string.Empty;
-            var outputs = ActionCatalog.OutputsOf(StepRuntime, _selectedStep.Action);
-            if (outputs.Count == 0) return "This action produces no data of its own.";
-            var name = DataFlow.StoreAsOf(_selectedStep);
-            if (name is null)
-                return "Name it to publish " + string.Join(", ", outputs) + " to later steps and segments.";
-            return "Later segments read it as "
-                 + string.Join(", ", outputs.Select(o => "${param." + name + "." + o + "}"));
-        }
-    }
+    public string StoreAsHint => SelectedRow?.StoreAsHint ?? string.Empty;
 
-    public bool HasAvailableData => AvailableData.Count > 0;
+    public bool HasAvailableData => SelectedRow?.HasAvailableData ?? false;
 
     private string StepRuntime =>
         _script is null ? "desktop"
         : _script.IsSegmented ? _selectedSegment?.Runtime ?? "desktop"
         : _script.TargetRuntime;
 
-    private void OnSelectedStepChanged(object? sender, PropertyChangedEventArgs e)
+    /// <summary>Rebuilds a row per step, so each row carries its own details.</summary>
+    private void RebuildStepRows()
     {
-        if (e.PropertyName != nameof(ScriptStep.Action)) return;
-        OnPropertyChanged(nameof(SuggestedParameters));
-        OnPropertyChanged(nameof(StoreAsHint));
+        if (_watchedSteps is not null) _watchedSteps.CollectionChanged -= OnActiveStepsChanged;
+        _watchedSteps = ActiveSteps;
+        if (_watchedSteps is not null) _watchedSteps.CollectionChanged += OnActiveStepsChanged;
+
+        // Rebuilding replaces every row, so remember what was open and what was selected and
+        // put them back; otherwise adding a step would close and deselect everything.
+        var wasExpanded = StepRows.Where(r => r.IsExpanded).Select(r => r.Step).ToHashSet();
+        var wasSelected = _selectedRow?.Step;
+        foreach (var row in StepRows) row.Detach();
+        StepRows.Clear();
+        _selectedRow = null;
+
+        foreach (var step in ActiveSteps ?? [])
+        {
+            var row = new StepRowViewModel(step, () => StepRuntime, StepsDataFor, OnRowDataChanged);
+            if (wasExpanded.Contains(step)) row.IsExpanded = true;
+            StepRows.Add(row);
+            if (ReferenceEquals(step, wasSelected)) _selectedRow = row;
+        }
+        _selectedRow?.Refresh();
+
+        OnPropertyChanged(nameof(StepRows));
+        OnPropertyChanged(nameof(SelectedRow));
+        OnPropertyChanged(nameof(SelectedStep));
+        RaiseSelectedStepDetails();
     }
 
-    /// <summary>Rebuilds the parameter rows and the list of data the step can read.</summary>
-    private void RefreshStepEditor()
+    private IReadOnlyList<DataReference> StepsDataFor(ScriptStep step) =>
+        _script is null ? [] : DataFlow.AvailableTo(_script, _selectedSegment, step);
+
+    private void OnActiveStepsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildStepRows();
+
+    /// <summary>A storeAs changed, so what the rows after it can read changed with it.</summary>
+    private void OnRowDataChanged()
     {
-        StepParameters.Clear();
-        _selectedParameter = null;
-        if (_selectedStep is not null)
-        {
-            foreach (var name in _selectedStep.Parameters.Keys.ToList())
-                StepParameters.Add(new StepParameterRow(_selectedStep.Parameters, name, OnParameterEdited));
-        }
+        foreach (var row in StepRows.Where(r => r.IsExpanded)) row.Refresh();
+        RaiseSelectedStepDetails();
+    }
 
-        AvailableData.Clear();
-        if (_script is not null)
-        {
-            foreach (var d in DataFlow.AvailableTo(_script, _selectedSegment, _selectedStep))
-                AvailableData.Add(d);
-        }
-
+    private void RaiseSelectedStepDetails()
+    {
+        OnPropertyChanged(nameof(StepParameters));
+        OnPropertyChanged(nameof(AvailableData));
         OnPropertyChanged(nameof(SelectedParameter));
         OnPropertyChanged(nameof(StoreAs));
         OnPropertyChanged(nameof(StoreAsHint));
@@ -150,63 +170,19 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasAvailableData));
     }
 
-    private void OnParameterEdited()
-    {
-        OnPropertyChanged(nameof(StoreAs));
-        OnPropertyChanged(nameof(StoreAsHint));
-        OnPropertyChanged(nameof(SuggestedParameters));
-    }
-
-    private void AddParameter()
-    {
-        if (_selectedStep is null) return;
-        var name = SuggestedParameters.FirstOrDefault() ?? NextFreeName();
-        _selectedStep.Parameters[name] = string.Empty;
-        var row = new StepParameterRow(_selectedStep.Parameters, name, OnParameterEdited);
-        StepParameters.Add(row);
-        SelectedParameter = row;
-        OnParameterEdited();
-    }
-
-    private string NextFreeName()
-    {
-        if (_selectedStep is null) return "parameter";
-        for (int i = 1; ; i++)
-        {
-            var candidate = i == 1 ? "parameter" : "parameter" + i;
-            if (!_selectedStep.Parameters.ContainsKey(candidate)) return candidate;
-        }
-    }
-
-    private void DeleteParameter()
-    {
-        if (_selectedStep is null || _selectedParameter is null) return;
-        _selectedStep.Parameters.Remove(_selectedParameter.Name);
-        StepParameters.Remove(_selectedParameter);
-        SelectedParameter = null;
-        OnParameterEdited();
-    }
-
-    /// <summary>
-    /// Writes a reference into the selected parameter, so data is handed on by picking it
-    /// rather than by retyping the name of something produced in another segment.
-    /// </summary>
-    private void InsertReference(object? parameter)
-    {
-        if (_selectedParameter is null || parameter is not DataReference reference) return;
-        _selectedParameter.Value = (_selectedParameter.Value ?? string.Empty) + reference.Reference;
-    }
-
     public ScriptSegment? SelectedSegment
     {
         get => _selectedSegment;
         set
         {
             _selectedSegment = value;
-            SelectedStep = null;
+            _selectedRow = null;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedStep));
+            OnPropertyChanged(nameof(SelectedRow));
             OnPropertyChanged(nameof(ActiveSteps));
             OnPropertyChanged(nameof(HasSelectedSegment));
+            RebuildStepRows();
             UpdateCommandStates();
         }
     }
@@ -261,7 +237,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     public ScriptEditorViewModel()
     {
         AddStepCommand         = new RelayCommand(_ => AddStep(), _ => ActiveSteps is not null);
-        DeleteStepCommand      = new RelayCommand(_ => DeleteStep(), _ => SelectedStep is not null);
+        DeleteStepCommand      = new RelayCommand(_ => DeleteStep(), _ => _selectedRow is not null);
         MoveUpCommand          = new RelayCommand(_ => MoveUp(),     _ => CanMoveUp());
         MoveDownCommand        = new RelayCommand(_ => MoveDown(),   _ => CanMoveDown());
         // Always available: with no script open yet it starts one, so a new flow can be built
@@ -272,9 +248,12 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         MoveSegmentUpCommand   = new RelayCommand(_ => MoveSegment(-1), _ => CanMoveSegment(-1));
         MoveSegmentDownCommand = new RelayCommand(_ => MoveSegment(1),  _ => CanMoveSegment(1));
         MergeToSingleCommand   = new RelayCommand(_ => MergeToSingle(), _ => _script is { Segments.Count: 1 });
-        AddParameterCommand    = new RelayCommand(_ => AddParameter(), _ => _selectedStep is not null);
-        DeleteParameterCommand = new RelayCommand(_ => DeleteParameter(), _ => _selectedParameter is not null);
-        InsertReferenceCommand = new RelayCommand(InsertReference, _ => _selectedParameter is not null);
+        AddParameterCommand    = new RelayCommand(_ => { SelectedRow?.AddParameter(); RaiseSelectedStepDetails(); },
+                                                  _ => _selectedRow is not null);
+        DeleteParameterCommand = new RelayCommand(_ => { SelectedRow?.DeleteParameter(); RaiseSelectedStepDetails(); },
+                                                  _ => SelectedRow?.SelectedParameter is not null);
+        InsertReferenceCommand = new RelayCommand(p => SelectedRow?.InsertReference(p),
+                                                  _ => SelectedRow?.SelectedParameter is not null);
     }
 
     public void LoadScript(Script script)
@@ -287,7 +266,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     public void NewScript()
     {
         Script = new Script();
-        SelectedStep = null;
+        SelectedRow = null;
     }
 
     /// <summary>
@@ -323,37 +302,40 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         var step = new ScriptStep { StepNumber = steps.Count + 1, Description = "New step", Action = "action" };
         steps.Add(step);
         SelectedStep = step;
+        SelectedRow?.Refresh();
     }
 
     private void DeleteStep()
     {
         var steps = ActiveSteps;
-        if (steps is null || _selectedStep is null) return;
-        steps.Remove(_selectedStep);
-        SelectedStep = null;
+        if (steps is null || SelectedStep is not { } step) return;
+        steps.Remove(step);
+        SelectedRow = null;
         RenumberAll();
     }
 
-    private bool CanMoveUp() => ActiveSteps is { } s && _selectedStep is not null && s.IndexOf(_selectedStep) > 0;
-    private bool CanMoveDown() => ActiveSteps is { } s && _selectedStep is not null && s.IndexOf(_selectedStep) < s.Count - 1;
+    private bool CanMoveUp() => ActiveSteps is { } s && SelectedStep is { } step && s.IndexOf(step) > 0;
+    private bool CanMoveDown() => ActiveSteps is { } s && SelectedStep is { } step && s.IndexOf(step) < s.Count - 1;
 
     private void MoveUp()
     {
         var steps = ActiveSteps;
-        if (steps is null || _selectedStep is null) return;
-        int i = steps.IndexOf(_selectedStep);
+        if (steps is null || SelectedStep is not { } step) return;
+        int i = steps.IndexOf(step);
         if (i <= 0) return;
         steps.Move(i, i - 1);
+        SelectedStep = step;
         RenumberAll();
     }
 
     private void MoveDown()
     {
         var steps = ActiveSteps;
-        if (steps is null || _selectedStep is null) return;
-        int i = steps.IndexOf(_selectedStep);
+        if (steps is null || SelectedStep is not { } step) return;
+        int i = steps.IndexOf(step);
         if (i < 0 || i >= steps.Count - 1) return;
         steps.Move(i, i + 1);
+        SelectedStep = step;
         RenumberAll();
     }
 
@@ -443,7 +425,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasSelectedSegment));
         OnPropertyChanged(nameof(ActiveSteps));
         OnPropertyChanged(nameof(ParamsText));
-        RefreshStepEditor();
+        RebuildStepRows();
         UpdateCommandStates();
     }
 

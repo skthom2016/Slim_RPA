@@ -27,43 +27,8 @@ using Tracto.Designer.Core.Validation;
 /// </summary>
 public class MultiSegmentRecordingTests
 {
-    private static RecordingViewModel Build(out IRecordingSessionService session)
-    {
-        var real = new RecordingSessionService();
-        session = real;
-        var captureEngine = new Mock<IDesktopCaptureEngine>();
-        var browserEngine = new Mock<IBrowserCaptureEngine>();
-        var voice = new Mock<IVoiceTranscriptionAdapter>();
-        voice.SetupGet(v => v.IsAvailable).Returns(false);
-        var templates = new Mock<ITemplateLibrary>();
-        templates.Setup(t => t.GetAll()).Returns([]);
-        templates.Setup(t => t.GetByCategory(It.IsAny<TemplateCategory>())).Returns([]);
-        templates.Setup(t => t.Search(It.IsAny<string>())).Returns([]);
-        var vault = new Mock<ICredentialVault>();
-        vault.Setup(v => v.ListCredentials()).Returns([]);
-        var auditLog = new Mock<IAuditLog>();
-        auditLog.Setup(a => a.GetEntries(It.IsAny<AuditCategory?>())).Returns([]);
-
-        return new RecordingViewModel(
-            real,
-            captureEngine.Object,
-            voice.Object,
-            new ScriptDraftGenerator(),
-            new Mock<IScriptValidator>().Object,
-            new Mock<IMcpAuthoringServer>().Object,
-            new Mock<IScriptTestRunner>().Object,
-            new Mock<IScriptSigner>().Object,
-            new Mock<IScriptPublisher>().Object,
-            new AuditService(auditLog.Object),
-            new PrivacySettings(),
-            templates.Object,
-            new BrowserCaptureAdapter(browserEngine.Object, real),
-            vault.Object,
-            new IsolatedModeSettings(),
-            new IsolatedModeValidator(),
-            new Mock<IOfflineExporter>().Object,
-            new Mock<IBrowserProfileSignIn>().Object);
-    }
+    private static RecordingViewModel Build(out IRecordingSessionService session) =>
+        TestRecording.BuildViewModel(out session);
 
     [Fact]
     public void A_Second_Segment_Can_Be_Recorded_Without_Discarding_The_First()
