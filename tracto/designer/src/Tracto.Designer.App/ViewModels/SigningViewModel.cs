@@ -21,6 +21,9 @@ public sealed class SigningViewModel : INotifyPropertyChanged
         _output = output;
         SignCommand   = new RelayCommand(_ => Sign(),   _ => _editor.Script is not null && _signature is null);
         VerifyCommand = new RelayCommand(_ => Verify(), _ => _editor.Script is not null && _signature is not null);
+        // A signature belongs to the script it was made from. Opening or starting another script
+        // has to drop it, or Sign stays disabled and the next publish carries the old digest.
+        _editor.PropertyChanged += OnEditorChanged;
     }
 
     public ICommand SignCommand   { get; }
@@ -77,6 +80,13 @@ public sealed class SigningViewModel : INotifyPropertyChanged
     }
 
     private static string Short(string digest) => digest.Length > 16 ? digest[..16] + "..." : digest;
+
+    private void OnEditorChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ScriptEditorViewModel.Script)) return;
+        CurrentSignature = null;
+        IsVerified = null;
+    }
 
     private void RaiseAll()
     {
