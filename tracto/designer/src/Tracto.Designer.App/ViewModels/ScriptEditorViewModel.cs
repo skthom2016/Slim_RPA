@@ -64,6 +64,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<string> RuntimeOptions => ScriptSegment.Runtimes;
     public IReadOnlyList<string> ModeOptions => ScriptSegment.Modes;
+    public IReadOnlyList<string> BrowserSessionOptions => ScriptSegment.BrowserSessions;
 
     /// <summary>Default parameters as "name=value" lines. Steps read them as ${param.name}.</summary>
     public string ParamsText

@@ -67,6 +67,18 @@
 
                     <Rectangle Style="{StaticResource RibbonGroupSeparator}"/>
 
+                    <!-- Browser: the one signed-in browser every signed-in segment shares -->
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" Tag="&#xE77B;"
+                                    Content="Sign in" Command="{Binding ProfileSignIn.SignInCommand}"
+                                    ToolTip="Opens the signed-in browser for this machine. Sign in to the sites your scripts need, then close the window. Segments set to &quot;Signed-in browser&quot; all use it."/>
+                        </StackPanel>
+                        <TextBlock Text="Browser" Style="{StaticResource RibbonGroupLabel}"/>
+                    </StackPanel>
+
+                    <Rectangle Style="{StaticResource RibbonGroupSeparator}"/>
+
                     <!-- Record -->
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -162,8 +174,14 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
+                <TextBlock Text="{Binding ProfileSignIn.Status}" Style="{StaticResource CaptionText}"
+                           TextWrapping="Wrap" MaxWidth="460"
+                           Visibility="{Binding ProfileSignIn.Status, Converter={StaticResource TextToVisibilityConverter}}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
                 <TextBlock Text="{Binding ExportImport.LastMessage}" Style="{StaticResource CaptionText}"
-                           TextWrapping="Wrap" MaxWidth="620"/>
+                           TextWrapping="Wrap" MaxWidth="460"/>
             </StatusBarItem>
         </StatusBar>
 

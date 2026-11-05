@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Tracto.Designer.App.Commands;
 using Tracto.Designer.Core.Browser;
+using Tracto.Designer.Core.Scripting;
 
 /// <summary>
 /// Drives the "Sign in" button beside a browser segment's profile. It opens a browser on that
@@ -22,12 +23,10 @@ public sealed class ProfileSignInViewModel : INotifyPropertyChanged
     {
         _signIn = signIn;
         _browser = browser;
-        SignInCommand = new RelayCommand(
-            p => _ = SignInAsync(p as string),
-            p => !_isOpen && _signIn.IsValidName(p as string));
+        SignInCommand = new RelayCommand(_ => _ = SignInAsync(), _ => !_isOpen);
     }
 
-    /// <summary>Takes the profile name as its parameter, so it reads the segment being edited.</summary>
+    /// <summary>Signs in the one shared profile every signed-in segment uses.</summary>
     public ICommand SignInCommand { get; }
 
     public bool IsOpen
@@ -42,20 +41,20 @@ public sealed class ProfileSignInViewModel : INotifyPropertyChanged
         private set { _status = value; OnPropertyChanged(); }
     }
 
-    private async Task SignInAsync(string? profileName)
+    private async Task SignInAsync()
     {
-        if (_isOpen || !_signIn.IsValidName(profileName)) return;
-        var name = profileName!.Trim();
+        if (_isOpen) return;
 
         IsOpen = true;
         try
         {
-            Status = $"Signing in to profile \"{name}\" in {_browser.SelectedBrowser}. " +
-                     "Sign in to the sites this script needs, then close the browser window.";
+            Status = $"A {_browser.SelectedBrowser} window is open. Sign in to the sites your scripts need, " +
+                     "then close the window.";
 
-            await _signIn.SignInAsync(_browser.SelectedBrowser, name, _browser.StartUrl).ConfigureAwait(true);
+            await _signIn.SignInAsync(_browser.SelectedBrowser, ScriptSegment.SharedProfile, _browser.StartUrl)
+                .ConfigureAwait(true);
 
-            Status = $"Profile \"{name}\" saved. Runs that name it start already signed in.";
+            Status = "Signed-in browser saved. Segments set to \"Signed-in browser\" will use it.";
         }
         catch (Exception ex)
         {

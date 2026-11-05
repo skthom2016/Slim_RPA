@@ -544,18 +544,37 @@ public class SegmentedScriptTests
 
         seg.UseSignedInProfile.Should().BeFalse();
         seg.Profile.Should().BeEmpty();
-        seg.BrowserSessionSummary.Should().Contain("fresh browser");
+        seg.BrowserSessionSummary.Should().Contain("empty browser");
     }
 
     [Fact]
-    public void Choosing_A_Signed_In_Profile_Suggests_A_Name_From_The_Segment_Name()
+    public void Choosing_A_Signed_In_Browser_Uses_The_One_Shared_Profile()
     {
-        var seg = new ScriptSegment { Runtime = "browser", Name = "Read Outlook mail" };
+        var a = new ScriptSegment { Runtime = "browser", Name = "Read Outlook mail" };
+        var b = new ScriptSegment { Runtime = "browser", Name = "Send a reply" };
 
-        seg.UseSignedInProfile = true;
+        a.UseSignedInProfile = true;
+        b.BrowserSession = ScriptSegment.SignedInBrowser;
 
-        seg.Profile.Should().Be("read-outlook-mail");
-        seg.BrowserSessionSummary.Should().Contain("One run at a time");
+        a.Profile.Should().Be(ScriptSegment.SharedProfile);
+        b.Profile.Should().Be(ScriptSegment.SharedProfile);
+        a.Profile.Should().Be(b.Profile, "every signed-in segment shares one sign-in");
+    }
+
+    [Fact]
+    public void The_Dropdown_Reports_And_Sets_The_Browser_Session()
+    {
+        var seg = new ScriptSegment { Runtime = "browser" };
+
+        seg.BrowserSession.Should().Be(ScriptSegment.FreshBrowser);
+
+        seg.BrowserSession = ScriptSegment.SignedInBrowser;
+        seg.UseSignedInProfile.Should().BeTrue();
+        seg.Title.Should().Contain("signed in");
+
+        seg.BrowserSession = ScriptSegment.FreshBrowser;
+        seg.UseSignedInProfile.Should().BeFalse();
+        seg.Profile.Should().BeEmpty();
     }
 
     [Fact]
@@ -578,7 +597,7 @@ public class SegmentedScriptTests
         seg.Profile = "client-demo";
 
         seg.UseSignedInProfile.Should().BeTrue();
-        seg.Title.Should().Contain("client-demo");
+        seg.Title.Should().Contain("signed in");
     }
 
     [Fact]

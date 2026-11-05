@@ -171,29 +171,11 @@
                             <TextBlock Text="Port" Style="{StaticResource FieldLabel}"/>
                             <TextBox Text="{Binding DataContext.BrowserAdapter.DebugPort, RelativeSource={RelativeSource AncestorType=Window}}"/>
                         </StackPanel>
-                        <StackPanel Margin="0,0,12,8" VerticalAlignment="Bottom">
-                            <CheckBox Content="Use a signed-in profile" Height="30" VerticalContentAlignment="Center"
-                                      IsChecked="{Binding SelectedSegment.UseSignedInProfile}"
-                                      ToolTip="Off: a fresh browser with nothing signed in, and several runs can go at once. On: reuses a signed-in profile on this machine, and only one run at a time may use it."/>
-                        </StackPanel>
-                        <StackPanel Width="150" Margin="0,0,8,8"
-                                    IsEnabled="{Binding SelectedSegment.UseSignedInProfile}">
-                            <TextBlock Text="Profile name" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Text="{Binding SelectedSegment.Profile, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="The browser profile folder kept on this machine for this sign-in."/>
-                        </StackPanel>
-                        <StackPanel Margin="0,0,12,8" VerticalAlignment="Bottom"
-                                    IsEnabled="{Binding SelectedSegment.UseSignedInProfile}">
-                            <Button Style="{StaticResource SecondaryButton}" Height="30" MinWidth="96"
-                                    Command="{Binding DataContext.ProfileSignIn.SignInCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding SelectedSegment.Profile}"
-                                    ToolTip="Opens a browser on that profile. Sign in to the sites this script needs, then close the browser window.">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE77B;" FontFamily="{StaticResource IconFont}" FontSize="13"
-                                               VerticalAlignment="Center" Margin="0,0,7,0"/>
-                                    <TextBlock Text="Sign in" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                        <StackPanel Width="210" Margin="0,0,12,8">
+                            <TextBlock Text="Browser session" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox ItemsSource="{Binding BrowserSessionOptions}"
+                                      SelectedItem="{Binding SelectedSegment.BrowserSession}"
+                                      ToolTip="Whether this segment needs a signed-in browser, or an empty one."/>
                         </StackPanel>
                         <StackPanel Margin="0,0,0,8" VerticalAlignment="Bottom">
                             <CheckBox Content="Launch" Height="30" VerticalContentAlignment="Center"
@@ -204,6 +186,18 @@
 
                     <TextBlock Text="{Binding SelectedSegment.BrowserSessionSummary}"
                                Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                    <!-- Reminder of where the one shared sign-in is done. -->
+                    <Border Background="{StaticResource AccentSubtleBrush}" CornerRadius="{StaticResource ControlRadius}"
+                            Padding="10,7" Margin="0,0,0,8"
+                            Visibility="{Binding SelectedSegment.UseSignedInProfile, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE946;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                       Foreground="{StaticResource AccentHoverBrush}" VerticalAlignment="Top"/>
+                            <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="8,0,0,0"
+                                       Text="There is one signed-in browser per machine. If it is already signed in, this segment uses it. To sign in, or to sign in as someone else, use Sign in on the toolbar above."/>
+                        </StackPanel>
+                    </Border>
 
                     <TextBlock Text="Start URL" Style="{StaticResource FieldLabel}" Margin="0,2,0,3"/>
                     <TextBox Text="{Binding DataContext.BrowserAdapter.StartUrl, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"

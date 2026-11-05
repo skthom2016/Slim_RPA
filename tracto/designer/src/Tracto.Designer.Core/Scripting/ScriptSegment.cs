@@ -15,6 +15,18 @@ public sealed class ScriptSegment : INotifyPropertyChanged
     /// <summary>Browser modes, plus the empty entry meaning "whatever the host is set to".</summary>
     public static readonly IReadOnlyList<string> Modes = ["", "headed", "headless"];
 
+    /// <summary>
+    /// The one signed-in browser profile on a machine. Every segment that asks for a signed-in
+    /// browser shares it, so a person signs in once and all such segments benefit.
+    /// </summary>
+    public const string SharedProfile = "default";
+
+    public const string FreshBrowser    = "Empty browser (no sign-in)";
+    public const string SignedInBrowser = "Signed-in browser";
+
+    /// <summary>The two choices offered for a browser segment.</summary>
+    public static readonly IReadOnlyList<string> BrowserSessions = [FreshBrowser, SignedInBrowser];
+
     private string _name = "Segment";
     private string _runtime = "desktop";
     private string _mode = string.Empty;
@@ -39,6 +51,7 @@ public sealed class ScriptSegment : INotifyPropertyChanged
             OnPropertyChanged(nameof(Mode));
             OnPropertyChanged(nameof(Profile));
             OnPropertyChanged(nameof(UseSignedInProfile));
+            OnPropertyChanged(nameof(BrowserSession));
             OnPropertyChanged(nameof(BrowserSessionSummary));
             OnPropertyChanged(nameof(Title));
         }
@@ -66,6 +79,7 @@ public sealed class ScriptSegment : INotifyPropertyChanged
             _profile = value ?? string.Empty;
             OnPropertyChanged();
             OnPropertyChanged(nameof(UseSignedInProfile));
+            OnPropertyChanged(nameof(BrowserSession));
             OnPropertyChanged(nameof(BrowserSessionSummary));
             OnPropertyChanged(nameof(Title));
         }
@@ -85,28 +99,23 @@ public sealed class ScriptSegment : INotifyPropertyChanged
         set
         {
             if (value == UseSignedInProfile) return;
-            Profile = value ? SuggestProfileName() : string.Empty;
+            Profile = value ? SharedProfile : string.Empty;
         }
     }
 
-    /// <summary>Plain words for the current choice, shown next to the switch.</summary>
-    public string BrowserSessionSummary => UseSignedInProfile
-        ? $"Runs in the signed-in profile \"{_profile.Trim()}\". One run at a time on this profile."
-        : "Runs in a fresh browser with nothing signed in. Several runs can go at once.";
-
-    /// <summary>A safe starting name derived from the segment name, for the person to adjust.</summary>
-    private string SuggestProfileName()
+    /// <summary>The choice as shown in the Designer's dropdown.</summary>
+    public string BrowserSession
     {
-        var chars = (Name ?? string.Empty)
-            .Trim()
-            .Select(c => char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : '-')
-            .ToArray();
-        var name = new string(chars).Trim('-');
-        while (name.Contains("--", StringComparison.Ordinal))
-            name = name.Replace("--", "-", StringComparison.Ordinal);
-        if (name.Length > 64) name = name[..64].Trim('-');
-        return name.Length > 0 && char.IsLetterOrDigit(name[0]) ? name : "signed-in";
+        get => UseSignedInProfile ? SignedInBrowser : FreshBrowser;
+        set => UseSignedInProfile = string.Equals(value, SignedInBrowser, StringComparison.Ordinal);
     }
+
+    /// <summary>Plain words for the current choice, shown under the dropdown.</summary>
+    public string BrowserSessionSummary => UseSignedInProfile
+        ? "Uses the signed-in browser on the machine that runs it. Sign in once from the toolbar; " +
+          "every segment set this way shares that one sign-in. Only one such segment runs at a time."
+        : "Opens an empty browser with nothing signed in. Right for a search or any public page, " +
+          "and several of these can run at the same time.";
 
     public bool IsBrowser => Runtime.Equals("browser", StringComparison.OrdinalIgnoreCase);
 
@@ -119,7 +128,7 @@ public sealed class ScriptSegment : INotifyPropertyChanged
         {
             var tags = Runtime;
             if (!string.IsNullOrEmpty(Mode)) tags += $", {Mode}";
-            if (UseSignedInProfile) tags += $", {_profile.Trim()}";
+            if (UseSignedInProfile) tags += ", signed in";
             return $"{Name}  [{tags}]";
         }
     }
