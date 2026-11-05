@@ -38,7 +38,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         _voice = voice;
         _draftGenerator = draftGenerator;
         _session.StateChanged += OnStateChanged;
-        StartCommand         = new RelayCommand(_ => StartRecording(),     _ => IsIdle && SelectedEngineType.HasValue);
+        StartCommand         = new RelayCommand(_ => StartRecording(),     _ => (IsIdle || IsStopped) && SelectedEngineType.HasValue);
         PauseCommand         = new RelayCommand(_ => _session.Pause(),     _ => IsRecording);
         ResumeCommand        = new RelayCommand(_ => _session.Resume(),    _ => IsPaused);
         StopCommand          = new RelayCommand(_ => _session.Stop(),      _ => IsRecording || IsPaused);
@@ -170,6 +170,9 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     private void StartRecording()
     {
         if (!SelectedEngineType.HasValue) return;
+        // A stopped session has to be reset before another can start, or recording a second
+        // segment would be impossible without New Script throwing the first one away.
+        if (IsStopped) _session.Reset();
         var opts = new RecordingSessionOptions(SelectedEngineType.Value, System.IO.Path.GetTempPath());
         _session.Start(opts);
         if (SelectedEngineType.Value == CaptureEngineType.Desktop)

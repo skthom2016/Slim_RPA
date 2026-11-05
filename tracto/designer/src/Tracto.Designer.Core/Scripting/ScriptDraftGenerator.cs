@@ -188,7 +188,9 @@ public sealed class ScriptDraftGenerator : IScriptDraftGenerator
             p["window"] = raw.WindowTitle;
         if (!raw.IsPasswordField && !string.IsNullOrWhiteSpace(raw.Value))
             p["value"] = raw.Value;
-        if (!string.IsNullOrWhiteSpace(raw.KeyValue))
+        // A space is a key like any other: IsNullOrWhiteSpace would drop it, leaving a key step
+        // with no key at all and a gap in the middle of every recorded sentence.
+        if (!string.IsNullOrEmpty(raw.KeyValue))
             p["key"] = raw.KeyValue;
         if (raw.ScreenX != 0 || raw.ScreenY != 0)
             p["coordinates"] = $"{raw.ScreenX},{raw.ScreenY}";
