@@ -69,6 +69,7 @@
         </StackPanel>
 
         <ListView Grid.Row="3" ItemsSource="{Binding TestResult.StepResults}"
+                  ItemContainerStyle="{StaticResource GridViewRow}"
                   Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibilityConverter}}">
             <ListView.View>
                 <GridView>

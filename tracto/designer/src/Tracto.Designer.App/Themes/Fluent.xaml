@@ -613,6 +613,8 @@
         </Setter>
     </Style>
 
+    <!-- A row of a list that has an ItemTemplate and no columns: it presents its content
+         directly. A list laid out in columns needs GridViewRow below instead. -->
     <Style TargetType="ListViewItem">
         <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
         <Setter Property="FontSize"   Value="{StaticResource BodySize}"/>
@@ -627,15 +629,37 @@
                             CornerRadius="{StaticResource ControlRadius}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
-                        <GridViewRowPresenter x:Name="Row" VerticalAlignment="Center"
+                        <ContentPresenter VerticalAlignment="Center"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SubtleHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSubtleBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A row of a list whose View is a GridView. Set it as that list's ItemContainerStyle:
+         a column layout is presented by its columns, which the style above does not do. -->
+    <Style x:Key="GridViewRow" TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="Bd" Background="Transparent"
+                            CornerRadius="{StaticResource ControlRadius}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <GridViewRowPresenter VerticalAlignment="Center"
                                               Content="{TemplateBinding Content}"
                                               Columns="{TemplateBinding GridView.ColumnCollection}"/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <!-- Without a GridView there are no columns; show the content directly. -->
-                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(GridView.ColumnCollection)}" Value="{x:Null}">
-                            <Setter TargetName="Row" Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource SubtleHoverBrush}"/>
                         </Trigger>
