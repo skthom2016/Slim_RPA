@@ -16,8 +16,9 @@ const BUILTINS = new Set(['now.iso', 'now.local', 'now.date', 'now.time']);
 const BOOL_PARAMS = new Set(['rightClick', 'attachIfRunning', 'overwrite']);
 const INT_PARAMS = new Set(['ms', 'timeoutMs', 'delta', 'maxChars']);
 const RUNTIMES = ['desktop', 'browser', 'terminal'];
-const SEGMENT_FIELDS = ['name', 'runtime', 'mode', 'steps'];
+const SEGMENT_FIELDS = ['name', 'runtime', 'mode', 'profile', 'steps'];
 const BROWSER_MODES = ['headed', 'headless'];
+const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const STEP_FIELDS = ['stepNumber', 'action', 'description', 'parameters'];
 const SHEET_FIELDS = {
   '/batch': ['header', 'startRow', 'endRow', 'rows', 'scanned', 'count', 'endOfData', 'nextStartRow', 'text'],
@@ -102,12 +103,22 @@ function validateFlat(doc, report) {
 }
 
 // ── segmented script ────────────────────────────────────────────────────────────────────────
-// "mode" overrides the browser host's own headed/headless setting for one segment. It means
+// "mode" overrides the browser host's own headed/headless setting for one segment, and
+// "profile" names a browser profile folder on the worker so sites stay signed in. Both mean
 // nothing to a desktop or terminal segment. How long the browser stays open after the run is
 // always the browser host's own PAUSE_AFTER_RUN_MS setting — not a script field.
 function checkBrowserSettings(seg, runtime, where, report) {
-  if (seg.mode !== undefined && runtime !== 'browser')
-    report.error(`${where}: "mode" applies to a browser segment only.`);
+  for (const k of ['mode', 'profile']) {
+    if (seg[k] !== undefined && runtime !== 'browser')
+      report.error(`${where}: "${k}" applies to a browser segment only.`);
+  }
+  if (seg.profile !== undefined && runtime === 'browser') {
+    if (typeof seg.profile !== 'string' || !PROFILE_NAME.test(seg.profile.trim()))
+      report.error(`${where}: "profile" must be 1 to 64 characters of letters, digits, dash, underscore or dot.`);
+    else
+      report.warn(`${where}: "profile" reuses the signed-in browser folder "${seg.profile.trim()}" on the worker. ` +
+                  `Sign it in once with: dotnet run -- --login ${seg.profile.trim()}`);
+  }
   if (seg.mode !== undefined && runtime === 'browser') {
     if (typeof seg.mode !== 'string' || !BROWSER_MODES.includes(seg.mode.trim().toLowerCase()))
       report.error(`${where}: "mode" must be ${BROWSER_MODES.map(m => `"${m}"`).join(' or ')}.`);

@@ -48,6 +48,7 @@ public static class ScriptDocument
             ["runtime"] = g.Runtime
         };
         if (!string.IsNullOrWhiteSpace(g.Mode)) doc["mode"] = g.Mode;
+        if (!string.IsNullOrWhiteSpace(g.Profile)) doc["profile"] = g.Profile.Trim();
         doc["steps"] = Steps(g.Steps);
         return doc;
     }

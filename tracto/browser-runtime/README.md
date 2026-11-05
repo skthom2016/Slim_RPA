@@ -35,11 +35,50 @@ Settings come from environment variables, then `appsettings.json` (`Host` sectio
 | `LOCATOR_WAIT_MS` | `15000` | How long a step waits for its target to appear |
 | `BROWSER_ALLOW_CSS` | `true` | Allow `css` selectors in scripts |
 | `PAUSE_AFTER_RUN_MS` | `2000` | Keep the window open after the last step (headed only). Host setting only — not a script field. |
+| `BROWSER_PROFILE` | empty | Profile used when a script names none. Empty = a fresh browser every run. |
+| `BROWSER_PROFILE_ROOT` | `%LOCALAPPDATA%\Tracto\browser-profiles` | Folder holding the named profiles |
 | `RUN_TIMEOUT_MS` | `600000` | Whole-run limit |
 | `TRACTO_SECRET_<NAME>` | – | Value for `${secret:NAME}` in a script |
 
 The Orchestrator reads `targetRuntime` from each published script and routes the job to a
 worker of that runtime, so desktop and browser workers can run on the same Orchestrator.
+
+## Staying signed in between runs
+
+By default every run gets a throwaway browser with nothing signed in, so a script that needs a
+site has to sign in each time. A **profile** avoids that: a folder on the worker that keeps the
+browser's cookies, exactly as a normal browser remembers a login.
+
+Sign in once:
+
+```powershell
+cd tracto\browser-runtime\src\TractoRuntime.Browser.Host
+dotnet run -- --login client-demo https://outlook.office.com
+```
+
+A browser opens. Sign in to whatever the scripts need, then close the window. Then name that
+profile on a browser segment:
+
+```json
+{ "name": "Read mail", "runtime": "browser", "profile": "client-demo", "steps": [ ... ] }
+```
+
+That segment starts already signed in, so the script needs no sign-in steps and holds no
+password. A flat browser script takes the same `profile` field at the top level.
+
+Worth knowing:
+
+- **One run at a time per profile.** The browser locks the folder while it is open, so a second
+  run naming the same profile fails with a clear message until the first finishes. Close the
+  sign-in window before running scripts.
+- **Sign-ins still expire.** Microsoft and other sites end a session or ask for MFA after a
+  while. When that happens the script lands on a login page and fails; run `--login` again.
+- **Treat the folder as a credential.** Anyone who can read it, or sign in as the Windows
+  account the worker runs as, can act as whoever is signed in. `BROWSER_PROFILE_ROOT` defaults
+  to a per-user folder; keep it that way.
+- **Your own Chrome cannot be used.** Since Chrome 136, Chrome ignores the debugging port on
+  its normal profile, so automation cannot drive the browser you use day to day. A profile is a
+  separate browser folder owned by the worker.
 
 ## Script format
 

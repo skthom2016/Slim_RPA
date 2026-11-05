@@ -23,6 +23,13 @@ public sealed class FlatScript
     /// </summary>
     [JsonIgnore] public BrowserMode? Mode { get; private set; }
 
+    /// <summary>
+    /// Named profile this script runs on, so sites signed into earlier stay signed in. Null
+    /// leaves the host's own BROWSER_PROFILE setting in charge, which is normally empty and
+    /// means a throwaway browser.
+    /// </summary>
+    [JsonIgnore] public string? Profile { get; private set; }
+
     private static readonly JsonSerializerOptions Json =
         new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
@@ -39,7 +46,23 @@ public sealed class FlatScript
             ?? throw new ScriptValidationException("Artifact payload is not a script.");
 
         script.Mode = ReadMode(scriptElement);
+        script.Profile = ReadProfile(scriptElement);
         return script;
+    }
+
+    private static string? ReadProfile(JsonElement script)
+    {
+        if (!script.TryGetProperty("profile", out var el) || el.ValueKind == JsonValueKind.Null)
+            return null;
+        if (el.ValueKind != JsonValueKind.String)
+            throw new ScriptValidationException("'profile' must be the name of a browser profile, as text.");
+
+        var name = el.GetString()?.Trim() ?? string.Empty;
+        if (name.Length == 0) return null;
+        if (!BrowserProfile.IsValidName(name))
+            throw new ScriptValidationException(
+                $"'profile' is \"{name}\"; use letters, digits, dash, underscore or dot (1 to 64 characters).");
+        return name;
     }
 
     private static BrowserMode? ReadMode(JsonElement script)

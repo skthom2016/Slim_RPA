@@ -8,6 +8,12 @@ public sealed class ScriptValidator : IScriptValidator
 {
     private static readonly Regex SemVer = new(@"^\d+\.\d+\.\d+$", RegexOptions.Compiled);
 
+    // A profile name becomes a folder name on the worker, so it is kept to safe characters.
+    private static readonly Regex ProfileNamePattern =
+        new(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", RegexOptions.Compiled);
+
+    private static Regex ProfileName() => ProfileNamePattern;
+
     public ScriptValidationResult Validate(Script script)
     {
         var errors = new List<ValidationError>();
@@ -69,6 +75,15 @@ public sealed class ScriptValidator : IScriptValidator
                 else if (!seg.Mode.Equals("headed", StringComparison.OrdinalIgnoreCase) &&
                          !seg.Mode.Equals("headless", StringComparison.OrdinalIgnoreCase))
                     errors.Add(new("VAL-022", Error, $"{label}: mode must be headed or headless."));
+            }
+
+            if (!string.IsNullOrWhiteSpace(seg.Profile))
+            {
+                if (!seg.IsBrowser)
+                    errors.Add(new("VAL-026", Error, $"{label}: profile applies to a browser segment only."));
+                else if (!ProfileName().IsMatch(seg.Profile.Trim()))
+                    errors.Add(new("VAL-026", Error,
+                        $"{label}: profile must be 1 to 64 characters of letters, digits, dash, underscore or dot."));
             }
 
             ValidateSteps(seg.Steps, label + ": ", errors);

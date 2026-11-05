@@ -276,6 +276,11 @@
           ],
           "description": "Browser segments only. Runs this segment headed or headless, whatever the browser host is configured for. Omit to follow the host's BROWSER_MODE setting."
         },
+        "profile": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "description": "Browser segments only. Name of a browser profile folder on the worker, so sites signed into earlier stay signed in. Omit for a throwaway browser with nothing signed in."
+        },
         "steps": {
           "type": "array",
           "minItems": 1,
@@ -317,7 +322,8 @@
           },
           "then": {
             "properties": {
-              "mode": false
+              "mode": false,
+              "profile": false
             }
           }
         }

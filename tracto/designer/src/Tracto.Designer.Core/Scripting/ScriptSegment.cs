@@ -18,6 +18,7 @@ public sealed class ScriptSegment : INotifyPropertyChanged
     private string _name = "Segment";
     private string _runtime = "desktop";
     private string _mode = string.Empty;
+    private string _profile = string.Empty;
 
     public string Name
     {
@@ -31,11 +32,12 @@ public sealed class ScriptSegment : INotifyPropertyChanged
         set
         {
             _runtime = value;
-            // Mode means nothing outside a browser segment.
-            if (!IsBrowser) _mode = string.Empty;
+            // Mode and profile mean nothing outside a browser segment.
+            if (!IsBrowser) { _mode = string.Empty; _profile = string.Empty; }
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsBrowser));
             OnPropertyChanged(nameof(Mode));
+            OnPropertyChanged(nameof(Profile));
             OnPropertyChanged(nameof(Title));
         }
     }
@@ -48,6 +50,16 @@ public sealed class ScriptSegment : INotifyPropertyChanged
     {
         get => _mode;
         set { _mode = value ?? string.Empty; OnPropertyChanged(); OnPropertyChanged(nameof(Title)); }
+    }
+
+    /// <summary>
+    /// Browser segments only: a named browser profile on the worker, so sites signed into
+    /// earlier stay signed in. Empty means a throwaway browser with nothing signed in.
+    /// </summary>
+    public string Profile
+    {
+        get => _profile;
+        set { _profile = value ?? string.Empty; OnPropertyChanged(); }
     }
 
     public bool IsBrowser => Runtime.Equals("browser", StringComparison.OrdinalIgnoreCase);

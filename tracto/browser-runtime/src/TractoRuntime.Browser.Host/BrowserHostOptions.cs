@@ -37,6 +37,15 @@ public sealed record BrowserHostOptions
     /// <summary>Allow <c>css</c> selectors in scripts.</summary>
     public bool AllowCss { get; init; } = true;
 
+    /// <summary>
+    /// Profile used when a script names none. Empty means every run gets a throwaway browser
+    /// with nothing signed in, which is the default.
+    /// </summary>
+    public string Profile { get; init; } = string.Empty;
+
+    /// <summary>Folder that holds the named profiles. One sub-folder per profile.</summary>
+    public string ProfileRoot { get; init; } = BrowserProfile.DefaultRoot;
+
     public string? InteractiveSessionId { get; init; }
 
     public BrowserMode BrowserMode =>
@@ -61,6 +70,8 @@ public sealed record BrowserHostOptions
             PauseAfterRunMs     = Int("PAUSE_AFTER_RUN_MS", "PauseAfterRunMs",     d.PauseAfterRunMs),
             LocatorWaitMs       = Int("LOCATOR_WAIT_MS",    "LocatorWaitMs",       d.LocatorWaitMs),
             AllowCss            = Bool("BROWSER_ALLOW_CSS", "AllowCss",            d.AllowCss),
+            Profile             = Str("BROWSER_PROFILE",      "Profile",           d.Profile),
+            ProfileRoot         = Str("BROWSER_PROFILE_ROOT", "ProfileRoot",       d.ProfileRoot),
             InteractiveSessionId = System.Environment.GetEnvironmentVariable("INTERACTIVE_SESSION_ID")
                                    ?? System.Environment.GetEnvironmentVariable("SESSIONNAME")
                                    ?? "Console"

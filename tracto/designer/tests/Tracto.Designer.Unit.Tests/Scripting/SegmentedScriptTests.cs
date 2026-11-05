@@ -466,4 +466,75 @@ public class SegmentedScriptTests
         vm.SelectedStep.Should().BeNull();
         vm.SelectedSegment.Should().BeNull();
     }
+    [Fact]
+    public void Json_Roundtrip_Keeps_The_Browser_Profile()
+    {
+        var s = TwoSegments();
+        s.Segments[1].Profile = "outlook-tibin";
+        var ser = new JsonScriptSerializer();
+
+        var back = ser.Deserialize(ser.Serialize(s));
+
+        back.Segments[1].Profile.Should().Be("outlook-tibin");
+        back.Segments[0].Profile.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Json_Omits_Profile_When_It_Is_Not_Set()
+    {
+        using var doc = JsonDocument.Parse(new JsonScriptSerializer().Serialize(TwoSegments()));
+
+        doc.RootElement.GetProperty("segments")[1].TryGetProperty("profile", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Changing_A_Segment_Away_From_Browser_Clears_Its_Profile()
+    {
+        var seg = new ScriptSegment { Runtime = "browser", Profile = "outlook-tibin" };
+
+        seg.Runtime = "desktop";
+
+        seg.Profile.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Validator_Rejects_A_Profile_On_A_Desktop_Segment()
+    {
+        var s = TwoSegments();
+        s.Segments[0].Profile = "outlook-tibin";
+
+        new ScriptValidator().Validate(s).Errors.Should().Contain(e => e.RuleId == "VAL-026");
+    }
+
+    [Theory]
+    [InlineData("has space")]
+    [InlineData("..\escape")]
+    [InlineData("-leading-dash")]
+    public void Validator_Rejects_An_Unsafe_Profile_Name(string name)
+    {
+        var s = TwoSegments();
+        s.Segments[1].Profile = name;
+
+        new ScriptValidator().Validate(s).Errors.Should().Contain(e => e.RuleId == "VAL-026");
+    }
+
+    [Fact]
+    public void Validator_Accepts_A_Safe_Profile_Name_On_A_Browser_Segment()
+    {
+        var s = TwoSegments();
+        s.Segments[1].Profile = "outlook-tibin.01";
+
+        new ScriptValidator().Validate(s).Errors
+            .Should().NotContain(e => e.RuleId == "VAL-026");
+    }
+
+    [Fact]
+    public void Canonical_Form_Changes_When_The_Profile_Changes()
+    {
+        var a = TwoSegments();
+        var b = TwoSegments();
+        b.Segments[1].Profile = "outlook-tibin";
+
+        ScriptCanonicalizer.Canonicalize(a).Should().NotBe(ScriptCanonicalizer.Canonicalize(b));
+    }
 }

@@ -109,24 +109,49 @@ public sealed partial class BrowserRunEngine(
         // that is a background viewing convenience, not something a script declares.
         var mode = script.Mode ?? options.BrowserMode;
 
-        _log.LogInformation("Run {RunId}: script \"{Name}\" v{Version} — {Count} step(s), mode={Mode} ({ModeSource}), channel={Channel}",
+        // A profile makes the run reuse a folder of cookies, so sites stay signed in. Without
+        // one the run gets a throwaway browser with nothing signed in.
+        var profile = script.Profile ?? (string.IsNullOrWhiteSpace(options.Profile) ? null : options.Profile.Trim());
+
+        _log.LogInformation("Run {RunId}: script \"{Name}\" v{Version} — {Count} step(s), mode={Mode} ({ModeSource}), channel={Channel}, profile={Profile}",
             lease.RunId, script.Name, script.Version, script.Steps.Count, mode,
             script.Mode is null ? "host setting" : "set by the script",
-            string.IsNullOrEmpty(options.Channel) ? "bundled-chromium" : options.Channel);
+            string.IsNullOrEmpty(options.Channel) ? "bundled-chromium" : options.Channel,
+            profile ?? "none (fresh browser)");
 
         // ── 3. Browser ───────────────────────────────────────────────────────
-        var factory = new PlaywrightBrowserFactory(playwright, options.Channel);
         var contextOptions = new BrowserContextManagerOptions
         {
             ViewportWidth  = options.ViewportWidth,
             ViewportHeight = options.ViewportHeight
         };
-        var sessionStore = new SessionStore(
-            Path.Combine(AppContext.BaseDirectory, "sessions"),
-            loggerFactory.CreateLogger<SessionStore>());
 
-        await using var contexts = new BrowserContextManager(
-            factory, contextOptions, sessionStore, loggerFactory.CreateLogger<BrowserContextManager>());
+        IBrowserContextManager contexts;
+        try
+        {
+            contexts = profile is null
+                ? new BrowserContextManager(
+                    new PlaywrightBrowserFactory(playwright, options.Channel),
+                    contextOptions,
+                    new SessionStore(
+                        Path.Combine(AppContext.BaseDirectory, "sessions"),
+                        loggerFactory.CreateLogger<SessionStore>()),
+                    loggerFactory.CreateLogger<BrowserContextManager>())
+                : new PersistentProfileContextManager(
+                    playwright,
+                    profile,
+                    BrowserProfile.ResolveDirectory(options.ProfileRoot, profile),
+                    contextOptions,
+                    options.Channel,
+                    loggerFactory.CreateLogger<PersistentProfileContextManager>());
+        }
+        catch (ScriptValidationException ex)
+        {
+            _log.LogError("Run {RunId}: {Message}", lease.RunId, ex.Message);
+            return new RunOutcome("Failed", "VALIDATION", ex.Message, steps, outputs);
+        }
+
+        await using var contextScope = contexts;
 
         var resolver   = new WaitingSelectorStrategy(
             new LocatorResolver(), options.LocatorWaitMs, loggerFactory.CreateLogger<WaitingSelectorStrategy>());
@@ -151,7 +176,10 @@ public sealed partial class BrowserRunEngine(
         try
         {
             var context = await contexts.AcquireContextAsync(lease.RunId, mode, ct).ConfigureAwait(false);
-            page = await context.NewPageAsync().ConfigureAwait(false);
+            // A profile's browser opens with a blank page already; a fresh context has none.
+            page = context.Pages.Count > 0
+                ? context.Pages[0]
+                : await context.NewPageAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

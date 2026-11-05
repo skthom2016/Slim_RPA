@@ -56,6 +56,8 @@ public sealed class JsonScriptSerializer : IScriptSerializer
                 };
                 if (segEl.TryGetProperty("mode", out var modeEl) && modeEl.ValueKind == JsonValueKind.String)
                     seg.Mode = modeEl.GetString()?.ToLowerInvariant() ?? "";
+                if (segEl.TryGetProperty("profile", out var profileEl) && profileEl.ValueKind == JsonValueKind.String)
+                    seg.Profile = profileEl.GetString() ?? "";
                 if (segEl.TryGetProperty("steps", out var segSteps) && segSteps.ValueKind == JsonValueKind.Array)
                     foreach (var stepEl in segSteps.EnumerateArray())
                         seg.Steps.Add(ReadStep(stepEl));

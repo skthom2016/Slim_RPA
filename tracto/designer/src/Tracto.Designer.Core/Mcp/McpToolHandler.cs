@@ -141,6 +141,7 @@ public sealed class McpToolHandler(
                     name    = g.Name,
                     runtime = g.Runtime,
                     mode    = g.Mode,
+                    profile = g.Profile,
                     steps   = g.Steps.Select(StepDto)
                 })
             }));

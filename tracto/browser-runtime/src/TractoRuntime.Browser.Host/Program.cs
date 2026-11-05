@@ -8,6 +8,17 @@ var builder = Host.CreateApplicationBuilder(args);
 
 var options = BrowserHostOptions.FromConfiguration(builder.Configuration);
 
+// `--login <profile> [url]` signs a profile in once; later runs that name it start signed in.
+if (args.Length > 0 && args[0].Equals("--login", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: --login <profile-name> [start-url]");
+        return 2;
+    }
+    return await ProfileLogin.RunAsync(options, args[1], args.Length > 2 ? args[2] : null);
+}
+
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o =>
 {
@@ -15,7 +26,8 @@ builder.Logging.AddSimpleConsole(o =>
     o.TimestampFormat = "HH:mm:ss ";
 });
 
-Console.WriteLine($"[Browser Host] Orchestrator: {options.OrchestratorUrl}  Worker: {options.WorkerId}  Mode: {options.Mode}");
+Console.WriteLine($"[Browser Host] Orchestrator: {options.OrchestratorUrl}  Worker: {options.WorkerId}  Mode: {options.Mode}"
+    + (string.IsNullOrWhiteSpace(options.Profile) ? "" : $"  Profile: {options.Profile}"));
 
 var playwright = await Playwright.CreateAsync();
 
@@ -33,3 +45,4 @@ using var host = builder.Build();
 await host.RunAsync();
 
 playwright.Dispose();
+return 0;

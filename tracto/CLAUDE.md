@@ -64,6 +64,10 @@ A job that spans runtimes (for example read text in Notepad, then search it in a
 - `params` are default values, overridden by the `params` of `POST /jobs`. Read them in any segment as `${param.name}`.
 - A `storeAs` output of one segment reaches later segments as `${param.<storeAs>.<field>}`. Outputs flow forward only.
 - Segments run in order, each when the previous one succeeded; a failed or cancelled segment ends the run.
+- A browser segment may add `"mode"` (`headed`/`headless`) and `"profile"`. A profile is a named
+  browser folder on the worker that keeps cookies, so a site signed into once stays signed in;
+  sign it in with `dotnet run -- --login <profile>`. Without a profile every run gets a fresh
+  browser with nothing signed in. Both apply to browser segments only.
 - Browser segments use the flat browser format; see `browser-runtime/README.md`.
 
 ### Runtime Format (ScriptEnvelope)

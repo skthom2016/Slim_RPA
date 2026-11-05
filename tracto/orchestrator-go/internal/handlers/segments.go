@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -23,12 +24,14 @@ import (
 // (RuntimeType "segmented", never offered to a worker) plus one child run per segment, queued
 // in order; every child receives the parent params plus the outputs of the segments before it.
 
-// Segment is one runtime-specific part of a segmented script. Mode is a browser-only setting:
-// it overrides the browser host's own configuration for this segment.
+// Segment is one runtime-specific part of a segmented script. Mode and Profile are browser-only
+// settings: they override the browser host's own configuration for this segment. Profile names a
+// browser profile folder on the worker, so sites signed into earlier stay signed in.
 type Segment struct {
 	Name    string          `json:"name"`
 	Runtime string          `json:"runtime"`
 	Mode    string          `json:"mode,omitempty"`
+	Profile string          `json:"profile,omitempty"`
 	Steps   json.RawMessage `json:"steps"`
 }
 
@@ -43,7 +46,10 @@ type segmentedScript struct {
 const segmentedRuntime = "segmented"
 
 var segmentRuntimes = map[string]bool{"desktop": true, "browser": true, "terminal": true}
-var segmentFields = map[string]bool{"name": true, "runtime": true, "mode": true, "steps": true}
+var segmentFields = map[string]bool{"name": true, "runtime": true, "mode": true, "profile": true, "steps": true}
+
+// A profile name becomes a folder name on the worker, so it is kept to safe characters.
+var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 // parseSegmentedScript returns the script when the payload declares segments, nil when it is
 // a plain script, and an error when the segments are invalid. The payload may be bare or
@@ -124,6 +130,16 @@ func parseSegmentedScript(raw []byte) (*segmentedScript, error) {
 				return nil, fmt.Errorf("segment %d: mode must be headed or headless", i+1)
 			}
 		}
+		s.Profile = strings.TrimSpace(s.Profile)
+		if s.Profile != "" {
+			if s.Runtime != "browser" {
+				return nil, fmt.Errorf("segment %d: profile applies to a browser segment only", i+1)
+			}
+			if !profileNamePattern.MatchString(s.Profile) {
+				return nil, fmt.Errorf(
+					"segment %d: profile must be 1 to 64 characters of letters, digits, dash, underscore or dot", i+1)
+			}
+		}
 		var steps []json.RawMessage
 		if json.Unmarshal(s.Steps, &steps) != nil || len(steps) == 0 {
 			return nil, fmt.Errorf("segment %d: steps must be a non-empty array", i+1)
@@ -156,13 +172,14 @@ func segmentPayload(s *segmentedScript, index int) []byte {
 		Version       string          `json:"version"`
 		TargetRuntime string          `json:"targetRuntime"`
 		Mode          string          `json:"mode,omitempty"`
+		Profile       string          `json:"profile,omitempty"`
 		Steps         json.RawMessage `json:"steps"`
 	}
 	env := struct {
 		SchemaVersion string `json:"schemaVersion"`
 		Script        flat   `json:"script"`
 	}{"1", flat{
-		segmentArtifactID(s.Id, index), name, s.Version, seg.Runtime, seg.Mode, seg.Steps,
+		segmentArtifactID(s.Id, index), name, s.Version, seg.Runtime, seg.Mode, seg.Profile, seg.Steps,
 	}}
 	b, _ := json.Marshal(env)
 	return b

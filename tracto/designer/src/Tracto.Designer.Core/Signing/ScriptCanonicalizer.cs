@@ -24,6 +24,7 @@ public static class ScriptCanonicalizer
                     name = g.Name,
                     runtime = g.Runtime,
                     mode = g.Mode,
+                    profile = g.Profile,
                     steps = CanonicalSteps(g.Steps)
                 })
             };

@@ -49,7 +49,8 @@ public sealed class PrivacyFilter(PrivacySettings settings) : IPrivacyFilter
             {
                 Name = seg.Name,
                 Runtime = seg.Runtime,
-                Mode = seg.Mode
+                Mode = seg.Mode,
+                Profile = seg.Profile
             };
             foreach (var step in seg.Steps)
                 filteredSeg.Steps.Add(FilterStep(step));
