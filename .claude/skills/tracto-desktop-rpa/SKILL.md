@@ -10,6 +10,15 @@ ordered list of **steps**. The Desktop Runtime (Windows) runs a desktop segment'
 bottom, driving the real desktop with keystrokes, mouse clicks and window activation, reading
 text files and the clipboard, and calling HTTP APIs.
 
+**Any Windows application can be driven**, not only the ones named in these examples. The
+runtime sends real keystrokes and clicks to whatever window is in front, so Word, Excel,
+PowerPoint, Outlook, Calculator, File Explorer, a line-of-business app and a console tool are
+all fair game. Notepad appears throughout only because it is on every machine and makes short
+examples. Nothing in the runtime knows what Notepad is, apart from the one `notepad.type`
+convenience action; everything else is `app.launch`, `key`, `type`, `click` and window titles.
+What decides whether an app can be automated is whether the job can be done from the keyboard,
+and whether its windows have titles you can match.
+
 A flow can be:
 
 - **several desktop segments**, each a stage of the same job, handing values forward;
@@ -133,28 +142,87 @@ So a segment that opens Notepad and a segment that types into it belong **togeth
 segment. A segment that reads a file and a segment that files the result elsewhere are a good
 split, because all they share is a value.
 
-## Passing a value between segments
+## Getting values in, and passing them on
+
+### Into the first segment: `params`
+
+`params` at the top of the file are the flow's inputs and its defaults. Any segment reads them
+as `${param.name}`, including the first, which has nothing before it to read from:
+
+```json
+"params": { "title": "Monthly report", "notePath": "C:\\data\\report.txt" }
+```
+
+```json
+{ "stepNumber": 3, "action": "notepad.type", "description": "Type the title",
+  "parameters": { "text": "${param.title}", "windowTitle": "Untitled - Notepad" } }
+```
+
+A job can override any of them when it is submitted, which is how one script serves many inputs
+without being edited:
+
+```powershell
+$body = @{
+    schemaVersion    = "1"
+    scriptArtifactId = "skill-one-segment"
+    scriptVersion    = "1.0.0"
+    triggerType      = "Manual"
+    params           = @{ title = "Overridden at job time"; notePath = "C:\data\other.txt" }
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5080/jobs" -Method POST -Body $body -ContentType "application/json"
+```
+
+**Verified:** the same published script wrote `Monthly report` to its default path on one run,
+and the overridden text to the overridden path on the next. An override replaces one name; the
+`params` not mentioned keep their defaults.
+
+### Between steps and segments: `storeAs`
 
 A step publishes its outputs by carrying a `storeAs`:
 
 ```json
 { "stepNumber": 1, "action": "file.read", "description": "Read the note",
-  "parameters": { "path": "C:\\data\\note.txt", "storeAs": "note" } }
+  "parameters": { "path": "${param.notePath}", "storeAs": "note" } }
 ```
 
-How it is read depends on where from:
+How it is read depends only on **where you are reading it from**:
 
-| Read from | Written as | Example |
+| Reading from | Written as | Example |
 |---|---|---|
 | A later step in the **same** segment | `${name.field}` | `${note.firstLine}` |
 | A later **segment** | `${param.name.field}` | `${param.note.firstLine}` |
 
-The fields each action produces are in `references/actions.md` (`file.read` gives `text`,
-`firstLine`, `lineCount`). Outputs flow **forward only**; a later segment cannot change an
-earlier one. When two segments publish the same name, later segments see the later value.
+Getting that prefix wrong does not fail the run. The reference is left in the text exactly as
+you wrote it, and you find out when `${param.note.firstLine}` turns up in the saved file.
+
+One segment often uses both at once, which is the clearest way to see the difference:
+
+```json
+{ "stepNumber": 1, "action": "file.read", "description": "Read what segment 1 saved",
+  "parameters": { "path": "${param.source.savedPath}", "storeAs": "note" } },
+{ "stepNumber": 4, "action": "notepad.type", "description": "Write the summary",
+  "parameters": { "text": "From: ${param.source.savedPath}\nFirst line: ${note.firstLine}",
+                  "windowTitle": "Untitled - Notepad" } }
+```
+
+`source` came from the segment before, so it carries `param.`. `note` was produced three steps
+earlier in this same segment, so it does not.
+
+### Outputs pile up
+
+Every finished segment adds its outputs to the pool the later ones read. Segment 3 can read
+segment 1 directly; it does not have to be passed along the chain.
+
+**Verified** in a three-segment flow: segment 3 read `${param.one.savedPath}` from segment 1 and
+`${param.read1.firstLine}` from segment 2, and both appeared in the file it saved.
+
+The fields each action produces are listed in `references/actions.md`: `file.read` gives `text`,
+`firstLine` and `lineCount`, `file.saveAs` gives `savedPath` and `fileSizeBytes`. Outputs flow
+**forward only**; a later segment cannot change an earlier one, and when two segments publish
+the same name the later value is the one that survives.
 
 To move text that is only on screen, copy it first: `key Ctrl+C`, then `clipboard.get` with a
-`storeAs`.
+`storeAs`. There is no way to read a screen otherwise.
 
 ## Browser segments
 
@@ -182,6 +250,19 @@ the Bing search box as `${param.note.firstLine}`. A failing browser segment ende
 `FAILED` with the next segment never starting, and cancelling during a browser segment ended the
 run as `CANCELLED`. See `references/recipes.md` (recipes 14 and 15) and
 `references/templates/segmented-notepad-to-bing.json`.
+
+## Verified runs
+
+These ran on a live Orchestrator with a desktop worker on Windows 11 and reached `SUCCEEDED`,
+with the files checked on disk afterwards. Templates for each are in `references/templates/`.
+
+| Scenario | What it proved |
+|---|---|
+| **One segment** (`skill-one-segment`) | Launch an app, type, save, close. `file.saveAs` published `savedPath` and `fileSizeBytes`. |
+| **One segment, params overridden** | The same script run with a job's `params` wrote different text to a different path. |
+| **Two segments** (`skill-two-segments`) | Segment 2 read segment 1's `savedPath` and `fileSizeBytes` through `${param...}`, and its own `file.read` output through `${name...}` in the same breath. |
+| **Three segments** (`skill-three-segments`) | Segment 3 read **segment 1's** output as well as segment 2's. Outputs pile up as the flow goes on. |
+| **A different application** (`skill-calculator`) | `app.launch calc.exe`, `type "2+3"`, `key Enter`. Calculator's display read `Display is 5` afterwards. No Notepad involved. |
 
 ## Core rules (the runtime behaves exactly like this)
 
@@ -222,9 +303,26 @@ run as `CANCELLED`. See `references/recipes.md` (recipes 14 and 15) and
    or loses them. In testing, `Win+R` typed its command into an open Notepad document because a
    dialog and a notification held the focus. Resolve every dialog before the next step, and run
    on an idle, unlocked machine with notifications off.
-9. **Notepad titles follow the content.** Win 11 Notepad's window title is `Untitled - Notepad`
-   when empty, the first line of the text with a `*` while unsaved, and the file name once
-   saved. Match on the right one for the moment (recipe 3).
+9. **A window's title changes as you work, so match the title it has at that step.** Win 11
+   Notepad is `Untitled - Notepad` when empty, then the first line of the text with a `*` while
+   unsaved, then the file name once saved. Office apps do the same with the document name. This
+   bites in a predictable place: typing retitles the window, so the very next `file.saveAs`
+   must not still be looking for `Untitled - Notepad`. It will not find it, and `file.saveAs` is
+   one of the two actions that fail outright when their window is missing.
+
+   The sequence that works, verified:
+
+   | Step | `window` / `windowTitle` to use |
+   |---|---|
+   | `notepad.type` into a new document | `Untitled - Notepad` |
+   | `file.saveAs` straight after typing | `Notepad` (loose: the title is now the typed text) |
+   | Anything after the save | `<file name> - Notepad` (exact and safe) |
+
+10. **A launcher is not the app.** Some apps ship a small stub that starts the real process and
+    exits at once. `calc.exe` is 49 KB and does exactly that; the app that appears is
+    `CalculatorApp` in a window titled `Calculator`. `app.launch` still works, and the window is
+    still matched by title, but do not expect the process it started to still be running, and do
+    not use `attachIfRunning` to reason about it. Match the **window title**, never the process.
 
 ## Which tool for the job
 
@@ -253,8 +351,8 @@ run as `CANCELLED`. See `references/recipes.md` (recipes 14 and 15) and
   flows, each marked verified or not.
 - `references/limits.md`: what the runtime cannot do, workarounds, and what to ask the core team
   to add.
-- `references/templates/*.json`: working scripts to copy, including
-  `segmented-desktop-stages.json` (two desktop segments) and
-  `segmented-notepad-to-bing.json` (desktop then browser).
+- `references/templates/*.json`: working scripts to copy. The verified ones from the table
+  above are `skill-one-segment.json`, `skill-two-segments.json`, `skill-three-segments.json`
+  and `skill-calculator.json`; `segmented-notepad-to-bing.json` is desktop then browser.
 - `scripts/validate.js`: offline validator (needs only Node) for segmented and flat files.
   `scripts/actions.json`: the desktop action table it uses.

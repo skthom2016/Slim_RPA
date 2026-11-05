@@ -1,0 +1,87 @@
+{
+  "id": "skill-one-segment",
+  "name": "Skill Test: One Segment",
+  "version": "1.0.0",
+  "params": {
+    "title": "One segment note",
+    "notePath": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\one.txt",
+    "noteName": "one.txt"
+  },
+  "segments": [
+    {
+      "name": "Write a note",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "${param.title}\nWritten: ${now.local}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.notePath}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "saved"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.noteName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    }
+  ]
+}

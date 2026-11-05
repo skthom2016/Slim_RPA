@@ -1,0 +1,74 @@
+{
+  "id": "skill-calculator",
+  "name": "Skill Test: Calculator",
+  "version": "1.0.0",
+  "params": {
+    "sum": "2+3"
+  },
+  "segments": [
+    {
+      "name": "Add two numbers in Calculator",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Calculator",
+          "parameters": {
+            "executable": "calc.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "3500"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "navigate",
+          "description": "Bring Calculator to the front",
+          "parameters": {
+            "window": "Calculator"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "type",
+          "description": "Type the sum",
+          "parameters": {
+            "value": "${param.sum}",
+            "window": "Calculator"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the keys land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "key",
+          "description": "Work it out",
+          "parameters": {
+            "key": "Enter",
+            "window": "Calculator"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Let it settle",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    }
+  ]
+}

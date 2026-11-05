@@ -1,0 +1,173 @@
+{
+  "id": "skill-two-segments",
+  "name": "Skill Test: Two Segments",
+  "version": "1.0.0",
+  "params": {
+    "title": "Two segment source",
+    "sourcePath": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\two-source.txt",
+    "sourceName": "two-source.txt",
+    "summaryPath": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\two-summary.txt",
+    "summaryName": "two-summary.txt"
+  },
+  "segments": [
+    {
+      "name": "Write the source",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "${param.title}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.sourcePath}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "source"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.sourceName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summarise it",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "file.read",
+          "description": "Read what the first segment saved",
+          "parameters": {
+            "path": "${param.source.savedPath}",
+            "storeAs": "note"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "Read from: ${param.source.savedPath}\nBytes on disk: ${param.source.fileSizeBytes}\nFirst line: ${note.firstLine}\nLines: ${note.lineCount}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.summaryPath}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "summary"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.summaryName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    }
+  ]
+}

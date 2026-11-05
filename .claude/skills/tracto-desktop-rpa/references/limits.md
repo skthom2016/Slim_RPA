@@ -49,3 +49,13 @@ Tell the developer plainly when a request hits one of these. Do not invent an ac
 
 ## Adding something to the runtime (for the core team)
 A new action is a class implementing `IActionHandler` in `tracto/desktop-runtime/src/Tracto.Desktop.Actions/Handlers/`, registered in `tracto/desktop-runtime/src/Tracto.Desktop.Host/Program.cs`. After adding one, update `scripts/actions.json` and `references/actions.md` in this skill; the validator warns when a handler exists that it does not know.
+
+## A step whose action is literally `action` does nothing
+
+The Desktop Runtime has a catch-all handler registered under the name `action`. It logs the
+step's inputs, touches nothing, and reports **success**. The Designer gives every newly added
+step that name until a real one is chosen, and a recording uses it for any event it could not
+map, so a half-finished script runs green while doing nothing at all.
+
+The validator in this skill rejects it (`unknown action "action"`), which is the only thing that
+catches it before a run. Never leave one in a script you hand over.

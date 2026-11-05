@@ -1,0 +1,259 @@
+{
+  "id": "skill-three-segments",
+  "name": "Skill Test: Three Segments",
+  "version": "1.0.0",
+  "params": {
+    "label": "Three segment label",
+    "path1": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\three-1.txt",
+    "name1": "three-1.txt",
+    "path2": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\three-2.txt",
+    "name2": "three-2.txt",
+    "path3": "C:\\Users\\TNT\\Documents\\tracto-skill-test\\three-3.txt",
+    "name3": "three-3.txt"
+  },
+  "segments": [
+    {
+      "name": "Stage one: write the source",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "${param.label}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.path1}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "one"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.name1} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stage two: derive from it",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "file.read",
+          "description": "Read stage one",
+          "parameters": {
+            "path": "${param.one.savedPath}",
+            "storeAs": "read1"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "Stage two saw: ${read1.firstLine}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.path2}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "two"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.name2} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stage three: report on both",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "file.read",
+          "description": "Read stage two",
+          "parameters": {
+            "path": "${param.two.savedPath}",
+            "storeAs": "read2"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "notepad.type",
+          "description": "Type the note",
+          "parameters": {
+            "text": "Stage one file: ${param.one.savedPath}\nStage one said: ${param.read1.firstLine}\nStage two file: ${param.two.savedPath}\nStage two said: ${read2.firstLine}\nFinished: ${now.local}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.path3}",
+            "windowTitle": "Notepad",
+            "overwrite": "true",
+            "storeAs": "three"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.name3} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "action": "delay",
+          "description": "Let it close",
+          "parameters": {
+            "ms": "1200"
+          }
+        }
+      ]
+    }
+  ]
+}
