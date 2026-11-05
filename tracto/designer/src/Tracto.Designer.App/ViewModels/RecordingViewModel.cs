@@ -31,7 +31,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     private CaptureEngineType? _selectedEngineType = CaptureEngineType.Desktop;
     private ScriptSegment? _watchedSegment;
 
-    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter)
+    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter, IBrowserProfileSignIn browserProfileSignIn)
     {
         _session = session;
         _captureEngine = captureEngine;
@@ -56,6 +56,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         PrivacySettings = new PrivacySettingsViewModel(privacySettings);
         Templates = new TemplateLibraryViewModel(templateLibrary, ScriptEditor, new MessageBoxDialogService());
         BrowserAdapter = new BrowserAdapterViewModel(browserCaptureAdapter);
+        ProfileSignIn = new ProfileSignInViewModel(browserProfileSignIn, BrowserAdapter);
         IsolatedMode = new IsolatedModeViewModel(isolatedModeSettings, isolatedModeValidator, ScriptEditor);
         Credentials = new CredentialVaultViewModel(credentialVault);
         OfflineExport = new OfflineExportViewModel(offlineExporter, ScriptEditor, Signing);
@@ -126,6 +127,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     public PrivacySettingsViewModel PrivacySettings { get; }
     public TemplateLibraryViewModel Templates { get; }
     public BrowserAdapterViewModel BrowserAdapter { get; }
+    public ProfileSignInViewModel ProfileSignIn { get; }
     public IsolatedModeViewModel IsolatedMode { get; }
     public CredentialVaultViewModel Credentials { get; }
     public OfflineExportViewModel OfflineExport { get; }

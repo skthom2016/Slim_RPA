@@ -537,4 +537,58 @@ public class SegmentedScriptTests
 
         ScriptCanonicalizer.Canonicalize(a).Should().NotBe(ScriptCanonicalizer.Canonicalize(b));
     }
+    [Fact]
+    public void A_Browser_Segment_Uses_A_Fresh_Browser_Until_A_Profile_Is_Chosen()
+    {
+        var seg = new ScriptSegment { Runtime = "browser" };
+
+        seg.UseSignedInProfile.Should().BeFalse();
+        seg.Profile.Should().BeEmpty();
+        seg.BrowserSessionSummary.Should().Contain("fresh browser");
+    }
+
+    [Fact]
+    public void Choosing_A_Signed_In_Profile_Suggests_A_Name_From_The_Segment_Name()
+    {
+        var seg = new ScriptSegment { Runtime = "browser", Name = "Read Outlook mail" };
+
+        seg.UseSignedInProfile = true;
+
+        seg.Profile.Should().Be("read-outlook-mail");
+        seg.BrowserSessionSummary.Should().Contain("One run at a time");
+    }
+
+    [Fact]
+    public void Turning_The_Signed_In_Profile_Off_Goes_Back_To_A_Fresh_Browser()
+    {
+        var seg = new ScriptSegment { Runtime = "browser", Name = "Mail" };
+        seg.UseSignedInProfile = true;
+
+        seg.UseSignedInProfile = false;
+
+        seg.Profile.Should().BeEmpty();
+        seg.UseSignedInProfile.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Setting_A_Profile_Name_Turns_The_Signed_In_Choice_On()
+    {
+        var seg = new ScriptSegment { Runtime = "browser" };
+
+        seg.Profile = "client-demo";
+
+        seg.UseSignedInProfile.Should().BeTrue();
+        seg.Title.Should().Contain("client-demo");
+    }
+
+    [Fact]
+    public void A_Fresh_Browser_Segment_Writes_No_Profile_To_Json()
+    {
+        var s = TwoSegments();
+        s.Segments[1].UseSignedInProfile = false;
+
+        using var doc = JsonDocument.Parse(new JsonScriptSerializer().Serialize(s));
+
+        doc.RootElement.GetProperty("segments")[1].TryGetProperty("profile", out _).Should().BeFalse();
+    }
 }

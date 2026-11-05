@@ -87,6 +87,7 @@ public partial class App : Application
         sc.AddSingleton<IsolatedModeValidator>();
         // DS-19 Offline Export
         sc.AddSingleton<IOfflineExporter, ZipOfflineExporter>();
+        sc.AddSingleton<IBrowserProfileSignIn, BrowserProfileSignIn>();
         sc.AddTransient<RecordingViewModel>();
         sc.AddTransient<ScriptEditorViewModel>();
         Services = sc.BuildServiceProvider();

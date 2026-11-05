@@ -38,6 +38,8 @@ public sealed class ScriptSegment : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsBrowser));
             OnPropertyChanged(nameof(Mode));
             OnPropertyChanged(nameof(Profile));
+            OnPropertyChanged(nameof(UseSignedInProfile));
+            OnPropertyChanged(nameof(BrowserSessionSummary));
             OnPropertyChanged(nameof(Title));
         }
     }
@@ -59,7 +61,51 @@ public sealed class ScriptSegment : INotifyPropertyChanged
     public string Profile
     {
         get => _profile;
-        set { _profile = value ?? string.Empty; OnPropertyChanged(); }
+        set
+        {
+            _profile = value ?? string.Empty;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(UseSignedInProfile));
+            OnPropertyChanged(nameof(BrowserSessionSummary));
+            OnPropertyChanged(nameof(Title));
+        }
+    }
+
+    /// <summary>
+    /// Whether this segment runs in a signed-in profile or in a fresh browser. Turning it off
+    /// clears the profile name, which is what makes the run use a fresh browser.
+    ///
+    /// <para>A fresh browser is the default and is right for anything that needs no sign-in,
+    /// such as a search or a public page. It also lets several runs go at once, where runs
+    /// sharing one profile have to wait for each other.</para>
+    /// </summary>
+    public bool UseSignedInProfile
+    {
+        get => !string.IsNullOrWhiteSpace(_profile);
+        set
+        {
+            if (value == UseSignedInProfile) return;
+            Profile = value ? SuggestProfileName() : string.Empty;
+        }
+    }
+
+    /// <summary>Plain words for the current choice, shown next to the switch.</summary>
+    public string BrowserSessionSummary => UseSignedInProfile
+        ? $"Runs in the signed-in profile \"{_profile.Trim()}\". One run at a time on this profile."
+        : "Runs in a fresh browser with nothing signed in. Several runs can go at once.";
+
+    /// <summary>A safe starting name derived from the segment name, for the person to adjust.</summary>
+    private string SuggestProfileName()
+    {
+        var chars = (Name ?? string.Empty)
+            .Trim()
+            .Select(c => char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : '-')
+            .ToArray();
+        var name = new string(chars).Trim('-');
+        while (name.Contains("--", StringComparison.Ordinal))
+            name = name.Replace("--", "-", StringComparison.Ordinal);
+        if (name.Length > 64) name = name[..64].Trim('-');
+        return name.Length > 0 && char.IsLetterOrDigit(name[0]) ? name : "signed-in";
     }
 
     public bool IsBrowser => Runtime.Equals("browser", StringComparison.OrdinalIgnoreCase);
@@ -67,8 +113,16 @@ public sealed class ScriptSegment : INotifyPropertyChanged
     public ObservableCollection<ScriptStep> Steps { get; } = [];
 
     /// <summary>Text shown in the segment list.</summary>
-    public string Title =>
-        string.IsNullOrEmpty(Mode) ? $"{Name}  [{Runtime}]" : $"{Name}  [{Runtime}, {Mode}]";
+    public string Title
+    {
+        get
+        {
+            var tags = Runtime;
+            if (!string.IsNullOrEmpty(Mode)) tags += $", {Mode}";
+            if (UseSignedInProfile) tags += $", {_profile.Trim()}";
+            return $"{Name}  [{tags}]";
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
