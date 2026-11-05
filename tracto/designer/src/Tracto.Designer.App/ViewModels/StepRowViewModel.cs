@@ -19,6 +19,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     private readonly Action _dataChanged;
     private StepParameterRow? _selectedParameter;
     private IReadOnlyList<string>? _actionOptions;
+    private IReadOnlyList<string>? _parameterNameOptions;
     private bool _isExpanded;
     private bool _isEditingDescription;
     private string _descriptionDraft = string.Empty;
@@ -166,21 +167,17 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     /// holds, required ones first. Typing a name outside the list is still allowed, because the
     /// catalogue does not know every action a runtime may grow.
     /// </summary>
-    public IReadOnlyList<string> ParameterNameOptions
-    {
-        get
-        {
-            var definition = ActionCatalog.Find(_runtime(), Step.Action);
-            if (definition is null) return [ActionCatalog.StoreAs];
+    public IReadOnlyList<string> ParameterNameOptions =>
+        _parameterNameOptions ??= BuildParameterNameOptions();
 
-            var taken = StepParameters.Select(r => r.Name)
-                                      .Where(n => n.Length > 0)
-                                      .ToHashSet(StringComparer.Ordinal);
-            return [.. definition.AllParameters
-                        .Concat([ActionCatalog.StoreAs])
-                        .Distinct(StringComparer.Ordinal)
-                        .Where(n => !taken.Contains(n))];
-        }
+    private IReadOnlyList<string> BuildParameterNameOptions()
+    {
+        var definition = ActionCatalog.Find(_runtime(), Step.Action);
+        if (definition is null) return [ActionCatalog.StoreAs];
+
+        return [.. definition.AllParameters
+                    .Concat([ActionCatalog.StoreAs])
+                    .Distinct(StringComparer.Ordinal)];
     }
 
     /// <summary>What is wrong with this step, as Validate would report it.</summary>
@@ -246,6 +243,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         foreach (var name in Step.Parameters.Keys.ToList())
             StepParameters.Add(new StepParameterRow(Step.Parameters, name, OnParameterEdited));
         _selectedParameter = null;
+        _parameterNameOptions = null;
 
         AvailableData.Clear();
         foreach (var d in _availableData(Step)) AvailableData.Add(d);
@@ -255,6 +253,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StoreAsHint));
         OnPropertyChanged(nameof(ActionOptions));
         OnPropertyChanged(nameof(SuggestedParameters));
+        OnPropertyChanged(nameof(ParameterNameOptions));
         OnPropertyChanged(nameof(HasAvailableData));
         ((RelayCommand)DeleteParameterCommand).RaiseCanExecuteChanged();
         ((RelayCommand)InsertReferenceCommand).RaiseCanExecuteChanged();
@@ -264,14 +263,14 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     /// A parameter was typed into. Only the wording around it is refreshed: rebuilding the rows
     /// here would destroy the box being typed in and lose the caret after a single key.
     /// </summary>
-    private void OnParameterEdited()
+    private void OnParameterEdited(bool nameChanged)
     {
         OnPropertyChanged(nameof(StoreAsHint));
         OnPropertyChanged(nameof(SuggestedParameters));
-        OnPropertyChanged(nameof(ParameterNameOptions));
         OnPropertyChanged(nameof(Issues));
         OnPropertyChanged(nameof(HasIssues));
         OnPropertyChanged(nameof(IssueSummary));
+        _ = nameChanged;   // the list no longer depends on which names are in use
     }
 
     /// <summary>
@@ -284,7 +283,8 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         var row = new StepParameterRow(Step.Parameters, string.Empty, OnParameterEdited);
         StepParameters.Add(row);
         SelectedParameter = row;
-        OnParameterEdited();
+        // The new row has no name yet, so nothing has left the list of names on offer.
+        OnParameterEdited(nameChanged: false);
     }
 
     public void DeleteParameter()
@@ -293,7 +293,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         Step.Parameters.Remove(_selectedParameter.Name);
         StepParameters.Remove(_selectedParameter);
         SelectedParameter = null;
-        OnParameterEdited();
+        OnParameterEdited(nameChanged: true);
     }
 
     /// <summary>
@@ -318,6 +318,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
                 break;
             case nameof(ScriptStep.Action):
                 _actionOptions = null;
+                _parameterNameOptions = null;
                 OnPropertyChanged(nameof(ActionOptions));
                 OnPropertyChanged(nameof(ParameterNameOptions));
                 OnPropertyChanged(nameof(Issues));

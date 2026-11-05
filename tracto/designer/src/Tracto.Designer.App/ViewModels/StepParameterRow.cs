@@ -5,78 +5,92 @@ using System.Runtime.CompilerServices;
 
 /// <summary>
 /// One row of the parameter grid. The step's parameter dictionary stays the single source of
-/// truth: a row writes straight through to it, so renaming a row moves the value with it.
+/// truth, so a row writes straight through to it and renaming a row moves the value with it.
 ///
-/// <para>A row added from the UI starts with no name, so the author picks one rather than being
-/// handed a guess. Until it has a name it holds its value here, because a dictionary has
-/// nowhere to put a value with no key.</para>
+/// <para>The box shows whatever has been typed or picked, while the dictionary only ever holds
+/// a usable name. That lets a name be typed a character at a time, and lets a row sit with no
+/// name at all until one is chosen, which is how a new row starts.</para>
 /// </summary>
 public sealed class StepParameterRow : INotifyPropertyChanged
 {
     private readonly Dictionary<string, string?> _parameters;
-    private readonly Action _changed;
-    private string _name;
+    private readonly Action<bool> _changed;
+    private string _key;          // the name under which the step holds this parameter
+    private string _text;         // what the name box shows, which may not be usable yet
     private string? _pendingValue;
 
-    public StepParameterRow(Dictionary<string, string?> parameters, string name, Action changed)
+    public StepParameterRow(Dictionary<string, string?> parameters, string name, Action<bool> changed)
     {
         _parameters = parameters;
-        _name = name ?? string.Empty;
+        _key = name ?? string.Empty;
+        _text = _key;
         _changed = changed;
     }
 
-    /// <summary>True while the row has no name, so nothing of it has reached the step yet.</summary>
-    public bool IsUnnamed => _name.Length == 0;
+    /// <summary>True while nothing of this row has reached the step.</summary>
+    public bool IsUnnamed => _key.Length == 0;
+
+    /// <summary>
+    /// Another row already holds this name, so it has not been taken. Shown rather than
+    /// silently reverted, because reverting fights whoever is still typing.
+    /// </summary>
+    public bool IsNameTaken { get; private set; }
 
     public string Name
     {
-        get => _name;
+        get => _text;
         set
         {
-            var next = value?.Trim() ?? string.Empty;
-            if (next == _name) return;
-            // Another row already has that name: keep this one as it was rather than overwrite
-            // the other row, and tell the box so it shows the name that still stands.
-            if (next.Length > 0 && _parameters.ContainsKey(next))
-            {
-                OnPropertyChanged();
-                return;
-            }
+            var next = value ?? string.Empty;
+            if (next == _text && !IsNameTaken) return;
+            _text = next;
 
-            // Carry whatever the row holds over to the new name.
-            string? carried;
-            if (_name.Length == 0) carried = _pendingValue;
-            else _parameters.Remove(_name, out carried);
+            var trimmed = next.Trim();
+            var wasTaken = IsNameTaken;
+            IsNameTaken = false;
 
-            _name = next;
-            if (next.Length > 0)
+            if (trimmed != _key)
             {
-                _parameters[next] = carried;
-                _pendingValue = null;
-            }
-            else
-            {
-                _pendingValue = carried;
+                if (trimmed.Length > 0 && _parameters.ContainsKey(trimmed))
+                {
+                    // Leave the step as it is: taking the name would overwrite the other row.
+                    IsNameTaken = true;
+                }
+                else
+                {
+                    string? carried = _key.Length == 0 ? _pendingValue : null;
+                    if (_key.Length > 0) _parameters.Remove(_key, out carried);
+
+                    _key = trimmed;
+                    if (trimmed.Length > 0)
+                    {
+                        _parameters[trimmed] = carried;
+                        _pendingValue = null;
+                    }
+                    else
+                    {
+                        _pendingValue = carried;
+                    }
+                }
             }
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsUnnamed));
             OnPropertyChanged(nameof(Value));
-            _changed();
+            if (IsNameTaken != wasTaken) OnPropertyChanged(nameof(IsNameTaken));
+            _changed(true);
         }
     }
 
     public string? Value
     {
-        get => _name.Length == 0
-            ? _pendingValue
-            : _parameters.TryGetValue(_name, out var v) ? v : null;
+        get => _key.Length == 0 ? _pendingValue : _parameters.TryGetValue(_key, out var v) ? v : null;
         set
         {
-            if (_name.Length == 0) _pendingValue = value;
-            else _parameters[_name] = value;
+            if (_key.Length == 0) _pendingValue = value;
+            else _parameters[_key] = value;
             OnPropertyChanged();
-            _changed();
+            _changed(false);
         }
     }
 

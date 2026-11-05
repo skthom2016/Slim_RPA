@@ -369,7 +369,7 @@
                                                                   AutomationProperties.Name="Parameter name"
                                                                   ItemsSource="{Binding DataContext.ParameterNameOptions,
                                                                                 RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                  Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                                                                  Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                                   ToolTip="Which parameter this is. The list holds the ones this action takes; another name can be typed."/>
                                                         <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"

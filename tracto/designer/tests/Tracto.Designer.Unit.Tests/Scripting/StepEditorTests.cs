@@ -217,8 +217,8 @@ public class StepEditorTests
         css.Name = "storeAs";
 
         vm.SelectedStep.Parameters["storeAs"].Should().Be("headline", "the other row must not be overwritten");
-        vm.SelectedStep.Parameters["css"].Should().Be("h2", "a refused rename keeps the row as it was");
-        css.Name.Should().Be("css");
+        vm.SelectedStep.Parameters["css"].Should().Be("h2", "a refused rename leaves the step as it was");
+        css.IsNameTaken.Should().BeTrue("the row says why rather than snapping back under the caret");
     }
 
     [Fact]

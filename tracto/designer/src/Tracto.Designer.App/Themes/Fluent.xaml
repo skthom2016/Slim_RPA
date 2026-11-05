@@ -403,21 +403,40 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="28"/>
                                 </Grid.ColumnDefinitions>
-                                <ContentPresenter Grid.Column="0"
+                                <ContentPresenter x:Name="SelectedItem" Grid.Column="0"
                                                   Margin="{TemplateBinding Padding}"
                                                   VerticalAlignment="Center"
                                                   Content="{TemplateBinding SelectionBoxItem}"
                                                   ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                                   IsHitTestVisible="False"/>
+
+                                <!-- An editable ComboBox shows and takes its text here. WPF looks for a
+                                     TextBox with exactly this name, and without one the text is held
+                                     but never drawn, so a picked or typed value looks empty. -->
+                                <TextBox x:Name="PART_EditableTextBox" Grid.Column="0"
+                                         Visibility="Collapsed"
+                                         Margin="2,0,0,0" Padding="{TemplateBinding Padding}"
+                                         MinHeight="0" BorderThickness="0" Background="Transparent"
+                                         VerticalContentAlignment="Center" VerticalAlignment="Center"
+                                         Foreground="{TemplateBinding Foreground}"
+                                         FontFamily="{TemplateBinding FontFamily}"
+                                         FontSize="{TemplateBinding FontSize}"
+                                         IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource TemplatedParent}}"
+                                         Focusable="True"/>
+
                                 <TextBlock x:Name="Chevron" Grid.Column="1" Text="&#xE70D;"
                                            FontFamily="{StaticResource IconFont}" FontSize="11"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                                <!-- Opens the list. It covers the whole box for a plain list; for an
+                                     editable one it covers only the arrow, so the text stays clickable. -->
+                                <ToggleButton x:Name="Toggle" Grid.Column="0" Grid.ColumnSpan="2"
+                                              Opacity="0" Focusable="False"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              ClickMode="Press"/>
                             </Grid>
                         </Border>
-                        <ToggleButton Opacity="0" Focusable="False"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                      ClickMode="Press"/>
                         <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
                                IsOpen="{TemplateBinding IsDropDownOpen}"
                                PopupAnimation="Fade">
@@ -438,6 +457,12 @@
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="SelectedItem" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="Toggle" Property="Grid.Column" Value="1"/>
+                            <Setter TargetName="Toggle" Property="Grid.ColumnSpan" Value="1"/>
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
                         </Trigger>
