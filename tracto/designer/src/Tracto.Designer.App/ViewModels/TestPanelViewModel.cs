@@ -11,15 +11,17 @@ public sealed class TestPanelViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly IScriptTestRunner _runner;
     private readonly ScriptEditorViewModel _editor;
+    private readonly OutputLogViewModel? _output;
     private CancellationTokenSource? _cts;
     private ScriptTestResult? _result;
     private bool _isRunning;
     private int _progress;
 
-    public TestPanelViewModel(IScriptTestRunner runner, ScriptEditorViewModel editor)
+    public TestPanelViewModel(IScriptTestRunner runner, ScriptEditorViewModel editor, OutputLogViewModel? output = null)
     {
         _runner = runner;
         _editor = editor;
+        _output = output;
         RunTestCommand  = new RelayCommand(async _ => await RunTestAsync(), _ => !_isRunning && _editor.Script is not null);
         StopTestCommand = new RelayCommand(_ => _cts?.Cancel(), _ => _isRunning);
     }
@@ -63,14 +65,18 @@ public sealed class TestPanelViewModel : INotifyPropertyChanged, IDisposable
         IsRunning = true;
         ProgressPercent = 0;
         TestResult = null;
+        _output?.Info("Test", $"Running {_editor.Script.Name} with {_runner.Name}...");
         try
         {
             var prog = new Progress<int>(p => ProgressPercent = p);
-            TestResult = await _runner.RunAsync(_editor.Script, prog, _cts.Token).ConfigureAwait(false);
+            var result = await _runner.RunAsync(_editor.Script, prog, _cts.Token).ConfigureAwait(false);
+            TestResult = result;
+            Report(result);
         }
         catch (OperationCanceledException)
         {
             TestResult = new ScriptTestResult(false, [], TimeSpan.Zero, "Test run cancelled.");
+            _output?.Warning("Test", "Test run cancelled.");
         }
         finally
         {
@@ -79,6 +85,30 @@ public sealed class TestPanelViewModel : INotifyPropertyChanged, IDisposable
             _cts = null;
         }
     }
+
+    private void Report(ScriptTestResult result)
+    {
+        if (_output is null) return;
+
+        foreach (var step in result.StepResults)
+            _output.Write("Test", step.Passed ? OutputSeverity.Info : OutputSeverity.Error,
+                $"Step {step.StepNumber}: {step.Message} ({Took(step.Duration)})");
+
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+            _output.Error("Test", result.ErrorMessage!);
+
+        var steps = result.StepResults.Count == 1 ? "1 step" : $"{result.StepResults.Count} steps";
+        if (result.Passed)
+            _output.Success("Test", $"PASSED — {steps} in {Took(result.Duration)}.");
+        else
+            _output.Error("Test", $"FAILED after {Took(result.Duration)}.");
+    }
+
+    /// <summary>A duration an author can read at a glance, rather than a raw TimeSpan.</summary>
+    private static string Took(TimeSpan d) =>
+        d.TotalSeconds < 1   ? $"{d.TotalMilliseconds:F0} ms"
+        : d.TotalMinutes < 1 ? $"{d.TotalSeconds:F1} s"
+                             : $"{(int)d.TotalMinutes}m {d.Seconds}s";
 
     private void RaiseAll()
     {

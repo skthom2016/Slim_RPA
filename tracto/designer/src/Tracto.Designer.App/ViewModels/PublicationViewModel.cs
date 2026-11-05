@@ -15,6 +15,7 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     private readonly SigningViewModel _signing;
     private readonly TestPanelViewModel _testing;
     private readonly bool _testRequired;
+    private readonly OutputLogViewModel? _output;
     private PublicationResult? _result;
     private bool _isPublishing;
     private string _outputDirectory = Path.Combine(
@@ -29,9 +30,12 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     /// result is present.  When <c>false</c>, deployment policy does not mandate a live test
     /// and the UI permits publishing from the VALIDATED state (DS-16-AC01).
     /// </param>
+    /// <param name="output">Where publication progress and its outcome are reported.</param>
     public PublicationViewModel(IScriptPublisher publisher, ScriptEditorViewModel editor,
-        SigningViewModel signing, TestPanelViewModel testing, bool testRequired = true)
+        SigningViewModel signing, TestPanelViewModel testing, bool testRequired = true,
+        OutputLogViewModel? output = null)
     {
+        _output = output;
         _publisher = publisher;
         _editor = editor;
         _signing = signing;
@@ -84,11 +88,17 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
         // gate (which also honours _testRequired) does not block the request.
         if (_testRequired && _testing.TestResult is null) return;
         IsPublishing = true;
+        _output?.Info("Publish", $"Publishing {_editor.Script.Name} to {OutputDirectory} with {_publisher.Name}...");
         try
         {
             var testResult = _testing.TestResult ?? ScriptTestResult.NotRun;
             var req = new PublicationRequest(_editor.Script, _signing.CurrentSignature, testResult, OutputDirectory);
-            LastResult = await _publisher.PublishAsync(req).ConfigureAwait(false);
+            var result = await _publisher.PublishAsync(req).ConfigureAwait(false);
+            LastResult = result;
+            if (result.Success)
+                _output?.Success("Publish", $"Published — ID {result.PublicationId}");
+            else
+                _output?.Error("Publish", $"FAILED: {result.Message}");
         }
         finally
         {

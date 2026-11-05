@@ -45,12 +45,12 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         DiscardCommand       = new RelayCommand(_ => _session.Discard(),   _ => !IsStopped);
         GenerateDraftCommand = new RelayCommand(_ => ExecuteGenerateDraft(), _ => IsStopped && _session.Transcript.Count > 0);
         NewScriptCommand     = new RelayCommand(_ => StartNewScript());
-        Validation = new ValidationViewModel(validator, ScriptEditor);
+        Validation = new ValidationViewModel(validator, ScriptEditor, Output);
         AiBridge = new AiAuthoringViewModel(mcpServer);
-        TestRunner = new TestPanelViewModel(testRunner, ScriptEditor);
+        TestRunner = new TestPanelViewModel(testRunner, ScriptEditor, Output);
         ScriptEditor.PropertyChanged += OnScriptEditorChanged;
-        Signing      = new SigningViewModel(scriptSigner, ScriptEditor);
-        Publication  = new PublicationViewModel(publisher, ScriptEditor, Signing, TestRunner);
+        Signing      = new SigningViewModel(scriptSigner, ScriptEditor, Output);
+        Publication  = new PublicationViewModel(publisher, ScriptEditor, Signing, TestRunner, output: Output);
         ExportImport = new ExportImportViewModel(ScriptEditor);
         Audit = new AuditViewModel(auditService);
         PrivacySettings = new PrivacySettingsViewModel(privacySettings);
@@ -117,6 +117,10 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     public bool NarrationActive => _voice.IsAvailable;
 
     public ScriptEditorViewModel ScriptEditor { get; } = new();
+
+    /// <summary>Everything checking, signing and publishing report, in one place.</summary>
+    public OutputLogViewModel Output { get; } = new();
+
     public ValidationViewModel Validation { get; }
     public AiAuthoringViewModel AiBridge { get; }
     public TestPanelViewModel TestRunner { get; }

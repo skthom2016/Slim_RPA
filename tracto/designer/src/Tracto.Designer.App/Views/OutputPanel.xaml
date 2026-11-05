@@ -1,0 +1,99 @@
+<UserControl x:Class="Tracto.Designer.App.Views.OutputPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Tracto.Designer.App.ViewModels"
+             mc:Ignorable="d" d:DesignHeight="240" d:DesignWidth="900">
+    <Grid Margin="14,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title, the one publish setting, and Clear -->
+        <Grid Grid.Row="0" Margin="0,0,0,9">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Output" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+                <TextBlock Text="Validate, Run Test, Sign, Verify and Publish report here."
+                           Style="{StaticResource CaptionText}" Margin="10,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextTertiaryBrush}"/>
+                <TextBlock Text="Publishing..." Style="{StaticResource CaptionText}" Margin="10,0,0,0"
+                           Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Visibility="{Binding Publication.IsPublishing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="Publish to" Style="{StaticResource FieldLabel}"
+                           VerticalAlignment="Center" Margin="0,0,7,0"/>
+                <TextBox Text="{Binding Publication.OutputDirectory, UpdateSourceTrigger=PropertyChanged}"
+                         Width="300" VerticalAlignment="Center"
+                         ToolTip="The folder Publish writes the signed script to."/>
+                <Button Style="{StaticResource IconButton}" Tag="&#xE894;" Margin="7,0,0,0"
+                        Command="{Binding Output.ClearCommand}" ToolTip="Clear the output"/>
+            </StackPanel>
+        </Grid>
+
+        <ProgressBar Grid.Row="1" Value="{Binding TestRunner.ProgressPercent, Mode=OneWay}" Maximum="100"
+                     Height="3" Margin="0,0,0,8"
+                     Visibility="{Binding TestRunner.IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+        <!-- Nothing has been run yet -->
+        <TextBlock Grid.Row="2" VerticalAlignment="Top" TextWrapping="Wrap"
+                   Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiaryBrush}"
+                   Text="Nothing yet. Use Validate, Run Test, Sign, Verify or Publish on the toolbar and the results appear here, newest last."
+                   Visibility="{Binding Output.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+        <ScrollViewer Grid.Row="2" x:Name="Scroller" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Output.Entries}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{Binding TimeText}" Width="60"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                       Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Top"/>
+
+                            <Border Grid.Column="1" Style="{StaticResource Pill}" Padding="6,1" Width="76"
+                                    Background="{StaticResource SubtleHoverBrush}"
+                                    BorderBrush="{StaticResource SubtleHoverBrush}"
+                                    VerticalAlignment="Top" Margin="0,0,9,0">
+                                <TextBlock Text="{Binding Source}" Style="{StaticResource CaptionText}"
+                                           FontSize="11" HorizontalAlignment="Center"
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                            </Border>
+
+                            <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap"
+                                       VerticalAlignment="Top">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static vm:OutputSeverity.Success}">
+                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static vm:OutputSeverity.Warning}">
+                                                <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static vm:OutputSeverity.Error}">
+                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
