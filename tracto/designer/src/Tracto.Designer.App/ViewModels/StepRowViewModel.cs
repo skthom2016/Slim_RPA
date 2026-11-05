@@ -18,6 +18,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     private readonly Func<ScriptStep, IReadOnlyList<DataReference>> _availableData;
     private readonly Action _dataChanged;
     private StepParameterRow? _selectedParameter;
+    private IReadOnlyList<string>? _actionOptions;
     private bool _isExpanded;
     private bool _isEditingDescription;
     private string _descriptionDraft = string.Empty;
@@ -142,7 +143,12 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         }
     }
 
-    public IReadOnlyList<string> ActionOptions => ActionCatalog.NamesFor(_runtime());
+    /// <summary>
+    /// Actions the runtime of this segment understands. Held rather than rebuilt on each read:
+    /// handing the editable action box a new list resets it and blanks the action it shows.
+    /// </summary>
+    public IReadOnlyList<string> ActionOptions =>
+        _actionOptions ??= ActionCatalog.NamesFor(_runtime());
 
     public IReadOnlyList<string> SuggestedParameters
     {
@@ -170,7 +176,7 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
             else Step.Parameters[ActionCatalog.StoreAs] = next;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StoreAsHint));
-            Refresh();
+            OnPropertyChanged(nameof(SuggestedParameters));
             // Later steps can now read something new, or have lost what they read.
             _dataChanged();
         }
@@ -191,6 +197,17 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     }
 
     public bool HasAvailableData => AvailableData.Count > 0;
+
+    /// <summary>
+    /// Refreshes only what this step can read. Safe to call while a parameter is being typed,
+    /// because it leaves the parameter rows, and the caret in them, alone.
+    /// </summary>
+    public void RefreshAvailableData()
+    {
+        AvailableData.Clear();
+        foreach (var d in _availableData(Step)) AvailableData.Add(d);
+        OnPropertyChanged(nameof(HasAvailableData));
+    }
 
     /// <summary>Rebuilds the parameter rows and the list of data this step can read.</summary>
     public void Refresh()
@@ -213,12 +230,14 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
         ((RelayCommand)InsertReferenceCommand).RaiseCanExecuteChanged();
     }
 
+    /// <summary>
+    /// A parameter was typed into. Only the wording around it is refreshed: rebuilding the rows
+    /// here would destroy the box being typed in and lose the caret after a single key.
+    /// </summary>
     private void OnParameterEdited()
     {
-        OnPropertyChanged(nameof(StoreAs));
         OnPropertyChanged(nameof(StoreAsHint));
         OnPropertyChanged(nameof(SuggestedParameters));
-        _dataChanged();
     }
 
     public void AddParameter()
@@ -270,6 +289,8 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(Description));
                 break;
             case nameof(ScriptStep.Action):
+                _actionOptions = null;
+                OnPropertyChanged(nameof(ActionOptions));
                 OnPropertyChanged(nameof(Action));
                 OnPropertyChanged(nameof(SuggestedParameters));
                 OnPropertyChanged(nameof(StoreAsHint));

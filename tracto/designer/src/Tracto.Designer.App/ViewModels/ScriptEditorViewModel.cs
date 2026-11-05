@@ -151,11 +151,19 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
 
     private void OnActiveStepsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildStepRows();
 
-    /// <summary>A storeAs changed, so what the rows after it can read changed with it.</summary>
+    /// <summary>
+    /// A storeAs changed, so what the rows after it can read changed with it. Only the data
+    /// lists are refreshed: rebuilding the rows would pull the ground out from under whichever
+    /// box the author is typing in.
+    /// </summary>
     private void OnRowDataChanged()
     {
-        foreach (var row in StepRows.Where(r => r.IsExpanded)) row.Refresh();
-        RaiseSelectedStepDetails();
+        foreach (var row in StepRows.Where(r => r.IsExpanded)) row.RefreshAvailableData();
+        OnPropertyChanged(nameof(AvailableData));
+        OnPropertyChanged(nameof(HasAvailableData));
+        OnPropertyChanged(nameof(StoreAs));
+        OnPropertyChanged(nameof(StoreAsHint));
+        OnPropertyChanged(nameof(SuggestedParameters));
     }
 
     private void RaiseSelectedStepDetails()
