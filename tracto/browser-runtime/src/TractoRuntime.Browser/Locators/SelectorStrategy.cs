@@ -38,8 +38,10 @@ public sealed class SelectorStrategy(ILogger<SelectorStrategy> logger) : ISelect
         if (selectorRef.Role is { } role &&
             Enum.TryParse<AriaRole>(role, ignoreCase: true, out var ariaRole))
         {
+            // Whole-value match: Playwright treats an accessible name as a substring by
+            // default, so a recorded name would also match every longer name containing it.
             var opts = selectorRef.RoleName is { } roleName
-                ? new PageGetByRoleOptions { Name = roleName }
+                ? new PageGetByRoleOptions { Name = roleName, Exact = true }
                 : null;
             locator = page.GetByRole(ariaRole, opts);
             strategyUsed = "Role";
@@ -47,13 +49,13 @@ public sealed class SelectorStrategy(ILogger<SelectorStrategy> logger) : ISelect
         // Priority 2 — Label / AriaLabel (backward-compat alias): both resolve via GetByLabel
         else if ((selectorRef.Label ?? selectorRef.AriaLabel) is { } labelText)
         {
-            locator = page.GetByLabel(labelText);
+            locator = page.GetByLabel(labelText, new PageGetByLabelOptions { Exact = true });
             strategyUsed = "Label";
         }
         // Priority 3 — input placeholder text
         else if (selectorRef.Placeholder is { } placeholder)
         {
-            locator = page.GetByPlaceholder(placeholder);
+            locator = page.GetByPlaceholder(placeholder, new PageGetByPlaceholderOptions { Exact = true });
             strategyUsed = "Placeholder";
         }
         // Priority 4 — data-testid attribute

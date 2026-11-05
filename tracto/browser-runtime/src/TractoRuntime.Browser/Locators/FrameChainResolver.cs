@@ -74,9 +74,13 @@ public sealed class FrameChainResolver(ILogger<FrameChainResolver> logger) : IFr
         // Priority 1 — role + accessible name
         if (sel.Role is not null)
         {
+            // Whole-value match, as at the top level.
             var roleOptions = new FrameLocatorGetByRoleOptions();
             if (sel.RoleName is not null)
+            {
                 roleOptions.Name = sel.RoleName;
+                roleOptions.Exact = true;
+            }
 
             return frameLocator.GetByRole(AriaRoleHelper.FromString(sel.Role), roleOptions);
         }
@@ -84,11 +88,11 @@ public sealed class FrameChainResolver(ILogger<FrameChainResolver> logger) : IFr
         // Priority 2 — label / aria-label
         string? label = sel.Label ?? sel.AriaLabel;
         if (label is not null)
-            return frameLocator.GetByLabel(label);
+            return frameLocator.GetByLabel(label, new FrameLocatorGetByLabelOptions { Exact = true });
 
         // Priority 3 — placeholder
         if (sel.Placeholder is not null)
-            return frameLocator.GetByPlaceholder(sel.Placeholder);
+            return frameLocator.GetByPlaceholder(sel.Placeholder, new FrameLocatorGetByPlaceholderOptions { Exact = true });
 
         // Priority 4 — testId
         if (sel.TestId is not null)
@@ -96,7 +100,7 @@ public sealed class FrameChainResolver(ILogger<FrameChainResolver> logger) : IFr
 
         // Priority 5 — visible text
         if (sel.Text is not null)
-            return frameLocator.GetByText(sel.Text);
+            return frameLocator.GetByText(sel.Text, new FrameLocatorGetByTextOptions { Exact = true });
 
         // Priority 6 — CSS (validated upstream; must be present only if allowCss policy is set)
         if (sel.Css is not null)

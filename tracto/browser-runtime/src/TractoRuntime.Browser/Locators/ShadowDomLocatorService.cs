@@ -66,20 +66,24 @@ public sealed class ShadowDomLocatorService(ILogger<ShadowDomLocatorService> log
         // Priority 1 — role + accessible name
         if (selectorRef.Role is not null)
         {
+            // Whole-value match, as at the top level.
             var opts = new PageGetByRoleOptions();
             if (selectorRef.RoleName is not null)
+            {
                 opts.Name = selectorRef.RoleName;
+                opts.Exact = true;
+            }
             return page.GetByRole(AriaRoleHelper.FromString(selectorRef.Role), opts);
         }
 
         // Priority 2 — label
         string? label = selectorRef.Label ?? selectorRef.AriaLabel;
         if (label is not null)
-            return page.GetByLabel(label);
+            return page.GetByLabel(label, new PageGetByLabelOptions { Exact = true });
 
         // Priority 3 — placeholder
         if (selectorRef.Placeholder is not null)
-            return page.GetByPlaceholder(selectorRef.Placeholder);
+            return page.GetByPlaceholder(selectorRef.Placeholder, new PageGetByPlaceholderOptions { Exact = true });
 
         // Priority 4 — testId
         if (selectorRef.TestId is not null)
@@ -87,7 +91,7 @@ public sealed class ShadowDomLocatorService(ILogger<ShadowDomLocatorService> log
 
         // Priority 5 — text
         if (selectorRef.Text is not null)
-            return page.GetByText(selectorRef.Text);
+            return page.GetByText(selectorRef.Text, new PageGetByTextOptions { Exact = true });
 
         // Priority 6 — CSS (already policy-validated by ArtifactValidator).
         // Standard CSS locators pierce shadow roots in Playwright when the browser

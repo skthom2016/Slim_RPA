@@ -87,6 +87,14 @@ public sealed class LocatorResolver : ISelectorStrategy
     // Only non-null fields are emitted; callers need not pre-filter.
     // ---------------------------------------------------------------------------
 
+    /// <remarks>
+    /// Every value is matched whole. Playwright matches an accessible name, a label and a
+    /// placeholder as a substring by default, so a recorded value also matched every longer
+    /// value containing it: in Outlook "New" matched "New", "Newsletters" and "Expand to see
+    /// more New options", and "Subject" matched "Add a subject". A recording captures the whole
+    /// value, so a partial one is reported as not-found rather than resolved to an element the
+    /// author never meant.
+    /// </remarks>
     private static IEnumerable<(ILocator Locator, string Strategy)> BuildCandidates(
         IPage page, SelectorRef sel)
     {
@@ -96,7 +104,7 @@ public sealed class LocatorResolver : ISelectorStrategy
             if (Enum.TryParse<AriaRole>(sel.Role, ignoreCase: true, out var ariaRole))
             {
                 var opts = sel.RoleName is not null
-                    ? new PageGetByRoleOptions { Name = sel.RoleName }
+                    ? new PageGetByRoleOptions { Name = sel.RoleName, Exact = true }
                     : null;
                 yield return (page.GetByRole(ariaRole, opts), "role");
             }
@@ -107,11 +115,12 @@ public sealed class LocatorResolver : ISelectorStrategy
         // Priority 2 — form label text (Label takes precedence; AriaLabel is backward-compat alias)
         string? labelText = sel.Label ?? sel.AriaLabel;
         if (labelText is not null)
-            yield return (page.GetByLabel(labelText), "label");
+            yield return (page.GetByLabel(labelText, new PageGetByLabelOptions { Exact = true }), "label");
 
         // Priority 3 — placeholder text
         if (sel.Placeholder is not null)
-            yield return (page.GetByPlaceholder(sel.Placeholder), "placeholder");
+            yield return (page.GetByPlaceholder(sel.Placeholder,
+                new PageGetByPlaceholderOptions { Exact = true }), "placeholder");
 
         // Priority 4 — data-testid attribute (policy-allowlisted at deployment level)
         if (sel.TestId is not null)
