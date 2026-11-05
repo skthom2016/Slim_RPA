@@ -22,7 +22,7 @@ public class McpToolHandlerTests
     private static Script ValidScript()
     {
         var s = new Script { Id = "x", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 
@@ -123,7 +123,7 @@ public class McpToolHandlerTests
     public void ValidateScript_Invalid_Script_Returns_Valid_False_With_Violations()
     {
         var s = new Script { Id = "", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         var r = MakeHandler(s).HandleTool("validate_script", null);
         r.Success.Should().BeTrue();
         r.Content.Should().Contain("\"valid\":false");
@@ -138,10 +138,10 @@ public class McpToolHandlerTests
     {
         // Current script is invalid (empty id), candidate is valid
         var current = new Script { Id = "", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        current.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        current.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         var handler = MakeHandler(current);
 
-        var candidateJson = "{\"id\":\"abc\",\"name\":\"Good\",\"version\":\"1.0.0\",\"targetRuntime\":\"desktop\",\"steps\":[{\"stepNumber\":1,\"description\":\"Click OK\",\"action\":\"click\"}]}";
+        var candidateJson = "{\"id\":\"abc\",\"name\":\"Good\",\"version\":\"1.0.0\",\"targetRuntime\":\"desktop\",\"steps\":[{\"stepNumber\":1,\"description\":\"Click OK\",\"action\":\"click\",\"parameters\":{\"coordinates\":\"10,10\"}}]}";
         var args = JsonSerializer.Serialize(new { candidateScript = candidateJson });
 
         var r = handler.HandleTool("validate_script", args);
@@ -192,7 +192,7 @@ public class McpToolHandlerTests
     {
         // validate_script returned valid=false; update must still be rejected
         var s = new Script { Id = "", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         var handler = MakeHandler(s);
         handler.HandleTool("validate_script", null); // returns valid=false
 

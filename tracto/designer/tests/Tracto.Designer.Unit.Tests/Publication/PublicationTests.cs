@@ -15,7 +15,7 @@ public class PublicationTests
     private static Script ValidScript()
     {
         var s = new Script { Id = "pub-test", Name = "PubTest", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

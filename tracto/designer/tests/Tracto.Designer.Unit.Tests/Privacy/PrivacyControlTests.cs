@@ -56,7 +56,7 @@ public class PrivacyControlTests
         var settings = DefaultSettings();
         var filter = new PrivacyFilter(settings);
         var s = new Script { Id = "t", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        var step = new ScriptStep { StepNumber = 1, Description = "Email user@test.com", Action = "type" };
+        var step = new ScriptStep { StepNumber = 1, Description = "Email user@test.com", Action = "type", Parameters = { ["value"] = "text" } };
         step.Parameters["to"] = "user@test.com";
         s.Steps.Add(step);
         var filtered = filter.FilterScript(s);

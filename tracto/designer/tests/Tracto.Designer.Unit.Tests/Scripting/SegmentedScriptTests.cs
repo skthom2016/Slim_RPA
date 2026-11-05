@@ -13,8 +13,15 @@ using Tracto.Designer.Infrastructure.Serialization;
 
 public class SegmentedScriptTests
 {
-    private static ScriptStep Step(int n, string action, string desc = "step") =>
-        new() { StepNumber = n, Action = action, Description = desc };
+    /// <summary>A step with whatever its action requires, so it is valid on its own.</summary>
+    private static ScriptStep Step(int n, string action, string desc = "step")
+    {
+        var step = new ScriptStep { StepNumber = n, Action = action, Description = desc };
+        foreach (var required in ActionCatalog.Find("desktop", action)?.Required
+                                 ?? ActionCatalog.Find("browser", action)?.Required ?? [])
+            step.Parameters[required] = required == "ms" ? "500" : "x";
+        return step;
+    }
 
     private static Script TwoSegments()
     {

@@ -364,11 +364,14 @@
                                                             <ColumnDefinition Width="128"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
-                                                                 AutomationProperties.AutomationId="ParameterName"
-                                                                 AutomationProperties.Name="Parameter name"
-                                                                 FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                                 Background="Transparent" BorderThickness="0" Padding="2,0"/>
+                                                        <ComboBox Grid.Column="0" IsEditable="True"
+                                                                  AutomationProperties.AutomationId="ParameterName"
+                                                                  AutomationProperties.Name="Parameter name"
+                                                                  ItemsSource="{Binding DataContext.ParameterNameOptions,
+                                                                                RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                  Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                                                                  FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                                  ToolTip="Which parameter this is. The list holds the ones this action takes; another name can be typed."/>
                                                         <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                                                  AutomationProperties.AutomationId="ParameterValue"
                                                                  AutomationProperties.Name="Parameter value"
@@ -378,6 +381,20 @@
                                                 </DataTemplate>
                                             </ListBox.ItemTemplate>
                                         </ListBox>
+
+                                        <!-- What is wrong with this step, without waiting for Validate -->
+                                        <Border Margin="0,8,0,0" Padding="9,7"
+                                                Background="{StaticResource WarningSubtleBrush}"
+                                                CornerRadius="{StaticResource ControlRadius}"
+                                                Visibility="{Binding HasIssues, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                                           Foreground="{StaticResource WarningBrush}" VerticalAlignment="Top"/>
+                                                <TextBlock Text="{Binding IssueSummary}" Style="{StaticResource CaptionText}"
+                                                           TextWrapping="Wrap" Margin="8,0,0,0"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
 
                                     <!-- What this step may read, including an earlier segment's output -->

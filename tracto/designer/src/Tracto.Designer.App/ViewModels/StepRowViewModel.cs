@@ -162,6 +162,36 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// What the name box offers: every parameter this action takes that no other row already
+    /// holds, required ones first. Typing a name outside the list is still allowed, because the
+    /// catalogue does not know every action a runtime may grow.
+    /// </summary>
+    public IReadOnlyList<string> ParameterNameOptions
+    {
+        get
+        {
+            var definition = ActionCatalog.Find(_runtime(), Step.Action);
+            if (definition is null) return [ActionCatalog.StoreAs];
+
+            var taken = StepParameters.Select(r => r.Name)
+                                      .Where(n => n.Length > 0)
+                                      .ToHashSet(StringComparer.Ordinal);
+            return [.. definition.AllParameters
+                        .Concat([ActionCatalog.StoreAs])
+                        .Distinct(StringComparer.Ordinal)
+                        .Where(n => !taken.Contains(n))];
+        }
+    }
+
+    /// <summary>What is wrong with this step, as Validate would report it.</summary>
+    public IReadOnlyList<StepIssue> Issues => StepRules.Check(_runtime(), Step);
+
+    public bool HasIssues => Issues.Count > 0;
+
+    /// <summary>The problems with this step, one per line, for the warning under the parameters.</summary>
+    public string IssueSummary => string.Join(Environment.NewLine, Issues.Select(i => i.Message));
+
+    /// <summary>
     /// The name this step publishes its outputs under. Setting it is how data reaches a later
     /// step, and across a segment boundary a later segment.
     /// </summary>
@@ -238,25 +268,23 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
     {
         OnPropertyChanged(nameof(StoreAsHint));
         OnPropertyChanged(nameof(SuggestedParameters));
+        OnPropertyChanged(nameof(ParameterNameOptions));
+        OnPropertyChanged(nameof(Issues));
+        OnPropertyChanged(nameof(HasIssues));
+        OnPropertyChanged(nameof(IssueSummary));
     }
 
+    /// <summary>
+    /// Adds an empty row. The name is left for the author to pick from the list of parameters
+    /// the action understands, rather than guessed at, and nothing reaches the step until one
+    /// is chosen.
+    /// </summary>
     public void AddParameter()
     {
-        var name = SuggestedParameters.FirstOrDefault() ?? NextFreeName();
-        Step.Parameters[name] = string.Empty;
-        var row = new StepParameterRow(Step.Parameters, name, OnParameterEdited);
+        var row = new StepParameterRow(Step.Parameters, string.Empty, OnParameterEdited);
         StepParameters.Add(row);
         SelectedParameter = row;
         OnParameterEdited();
-    }
-
-    private string NextFreeName()
-    {
-        for (int i = 1; ; i++)
-        {
-            var candidate = i == 1 ? "parameter" : "parameter" + i;
-            if (!Step.Parameters.ContainsKey(candidate)) return candidate;
-        }
     }
 
     public void DeleteParameter()
@@ -291,6 +319,10 @@ public sealed class StepRowViewModel : INotifyPropertyChanged
             case nameof(ScriptStep.Action):
                 _actionOptions = null;
                 OnPropertyChanged(nameof(ActionOptions));
+                OnPropertyChanged(nameof(ParameterNameOptions));
+                OnPropertyChanged(nameof(Issues));
+                OnPropertyChanged(nameof(HasIssues));
+                OnPropertyChanged(nameof(IssueSummary));
                 OnPropertyChanged(nameof(Action));
                 OnPropertyChanged(nameof(SuggestedParameters));
                 OnPropertyChanged(nameof(StoreAsHint));

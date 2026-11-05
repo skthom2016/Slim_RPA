@@ -14,7 +14,7 @@ public class IsolatedModeTests
     private static Script DesktopScript(params (string key, string val)[] parameters)
     {
         var s = new Script { Id = "t", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
-        var step = new ScriptStep { StepNumber = 1, Description = "D", Action = "click" };
+        var step = new ScriptStep { StepNumber = 1, Description = "D", Action = "click", Parameters = { ["coordinates"] = "10,10" } };
         foreach (var (k, v) in parameters)
             step.Parameters[k] = v;
         s.Steps.Add(step);

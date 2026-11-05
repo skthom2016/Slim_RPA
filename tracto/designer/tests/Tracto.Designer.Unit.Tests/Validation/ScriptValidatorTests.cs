@@ -11,7 +11,7 @@ public class ScriptValidatorTests
     private static Script ValidScript()
     {
         var s = new Script { Id = "test", Name = "Test Script", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click OK", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click OK", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 
@@ -95,8 +95,8 @@ public class ScriptValidatorTests
     public void Multiple_Steps_All_Valid()
     {
         var s = new Script { Id = "x", Name = "X", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click A", Action = "click" });
-        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Type B", Action = "type" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click A", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
+        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Type B", Action = "type", Parameters = { ["value"] = "text" } });
         V.Validate(s).IsValid.Should().BeTrue();
     }
 }

@@ -40,6 +40,7 @@
     <SolidColorBrush x:Key="DangerBrush"          Color="#C42B1C"/>
     <SolidColorBrush x:Key="DangerSubtleBrush"    Color="#FDF0EF"/>
     <SolidColorBrush x:Key="WarningBrush"         Color="#9D5D00"/>
+    <SolidColorBrush x:Key="WarningSubtleBrush"   Color="#FFF9F0"/>
 
     <!-- ══ Geometry and type ════════════════════════════════════════════════ -->
     <CornerRadius x:Key="ControlRadius">4</CornerRadius>

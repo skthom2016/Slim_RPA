@@ -13,7 +13,8 @@ public class ScriptTestRunnerTests
     {
         var s = new Script { Id = "t", Name = "T", Version = "1.0.0", TargetRuntime = "desktop" };
         for (int i = 1; i <= stepCount; i++)
-            s.Steps.Add(new ScriptStep { StepNumber = i, Description = $"Step {i}", Action = "click" });
+            s.Steps.Add(new ScriptStep { StepNumber = i, Description = $"Step {i}", Action = "click",
+                Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

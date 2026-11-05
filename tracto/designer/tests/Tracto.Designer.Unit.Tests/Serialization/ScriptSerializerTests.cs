@@ -17,10 +17,10 @@ public class ScriptSerializerTests
             Version       = "2.0.1",
             TargetRuntime = "browser"
         };
-        var step = new ScriptStep { StepNumber = 1, Description = "Navigate to login", Action = "navigate" };
+        var step = new ScriptStep { StepNumber = 1, Description = "Navigate to login", Action = "navigate", Parameters = { ["window"] = "Login" } };
         step.Parameters["url"] = "https://example.com";
         s.Steps.Add(step);
-        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Click button", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Click button", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

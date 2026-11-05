@@ -14,7 +14,7 @@ public class ScriptSigningTests
     private static Script ValidScript()
     {
         var s = new Script { Id = "test", Name = "Test", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click OK", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click OK", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

@@ -75,16 +75,47 @@ public class StepEditorTests
     }
 
     [Fact]
-    public void Adding_A_Parameter_Offers_One_The_Action_Understands()
+    public void Adding_A_Parameter_Leaves_The_Name_To_Be_Chosen()
+    {
+        var vm = EditorWith(TwoSegments());
+        vm.SelectedSegment = vm.Script!.Segments[1];
+        vm.SelectedStep = vm.SelectedSegment.Steps[0];
+        var before = vm.SelectedStep.Parameters.Count;
+
+        vm.AddParameterCommand.Execute(null);
+
+        vm.StepParameters.Last().IsUnnamed.Should().BeTrue("the author picks the name");
+        vm.SelectedStep.Parameters.Should().HaveCount(before,
+            "nothing reaches the step until the row has a name");
+    }
+
+    [Fact]
+    public void The_Name_Box_Offers_What_The_Action_Takes_And_Drops_What_Is_Used()
+    {
+        var vm = EditorWith(TwoSegments());
+        vm.SelectedSegment = vm.Script!.Segments[1];
+        vm.SelectedStep = vm.SelectedSegment.Steps[0];
+        var row = vm.StepRows[0];
+        row.IsExpanded = true;
+
+        row.ParameterNameOptions.Should().Contain("windowTitle");
+        row.ParameterNameOptions.Should().NotContain("text", "the step already has a text parameter");
+    }
+
+    [Fact]
+    public void Naming_A_New_Row_Puts_It_On_The_Step()
     {
         var vm = EditorWith(TwoSegments());
         vm.SelectedSegment = vm.Script!.Segments[1];
         vm.SelectedStep = vm.SelectedSegment.Steps[0];
 
         vm.AddParameterCommand.Execute(null);
+        var row = vm.StepParameters.Last();
+        row.Value = "Untitled - Notepad";
+        row.Name = "windowTitle";
 
-        vm.SelectedStep.Parameters.Should().ContainKey("windowTitle",
-            "notepad.type takes windowTitle and the step does not have it yet");
+        vm.SelectedStep.Parameters["windowTitle"].Should().Be("Untitled - Notepad",
+            "a value typed before the name is carried over once the name is picked");
     }
 
     [Fact]
@@ -195,13 +226,14 @@ public class StepEditorTests
     {
         var vm = EditorWith(TwoSegments());
         vm.SelectedSegment = vm.Script!.Segments[0];
-        var click = new ScriptStep { StepNumber = 2, Action = "click", Description = "Click it" };
+        var click = new ScriptStep { StepNumber = 2, Action = "click", Description = "Click it", Parameters = { ["coordinates"] = "10,10" } };
         vm.SelectedSegment.Steps.Add(click);
         vm.SelectedStep = click;
 
-        vm.SuggestedParameters.First().Should().Be("role",
-            "choosing the element comes before tuning a timeout");
-        vm.SuggestedParameters.Should().Contain(["css", "text", "timeoutMs"]);
+        vm.StepRows.Single(r => ReferenceEquals(r.Step, click)).ParameterNameOptions.First()
+          .Should().Be("role", "choosing the element comes before tuning a timeout");
+        vm.StepRows.Single(r => ReferenceEquals(r.Step, click)).ParameterNameOptions
+          .Should().Contain(["css", "text", "timeoutMs"]);
     }
 
     [Fact]
@@ -213,8 +245,10 @@ public class StepEditorTests
         vm.SelectedSegment.Steps.Add(delay);
         vm.SelectedStep = delay;
 
-        vm.SuggestedParameters.Should().Contain("ms");
-        vm.SuggestedParameters.Should().NotContain(["css", "role", "xpath"]);
+        var row = vm.StepRows.Single(r => ReferenceEquals(r.Step, delay));
+        row.ParameterNameOptions.Should().Contain("ms");
+        row.ParameterNameOptions.Should().NotContain(["css", "role", "xpath"],
+            "a delay has no element to aim at");
     }
 
     [Fact]

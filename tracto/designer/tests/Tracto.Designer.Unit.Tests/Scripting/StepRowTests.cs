@@ -125,6 +125,7 @@ public class StepRowTests
         vm.StepRows[1].IsExpanded = true;
 
         vm.StepRows[0].AddParameter();
+        vm.StepRows[0].StepParameters.Single().Name = "executable";
         vm.StepRows[0].StepParameters.Single().Value = "notepad.exe";
 
         vm.StepRows[0].Step.Parameters["executable"].Should().Be("notepad.exe");

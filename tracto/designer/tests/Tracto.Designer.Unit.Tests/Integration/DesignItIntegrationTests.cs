@@ -25,9 +25,9 @@ public class DesignItIntegrationTests
     private static Script BuildValidScript(string id = "it-script")
     {
         var s = new Script { Id = id, Name = "Integration Test Script", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Launch application", Action = "navigate", Condition = null });
-        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Click login button", Action = "click" });
-        s.Steps.Add(new ScriptStep { StepNumber = 3, Description = "Enter credentials", Action = "type" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Launch application", Action = "navigate", Condition = null, Parameters = { ["window"] = "Notepad" } });
+        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Click login button", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
+        s.Steps.Add(new ScriptStep { StepNumber = 3, Description = "Enter credentials", Action = "type", Parameters = { ["value"] = "text" } });
         return s;
     }
 
@@ -67,9 +67,9 @@ public class DesignItIntegrationTests
     public void DESIGN_IT_02_Script_Editor_Step_Renumbering()
     {
         var s = new Script { Id = "it-02", Name = "IT-02", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Step A", Action = "click" });
-        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Step B", Action = "type" });
-        s.Steps.Add(new ScriptStep { StepNumber = 3, Description = "Step C", Action = "navigate" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Step A", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
+        s.Steps.Add(new ScriptStep { StepNumber = 2, Description = "Step B", Action = "type", Parameters = { ["value"] = "text" } });
+        s.Steps.Add(new ScriptStep { StepNumber = 3, Description = "Step C", Action = "navigate", Parameters = { ["window"] = "Notepad" } });
         s.Steps.Should().HaveCount(3);
         s.Steps.RemoveAt(1); // remove Step B
         for (int i = 0; i < s.Steps.Count; i++) s.Steps[i].StepNumber = i + 1;
@@ -117,7 +117,7 @@ public class DesignItIntegrationTests
         var settings = new PrivacySettings { Policy = PrivacyPolicy.Default | PrivacyPolicy.RedactEmail };
         var filter = new PrivacyFilter(settings);
         var s = new Script { Id = "it-05", Name = "IT-05", Version = "1.0.0", TargetRuntime = "desktop" };
-        var step = new ScriptStep { StepNumber = 1, Description = "Send to user@example.com", Action = "type" };
+        var step = new ScriptStep { StepNumber = 1, Description = "Send to user@example.com", Action = "type", Parameters = { ["value"] = "text" } };
         step.Parameters["to"] = "user@example.com";
         s.Steps.Add(step);
         var filtered = filter.FilterScript(s);
@@ -132,7 +132,7 @@ public class DesignItIntegrationTests
         var vault = new InMemoryCredentialVault();
         vault.StoreCredential("db-password", "S3cr3tP@ss!");
         var resolver = new CredentialParameterResolver(vault);
-        var step = new ScriptStep { StepNumber = 1, Description = "Connect to DB", Action = "type" };
+        var step = new ScriptStep { StepNumber = 1, Description = "Connect to DB", Action = "type", Parameters = { ["value"] = "text" } };
         step.Parameters["password"] = "{{credential:db-password}}";
         var resolved = resolver.ResolveParameters(step);
         resolved["password"].Should().Be("S3cr3tP@ss!");
@@ -145,7 +145,7 @@ public class DesignItIntegrationTests
         var v = new IsolatedModeValidator();
         var settings = new IsolatedModeSettings { IsEnabled = true };
         var s = new Script { Id = "it-07", Name = "IT-07", Version = "1.0.0", TargetRuntime = "browser" };
-        var step = new ScriptStep { StepNumber = 1, Description = "Load page", Action = "navigate" };
+        var step = new ScriptStep { StepNumber = 1, Description = "Load page", Action = "navigate", Parameters = { ["window"] = "Notepad" } };
         step.Parameters["url"] = "https://intranet.corp.com/app";
         s.Steps.Add(step);
         var r = v.Validate(s, settings);

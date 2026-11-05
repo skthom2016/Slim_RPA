@@ -23,9 +23,13 @@ Which actions are available depends on the segment's **runtime** — a browser s
 4. Press the **chevron** on the right of the row to open the step's details underneath it.
 5. Pick an **Action** from the dropdown. The list holds the actions that segment's runtime
    knows; you can type another name if you need one that is not listed.
-6. Press **+** next to **Parameters** for each parameter. It offers the next parameter the
-   chosen action understands. Change the name if you want a different one.
-7. Fill in the value.
+6. Press **+** next to **Parameters**. A row appears with an empty name.
+7. Pick the parameter from the **dropdown** on the left. It lists the ones this action takes,
+   required first, and drops any the step already has, so you cannot add the same one twice.
+   You can type a name that is not in the list for an action the catalogue does not know.
+8. Fill in the value on the right.
+
+Order does not matter. Parameters are looked up by name, so you can add them in any order.
 
 Reorder steps with the up and down arrows, and remove one with the bin. Step numbers renumber
 themselves.
@@ -173,8 +177,25 @@ pressing Start, or recording opens an empty browser and the site asks you to log
 
 ## What to check before publishing
 
-- **Validate** — catches missing descriptions, unknown runtimes, bad step numbering and
-  unresolved `${...}` references.
+- **Validate** — catches missing descriptions, unknown runtimes, bad step numbering,
+  unresolved `${...}` references, and the step problems below.
+
+### Step problems, caught before you run
+
+A step shows these under its parameters as soon as they appear, and Validate repeats them:
+
+| Reported | Example |
+|---|---|
+| A required parameter is missing or empty | `fill` with no `value` |
+| The step names no element | a `click` with no `role`/`css`/`label` |
+| The element is named more than one way | both `label` and `css`; only the first is used |
+| A parameter the action does not use | `labl` instead of `label`, silently ignored |
+| `name` without a `role` | `name` describes a `role` and does nothing alone |
+| A result name on an action that produces nothing | `storeAs` on a `fill` |
+| A number that is not one, or out of range | `ms: "soon"`, or a desktop delay over 30000 |
+| An action the runtime is not known to have | a typo in the action name |
+
+Errors stop a publish; the rest are warnings worth reading.
 - **Run Test** — a simulation. It confirms the shape of the script, not that the real app
   behaves. A passing test does not mean the script works.
 - Timing is yours to manage: put a `delay` after anything that opens a window or loads a page.

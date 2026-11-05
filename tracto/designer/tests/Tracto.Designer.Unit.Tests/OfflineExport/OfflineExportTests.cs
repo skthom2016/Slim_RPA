@@ -12,7 +12,7 @@ public class OfflineExportTests
     private static Script MakeScript()
     {
         var s = new Script { Id = "offline-test", Name = "Offline Test", Version = "1.0.0", TargetRuntime = "desktop" };
-        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click" });
+        s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

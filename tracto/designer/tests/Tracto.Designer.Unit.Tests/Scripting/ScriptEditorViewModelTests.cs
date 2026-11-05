@@ -10,7 +10,8 @@ public class ScriptEditorViewModelTests
     {
         var s = new Script { Name = "Test" };
         for (int i = 1; i <= stepCount; i++)
-            s.Steps.Add(new ScriptStep { StepNumber = i, Description = $"Step {i}", Action = "click" });
+            s.Steps.Add(new ScriptStep { StepNumber = i, Description = $"Step {i}", Action = "click",
+                Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
 

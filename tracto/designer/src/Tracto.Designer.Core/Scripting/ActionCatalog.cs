@@ -10,7 +10,8 @@ public sealed record ActionDefinition(
     string Runtime,
     IReadOnlyList<string> Required,
     IReadOnlyList<string> Optional,
-    IReadOnlyList<string> Outputs)
+    IReadOnlyList<string> Outputs,
+    bool NeedsElement = false)
 {
     /// <summary>Every parameter the action understands, required ones first.</summary>
     public IEnumerable<string> AllParameters => Required.Concat(Optional);
@@ -28,6 +29,20 @@ public static class ActionCatalog
     public static readonly IReadOnlyList<string> BrowserTargets =
         ["role", "name", "label", "placeholder", "testId", "text", "css", "xpath"];
 
+    /// <summary>
+    /// The parameters that actually pick an element. <c>name</c> is missing on purpose: it
+    /// qualifies <c>role</c> rather than standing on its own, so a step naming both still names
+    /// the element only once.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ElementSelectors =
+        ["role", "label", "placeholder", "testId", "text", "css", "xpath"];
+
+    /// <summary>Parameters whose value has to be a whole number of milliseconds.</summary>
+    public static readonly IReadOnlyList<string> NumericParameters = ["ms", "timeoutMs"];
+
+    /// <summary>The longest delay the desktop runtime accepts.</summary>
+    public const int MaxDesktopDelayMs = 30000;
+
     /// <summary>The parameter that exposes a step's outputs to later steps and segments.</summary>
     public const string StoreAs = "storeAs";
 
@@ -39,11 +54,17 @@ public static class ActionCatalog
     /// since choosing the element is the first thing an author does; one that does not
     /// (delay) is not offered selectors it cannot use.
     /// </summary>
+    /// <summary>
+    /// A browser action. <c>targeted</c> means it can be aimed at an element, so the selectors
+    /// are offered; <c>needsElement</c> means it cannot work without one. They differ for an
+    /// action that takes an element only to wait for or aim at: navigate needs a url and press
+    /// needs a key, and the element is theirs to use or leave.
+    /// </summary>
     private static ActionDefinition Browser(string name, string[] required, string[] optional, string[] outputs,
-        bool targeted = true) =>
+        bool targeted = true, bool needsElement = true) =>
         new(name, "browser", required,
             targeted ? [.. BrowserTargets.Concat(optional).Distinct()] : [.. optional],
-            outputs);
+            outputs, NeedsElement: targeted && needsElement);
 
     private static readonly ActionDefinition[] All =
     [
@@ -64,10 +85,10 @@ public static class ActionCatalog
         Desktop("http.post",     ["url"],         ["body", "contentType", "timeoutMs"], ["statusCode", "body", "json"]),
 
         // browser
-        Browser("navigate", ["url"],   ["timeoutMs"], []),
+        Browser("navigate", ["url"],   ["timeoutMs"], [], needsElement: false),
         Browser("fill",     ["value"], ["timeoutMs"], []),
         Browser("type",     ["value"], ["timeoutMs"], []),
-        Browser("press",    ["key"],   ["timeoutMs"], []),
+        Browser("press",    ["key"],   ["timeoutMs"], [], needsElement: false),
         Browser("click",    [],        ["timeoutMs"], []),
         Browser("dblclick", [],        ["timeoutMs"], []),
         Browser("hover",    [],        ["timeoutMs"], []),

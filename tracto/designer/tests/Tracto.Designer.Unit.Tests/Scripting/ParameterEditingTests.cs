@@ -30,6 +30,7 @@ public class ParameterEditingTests
         var row = vm.StepRows[0];
         row.AddParameter();
         var box = row.StepParameters.Single();
+        box.Name = "value";
 
         // One key at a time, the way a person types.
         foreach (var text in new[] { "t", "ti", "tib", "tibin" })
@@ -48,6 +49,7 @@ public class ParameterEditingTests
         var row = vm.StepRows[0];
         var before = row.ActionOptions;
         row.AddParameter();
+        row.StepParameters.Single().Name = "value";
 
         row.StepParameters.Single().Value = "Tibin";
 
@@ -85,6 +87,7 @@ public class ParameterEditingTests
         var row = vm.StepRows[0];
         row.AddParameter();
         var box = row.StepParameters.Single();
+        box.Name = "css";
 
         row.StoreAs = "topResult";
 

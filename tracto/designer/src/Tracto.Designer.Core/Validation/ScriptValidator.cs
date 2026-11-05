@@ -113,12 +113,19 @@ public sealed class ScriptValidator : IScriptValidator
     private static void CheckReferences(Script script, ScriptSegment? segment,
         IList<ScriptStep> steps, string prefix, List<ValidationError> errors)
     {
+        var runtime = segment?.Runtime ?? script.TargetRuntime;
         foreach (var step in steps)
         {
             foreach (var missing in DataFlow.UnresolvedIn(script, segment, step))
                 errors.Add(new("VAL-030", Error,
                     $"{prefix}Step {step.StepNumber} reads ${{{missing}}}, which nothing before it produces.",
                     step.StepNumber));
+
+            // What the action itself takes: a missing parameter fails the step at run time, and
+            // an unknown one is ignored in silence, so both are worth catching before publishing.
+            foreach (var issue in StepRules.Check(runtime, step))
+                errors.Add(new(issue.RuleId, issue.IsError ? Error : Warning,
+                    $"{prefix}Step {step.StepNumber}: {issue.Message}", step.StepNumber));
         }
     }
 
