@@ -1,0 +1,75 @@
+{
+  "id": "desktop-stages",
+  "name": "Desktop Stages",
+  "version": "1.0.0",
+  "params": {
+    "inPath": "C:\\data\\note.txt",
+    "outPath": "C:\\data\\summary.txt"
+  },
+  "segments": [
+    {
+      "name": "Read the note",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "file.read",
+          "description": "Read the note into variables",
+          "parameters": {
+            "path": "${param.inPath}",
+            "storeAs": "note"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Write the summary",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "notepad.type",
+          "description": "Type what the first segment read",
+          "parameters": {
+            "text": "Source: ${param.inPath}\nFirst line: ${param.note.firstLine}\nLines: ${param.note.lineCount}\nWritten: ${now.local}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "file.saveAs",
+          "description": "Save the summary",
+          "parameters": {
+            "filePath": "${param.outPath}",
+            "windowTitle": "Notepad",
+            "overwrite": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -242,6 +242,53 @@ One file, two segments. The desktop segment reads the text; the browser segment 
 
 ---
 
+## 16. Split one desktop job into stages (several desktop segments)
+
+**Not verified end to end.** The mechanism is the same one recipe 15 uses across runtimes, which
+is verified; two desktop segments in a row have not been run on a live worker.
+
+Use this when a stage produces a value worth recording, or when you want the Orchestrator to
+show which stage failed. Template: `references/templates/segmented-desktop-stages.json`.
+
+```json
+{
+  "id": "desktop-stages",
+  "name": "Desktop Stages",
+  "version": "1.0.0",
+  "params": { "inPath": "C:\\data\\note.txt", "outPath": "C:\\data\\summary.txt" },
+  "segments": [
+    { "name": "Read the note", "runtime": "desktop", "steps": [
+      { "stepNumber": 1, "action": "file.read", "description": "Read the note into variables",
+        "parameters": { "path": "${param.inPath}", "storeAs": "note" } }
+    ] },
+    { "name": "Write the summary", "runtime": "desktop", "steps": [
+      { "stepNumber": 1, "action": "app.launch", "description": "Open Notepad",
+        "parameters": { "executable": "notepad.exe" } },
+      { "stepNumber": 2, "action": "delay", "description": "Wait for the window",
+        "parameters": { "ms": "2000" } },
+      { "stepNumber": 3, "action": "notepad.type", "description": "Type what the first segment read",
+        "parameters": { "text": "First line: ${param.note.firstLine}",
+                        "windowTitle": "Untitled - Notepad" } }
+    ] }
+  ]
+}
+```
+
+What makes this work, and what breaks it:
+
+- The first segment publishes with `storeAs: "note"`. The second reads it as
+  `${param.note.firstLine}`, with the `param.` prefix, because it is a different segment.
+  Inside one segment it would be `${note.firstLine}`.
+- **The second segment opens its own Notepad.** It cannot use one the first segment left open:
+  segments are separate runs and may be claimed by different desktop workers, so nothing on the
+  screen is guaranteed to survive the boundary.
+- Put steps that must share the screen in the **same** segment. Opening an app in one segment
+  and typing into it from the next is the single most common way to get this wrong.
+- Step numbers restart at 1 in every segment.
+
+Split on values, not on convenience: if two stages share anything other than a `storeAs` output,
+they belong in one segment.
+
 ## When a script misbehaves
 
 | Symptom | Likely cause |

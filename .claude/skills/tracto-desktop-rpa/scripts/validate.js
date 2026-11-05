@@ -19,7 +19,9 @@ const RUNTIMES = ['desktop', 'browser', 'terminal'];
 const SEGMENT_FIELDS = ['name', 'runtime', 'mode', 'profile', 'steps'];
 const BROWSER_MODES = ['headed', 'headless'];
 const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const STEP_FIELDS = ['stepNumber', 'action', 'description', 'parameters'];
+// 'condition' is accepted and ignored by every runtime. The Designer writes it on every
+// step it exports, so rejecting it would fail every file that came out of the Designer.
+const STEP_FIELDS = ['stepNumber', 'action', 'description', 'parameters', 'condition'];
 const SHEET_FIELDS = {
   '/batch': ['header', 'startRow', 'endRow', 'rows', 'scanned', 'count', 'endOfData', 'nextStartRow', 'text'],
   '/update': ['rows', 'cells'],
