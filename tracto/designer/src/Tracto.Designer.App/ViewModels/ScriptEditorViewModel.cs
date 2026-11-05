@@ -13,6 +13,8 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     private Script? _script;
     private ScriptStep? _selectedStep;
     private ScriptSegment? _selectedSegment;
+    private StepParameterRow? _selectedParameter;
+    private ScriptStep? _watchedStep;
 
     public Script? Script
     {
@@ -22,11 +24,10 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
             if (_script is not null) _script.Segments.CollectionChanged -= OnSegmentsChanged;
             _script = value;
             if (_script is not null) _script.Segments.CollectionChanged += OnSegmentsChanged;
-            _selectedStep = null;
             _selectedSegment = _script?.Segments.FirstOrDefault();
+            SelectedStep = null;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasScript));
-            OnPropertyChanged(nameof(SelectedStep));
             RefreshSegmentState();
         }
     }
@@ -34,7 +35,166 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     public ScriptStep? SelectedStep
     {
         get => _selectedStep;
-        set { _selectedStep = value; OnPropertyChanged(); UpdateCommandStates(); }
+        set
+        {
+            if (_watchedStep is not null) _watchedStep.PropertyChanged -= OnSelectedStepChanged;
+            _selectedStep = value;
+            _watchedStep = value;
+            if (_watchedStep is not null) _watchedStep.PropertyChanged += OnSelectedStepChanged;
+            OnPropertyChanged();
+            RefreshStepEditor();
+            UpdateCommandStates();
+        }
+    }
+
+    /// <summary>The parameter row an inserted reference is written into.</summary>
+    public StepParameterRow? SelectedParameter
+    {
+        get => _selectedParameter;
+        set { _selectedParameter = value; OnPropertyChanged(); UpdateCommandStates(); }
+    }
+
+    /// <summary>The selected step's parameters, editable as name and value pairs.</summary>
+    public ObservableCollection<StepParameterRow> StepParameters { get; } = [];
+
+    /// <summary>What a later step or segment can read once this step has run.</summary>
+    public ObservableCollection<DataReference> AvailableData { get; } = [];
+
+    /// <summary>Actions the runtime of the selected segment understands.</summary>
+    public IReadOnlyList<string> ActionOptions => ActionCatalog.NamesFor(StepRuntime);
+
+    /// <summary>Parameters the selected action understands but the step does not carry yet.</summary>
+    public IReadOnlyList<string> SuggestedParameters
+    {
+        get
+        {
+            if (_selectedStep is null) return [];
+            var known = ActionCatalog.Find(StepRuntime, _selectedStep.Action)?.AllParameters ?? [];
+            return [.. known.Concat([ActionCatalog.StoreAs])
+                            .Where(p => !_selectedStep.Parameters.ContainsKey(p))
+                            .Distinct(StringComparer.Ordinal)];
+        }
+    }
+
+    /// <summary>
+    /// The name this step publishes its outputs under. Setting it is how data reaches a later
+    /// step, and across a segment boundary a later segment.
+    /// </summary>
+    public string StoreAs
+    {
+        get => _selectedStep is null ? string.Empty : DataFlow.StoreAsOf(_selectedStep) ?? string.Empty;
+        set
+        {
+            if (_selectedStep is null) return;
+            var next = value?.Trim() ?? string.Empty;
+            if (next.Length == 0) _selectedStep.Parameters.Remove(ActionCatalog.StoreAs);
+            else _selectedStep.Parameters[ActionCatalog.StoreAs] = next;
+            OnPropertyChanged();
+            RefreshStepEditor();
+        }
+    }
+
+    /// <summary>What the selected step publishes, spelled out as the references to use.</summary>
+    public string StoreAsHint
+    {
+        get
+        {
+            if (_selectedStep is null) return string.Empty;
+            var outputs = ActionCatalog.OutputsOf(StepRuntime, _selectedStep.Action);
+            if (outputs.Count == 0) return "This action produces no data of its own.";
+            var name = DataFlow.StoreAsOf(_selectedStep);
+            if (name is null)
+                return "Name it to publish " + string.Join(", ", outputs) + " to later steps and segments.";
+            return "Later segments read it as "
+                 + string.Join(", ", outputs.Select(o => "${param." + name + "." + o + "}"));
+        }
+    }
+
+    public bool HasAvailableData => AvailableData.Count > 0;
+
+    private string StepRuntime =>
+        _script is null ? "desktop"
+        : _script.IsSegmented ? _selectedSegment?.Runtime ?? "desktop"
+        : _script.TargetRuntime;
+
+    private void OnSelectedStepChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ScriptStep.Action)) return;
+        OnPropertyChanged(nameof(SuggestedParameters));
+        OnPropertyChanged(nameof(StoreAsHint));
+    }
+
+    /// <summary>Rebuilds the parameter rows and the list of data the step can read.</summary>
+    private void RefreshStepEditor()
+    {
+        StepParameters.Clear();
+        _selectedParameter = null;
+        if (_selectedStep is not null)
+        {
+            foreach (var name in _selectedStep.Parameters.Keys.ToList())
+                StepParameters.Add(new StepParameterRow(_selectedStep.Parameters, name, OnParameterEdited));
+        }
+
+        AvailableData.Clear();
+        if (_script is not null)
+        {
+            foreach (var d in DataFlow.AvailableTo(_script, _selectedSegment, _selectedStep))
+                AvailableData.Add(d);
+        }
+
+        OnPropertyChanged(nameof(SelectedParameter));
+        OnPropertyChanged(nameof(StoreAs));
+        OnPropertyChanged(nameof(StoreAsHint));
+        OnPropertyChanged(nameof(ActionOptions));
+        OnPropertyChanged(nameof(SuggestedParameters));
+        OnPropertyChanged(nameof(HasAvailableData));
+    }
+
+    private void OnParameterEdited()
+    {
+        OnPropertyChanged(nameof(StoreAs));
+        OnPropertyChanged(nameof(StoreAsHint));
+        OnPropertyChanged(nameof(SuggestedParameters));
+    }
+
+    private void AddParameter()
+    {
+        if (_selectedStep is null) return;
+        var name = SuggestedParameters.FirstOrDefault() ?? NextFreeName();
+        _selectedStep.Parameters[name] = string.Empty;
+        var row = new StepParameterRow(_selectedStep.Parameters, name, OnParameterEdited);
+        StepParameters.Add(row);
+        SelectedParameter = row;
+        OnParameterEdited();
+    }
+
+    private string NextFreeName()
+    {
+        if (_selectedStep is null) return "parameter";
+        for (int i = 1; ; i++)
+        {
+            var candidate = i == 1 ? "parameter" : "parameter" + i;
+            if (!_selectedStep.Parameters.ContainsKey(candidate)) return candidate;
+        }
+    }
+
+    private void DeleteParameter()
+    {
+        if (_selectedStep is null || _selectedParameter is null) return;
+        _selectedStep.Parameters.Remove(_selectedParameter.Name);
+        StepParameters.Remove(_selectedParameter);
+        SelectedParameter = null;
+        OnParameterEdited();
+    }
+
+    /// <summary>
+    /// Writes a reference into the selected parameter, so data is handed on by picking it
+    /// rather than by retyping the name of something produced in another segment.
+    /// </summary>
+    private void InsertReference(object? parameter)
+    {
+        if (_selectedParameter is null || parameter is not DataReference reference) return;
+        _selectedParameter.Value = (_selectedParameter.Value ?? string.Empty) + reference.Reference;
     }
 
     public ScriptSegment? SelectedSegment
@@ -43,9 +203,8 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         set
         {
             _selectedSegment = value;
-            _selectedStep = null;
+            SelectedStep = null;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedStep));
             OnPropertyChanged(nameof(ActiveSteps));
             OnPropertyChanged(nameof(HasSelectedSegment));
             UpdateCommandStates();
@@ -95,6 +254,9 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     public ICommand MoveSegmentUpCommand  { get; }
     public ICommand MoveSegmentDownCommand{ get; }
     public ICommand MergeToSingleCommand  { get; }
+    public ICommand AddParameterCommand   { get; }
+    public ICommand DeleteParameterCommand{ get; }
+    public ICommand InsertReferenceCommand{ get; }
 
     public ScriptEditorViewModel()
     {
@@ -110,6 +272,9 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         MoveSegmentUpCommand   = new RelayCommand(_ => MoveSegment(-1), _ => CanMoveSegment(-1));
         MoveSegmentDownCommand = new RelayCommand(_ => MoveSegment(1),  _ => CanMoveSegment(1));
         MergeToSingleCommand   = new RelayCommand(_ => MergeToSingle(), _ => _script is { Segments.Count: 1 });
+        AddParameterCommand    = new RelayCommand(_ => AddParameter(), _ => _selectedStep is not null);
+        DeleteParameterCommand = new RelayCommand(_ => DeleteParameter(), _ => _selectedParameter is not null);
+        InsertReferenceCommand = new RelayCommand(InsertReference, _ => _selectedParameter is not null);
     }
 
     public void LoadScript(Script script)
@@ -278,6 +443,7 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasSelectedSegment));
         OnPropertyChanged(nameof(ActiveSteps));
         OnPropertyChanged(nameof(ParamsText));
+        RefreshStepEditor();
         UpdateCommandStates();
     }
 
@@ -305,6 +471,9 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
         ((RelayCommand)MoveSegmentUpCommand).RaiseCanExecuteChanged();
         ((RelayCommand)MoveSegmentDownCommand).RaiseCanExecuteChanged();
         ((RelayCommand)MergeToSingleCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)AddParameterCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)DeleteParameterCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)InsertReferenceCommand).RaiseCanExecuteChanged();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

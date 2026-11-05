@@ -16,6 +16,7 @@
             <conv:DigestTruncateConverter   x:Key="DigestTruncateConverter"/>
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
             <conv:TextToVisibilityConverter x:Key="TextToVisibilityConverter"/>
+            <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

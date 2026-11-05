@@ -31,6 +31,8 @@ public sealed class ScriptValidator : IScriptValidator
         else
             ValidateFlat(script, errors);
 
+        ValidateDataFlow(script, errors);
+
         return new ScriptValidationResult(errors);
     }
 
@@ -87,6 +89,36 @@ public sealed class ScriptValidator : IScriptValidator
             }
 
             ValidateSteps(seg.Steps, label + ": ", errors);
+        }
+    }
+
+    /// <summary>
+    /// A reference nothing produces is left in the text by the runtimes rather than failing, so
+    /// an unnoticed typo reaches the live run as the literal text of the reference.
+    /// </summary>
+    private static void ValidateDataFlow(Script script, List<ValidationError> errors)
+    {
+        if (script.IsSegmented)
+        {
+            for (int i = 0; i < script.Segments.Count; i++)
+                CheckReferences(script, script.Segments[i], script.Segments[i].Steps,
+                    $"Segment {i + 1} ({script.Segments[i].Name}): ", errors);
+        }
+        else
+        {
+            CheckReferences(script, null, script.Steps, "", errors);
+        }
+    }
+
+    private static void CheckReferences(Script script, ScriptSegment? segment,
+        IList<ScriptStep> steps, string prefix, List<ValidationError> errors)
+    {
+        foreach (var step in steps)
+        {
+            foreach (var missing in DataFlow.UnresolvedIn(script, segment, step))
+                errors.Add(new("VAL-030", Error,
+                    $"{prefix}Step {step.StepNumber} reads ${{{missing}}}, which nothing before it produces.",
+                    step.StepNumber));
         }
     }
 
