@@ -1,0 +1,110 @@
+{
+  "id": "browser-then-desktop",
+  "name": "Browser Then Desktop",
+  "version": "1.0.0",
+  "params": {
+    "query": "Wonderla",
+    "notePath": "C:\\Users\\Public\\Documents\\search-result.txt",
+    "noteName": "search-result.txt"
+  },
+  "segments": [
+    {
+      "name": "Search and read the top result",
+      "runtime": "browser",
+      "mode": "headed",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "navigate",
+          "description": "Open the Bing results",
+          "parameters": {
+            "url": "https://www.bing.com/search?q=${param.query}"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Let the results render",
+          "parameters": {
+            "ms": "3000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "getText",
+          "description": "Read the first heading",
+          "parameters": {
+            "css": "#b_results .b_algo h2 >> nth=0",
+            "storeAs": "topResult"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Write it into Notepad",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open Notepad",
+          "parameters": {
+            "executable": "notepad.exe"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "notepad.type",
+          "description": "Type what the search found",
+          "parameters": {
+            "text": "Search: ${param.query}\nTop result: ${param.topResult.value}",
+            "windowTitle": "Untitled - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "file.saveAs",
+          "description": "Save the note",
+          "parameters": {
+            "filePath": "${param.notePath}",
+            "windowTitle": "Notepad",
+            "overwrite": "true"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "delay",
+          "description": "Let the save finish",
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "key",
+          "description": "Close the note",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.noteName} - Notepad"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -128,6 +128,21 @@ public class StepRulesTests
     }
 
     [Fact]
+    public void An_Assert_On_The_Url_Needs_No_Element()
+    {
+        // The runtime only demands an element for the kinds that look at one.
+        Rules("browser", Step("assert", ("kind", "urlEquals"), ("expected", "https://x/")))
+            .Should().NotContain("VAL-035");
+    }
+
+    [Fact]
+    public void Reading_Every_Match_Is_A_Known_Action()
+    {
+        StepRules.Check("browser", Step("getTexts", ("css", ".row"), ("storeAs", "rows")))
+                 .Should().BeEmpty("getTexts reads every element the target matches");
+    }
+
+    [Fact]
     public void A_Correct_Step_Has_Nothing_To_Report()
     {
         StepRules.Check("desktop", Step("app.launch", ("executable", "notepad.exe"))).Should().BeEmpty();

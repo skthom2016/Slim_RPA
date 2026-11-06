@@ -1,0 +1,88 @@
+{
+  "id": "search-and-read",
+  "name": "Search And Read",
+  "version": "1.0.0",
+  "params": {
+    "query": "Wonderla"
+  },
+  "segments": [
+    {
+      "name": "Search and read the first result",
+      "runtime": "browser",
+      "mode": "headed",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "navigate",
+          "description": "Open Bing",
+          "parameters": {
+            "url": "https://www.bing.com/"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Let the page settle",
+          "parameters": {
+            "ms": "2000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "fill",
+          "description": "Type the search",
+          "parameters": {
+            "placeholder": "Search the web",
+            "value": "${param.query}"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Bing swallows an Enter sent too early",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "press",
+          "description": "Search",
+          "parameters": {
+            "placeholder": "Search the web",
+            "key": "Enter"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "wait",
+          "description": "Wait for the results",
+          "parameters": {
+            "css": "#b_results .b_algo h2 >> nth=0",
+            "timeoutMs": "20000"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "getText",
+          "description": "Read the first heading",
+          "parameters": {
+            "css": "#b_results .b_algo h2 >> nth=0",
+            "storeAs": "headline"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "getTexts",
+          "description": "Read the first five headings",
+          "parameters": {
+            "css": "#b_results .b_algo h2",
+            "limit": "5",
+            "separator": " | ",
+            "storeAs": "headings"
+          }
+        }
+      ]
+    }
+  ]
+}

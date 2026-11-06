@@ -1,0 +1,301 @@
+{
+  "selectors": [
+    "role",
+    "name",
+    "label",
+    "placeholder",
+    "testId",
+    "text",
+    "css",
+    "xpath"
+  ],
+  "elementSelectors": [
+    "role",
+    "label",
+    "placeholder",
+    "testId",
+    "text",
+    "css",
+    "xpath"
+  ],
+  "assertKinds": [
+    "visible",
+    "enabled",
+    "checked",
+    "urlEquals",
+    "url",
+    "textEquals",
+    "text"
+  ],
+  "assertKindsNeedingExpected": [
+    "urlequals",
+    "url",
+    "textequals",
+    "text"
+  ],
+  "assertKindsWithoutElement": [
+    "urlequals",
+    "url"
+  ],
+  "maxDelayMs": 60000,
+  "actions": {
+    "navigate": {
+      "canonical": "browser.page.navigate",
+      "aliases": [
+        "goto",
+        "browser.navigate"
+      ],
+      "element": "no",
+      "required": [
+        "url"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "wait": {
+      "canonical": "browser.element.wait",
+      "aliases": [
+        "browser.wait"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "find": {
+      "canonical": "browser.element.find",
+      "aliases": [
+        "browser.find"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "fill": {
+      "canonical": "browser.element.fill",
+      "aliases": [
+        "browser.fill"
+      ],
+      "element": "required",
+      "required": [
+        "value"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "type": {
+      "canonical": "browser.element.type",
+      "aliases": [
+        "browser.type"
+      ],
+      "element": "required",
+      "required": [
+        "value"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "select": {
+      "canonical": "browser.element.select",
+      "aliases": [
+        "browser.select"
+      ],
+      "element": "required",
+      "required": [
+        "value"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "check": {
+      "canonical": "browser.element.check",
+      "aliases": [
+        "browser.check"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "uncheck": {
+      "canonical": "browser.element.uncheck",
+      "aliases": [
+        "browser.uncheck"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "click": {
+      "canonical": "browser.element.click",
+      "aliases": [
+        "browser.click"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "dblclick": {
+      "canonical": "browser.element.dblclick",
+      "aliases": [
+        "browser.dblclick"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "hover": {
+      "canonical": "browser.element.hover",
+      "aliases": [
+        "browser.hover"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "scroll": {
+      "canonical": "browser.element.scroll",
+      "aliases": [
+        "browser.scroll"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "press": {
+      "canonical": "browser.keyboard.shortcut",
+      "aliases": [
+        "key",
+        "browser.press",
+        "browser.key"
+      ],
+      "element": "optional",
+      "required": [
+        "key"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "assert": {
+      "canonical": "browser.page.assert",
+      "aliases": [
+        "browser.assert"
+      ],
+      "element": "kind",
+      "required": [
+        "kind"
+      ],
+      "optional": [
+        "expected",
+        "timeoutMs"
+      ],
+      "outputs": []
+    },
+    "getText": {
+      "canonical": "browser.element.getText",
+      "aliases": [
+        "browser.getText"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value"
+      ]
+    },
+    "getValue": {
+      "canonical": "browser.element.getValue",
+      "aliases": [
+        "browser.getValue"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value"
+      ]
+    },
+    "getAttr": {
+      "canonical": "browser.element.getAttr",
+      "aliases": [
+        "browser.getAttr"
+      ],
+      "element": "required",
+      "required": [
+        "attribute"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value"
+      ]
+    },
+    "getTexts": {
+      "canonical": "browser.element.getTexts",
+      "aliases": [
+        "browser.getTexts"
+      ],
+      "element": "required",
+      "required": [],
+      "optional": [
+        "limit",
+        "separator",
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value",
+        "count"
+      ]
+    },
+    "delay": {
+      "canonical": "delay",
+      "aliases": [
+        "sleep",
+        "browser.delay"
+      ],
+      "element": "no",
+      "required": [
+        "ms"
+      ],
+      "optional": [],
+      "outputs": []
+    }
+  }
+}

@@ -90,16 +90,17 @@ public class StepEditorTests
     }
 
     [Fact]
-    public void The_Name_Box_Offers_What_The_Action_Takes_And_Drops_What_Is_Used()
+    public void The_Name_Box_Offers_Everything_The_Action_Takes()
     {
+        // Including names already on the step: dropping one as it is picked rebinds the box in
+        // the middle of the pick and blanks it. A name in use is refused by the row instead.
         var vm = EditorWith(TwoSegments());
         vm.SelectedSegment = vm.Script!.Segments[1];
         vm.SelectedStep = vm.SelectedSegment.Steps[0];
         var row = vm.StepRows[0];
         row.IsExpanded = true;
 
-        row.ParameterNameOptions.Should().Contain("windowTitle");
-        row.ParameterNameOptions.Should().NotContain("text", "the step already has a text parameter");
+        row.ParameterNameOptions.Should().Contain(["text", "windowTitle", "storeAs"]);
     }
 
     [Fact]

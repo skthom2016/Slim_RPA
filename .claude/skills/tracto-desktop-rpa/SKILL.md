@@ -1,6 +1,6 @@
 ---
 name: tracto-desktop-rpa
-description: Use when asked to create, edit, clean, review or validate a Tracto desktop RPA script (the JSON flow the Desktop Runtime executes on Windows): opening apps, typing, keyboard shortcuts, clicks, saving files, copying/moving/deleting files, calling APIs, reading Excel/Google/SharePoint sheets, moving data between apps. Covers a flow built from several desktop segments that hand values to each other, and a single-segment flow. Contains everything needed to write a correct script without reading the project's code or schema. A flow may also contain browser segments; this skill covers only how they join on, not the browser actions themselves. Not terminal runtimes; not for publishing or running.
+description: Use when asked to create, edit, clean, review or validate a Tracto desktop RPA script (the JSON flow the Desktop Runtime executes on Windows): opening apps, typing, keyboard shortcuts, clicks, saving files, copying/moving/deleting files, calling APIs, reading Excel/Google/SharePoint sheets, moving data between apps. Covers a flow built from several desktop segments that hand values to each other, and a single-segment flow. Contains everything needed to write a correct script without reading the project's code or schema. Use it for the desktop segments of a flow. A flow may also contain browser segments; this skill covers only how they join on, and the tracto-browser-rpa skill covers the browser segment itself. Not terminal runtimes; not for publishing or running.
 ---
 
 # Tracto desktop RPA scripts
@@ -231,9 +231,9 @@ its runtime and passes `${param...}` across exactly as above. That part is cover
 **not** covered here is how to write a browser segment's own steps, which have their own actions
 (`fill`, `click`, `getText`) and their own way of naming elements.
 
-Write those from `tracto/browser-runtime/README.md` and its `samples/`, or from the browser skill
-when it exists. This skill's validator checks a browser segment's structure and variable
-references only.
+Write those with the **`tracto-browser-rpa`** skill, which covers the browser actions, how an
+element is named, and how to sign in without a password in the script. This skill's validator
+checks a browser segment's structure and variable references only; that one checks it in full.
 
 Two differences that catch people out:
 
@@ -318,7 +318,19 @@ with the files checked on disk afterwards. Templates for each are in `references
    | `file.saveAs` straight after typing | `Notepad` (loose: the title is now the typed text) |
    | Anything after the save | `<file name> - Notepad` (exact and safe) |
 
-10. **A launcher is not the app.** Some apps ship a small stub that starts the real process and
+10. **What is already open decides which titles exist.** A script that waits for
+    `Untitled - Notepad` finds nothing when Notepad is already open on an unsaved file, because
+    the window is called `*notes.txt - Notepad` instead. `notepad.type` then fails, since it is
+    one of the two actions that fail outright when their window is missing. The same goes for
+    Word, Excel and anything else that reuses one window or one process.
+
+    **Verified**, twice over: the identical script failed with two unsaved Notepad windows open
+    and succeeded minutes later once they were gone. Nothing in the script changed.
+
+    So either run on a machine where the app is closed, or do not depend on the empty-document
+    title at all: create the file first and open it by name, which gives a title you chose.
+
+11. **A launcher is not the app.** Some apps ship a small stub that starts the real process and
     exits at once. `calc.exe` is 49 KB and does exactly that; the app that appears is
     `CalculatorApp` in a window titled `Calculator`. `app.launch` still works, and the window is
     still matched by title, but do not expect the process it started to still be running, and do

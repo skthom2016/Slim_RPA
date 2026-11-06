@@ -1,0 +1,53 @@
+{
+  "id": "signed-in-profile",
+  "name": "Signed In Profile",
+  "version": "1.0.0",
+  "params": {
+    "mailUrl": "https://outlook.office.com/mail/"
+  },
+  "segments": [
+    {
+      "name": "Open the mailbox already signed in",
+      "runtime": "browser",
+      "mode": "headed",
+      "profile": "default",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "navigate",
+          "description": "Open the mailbox",
+          "parameters": {
+            "url": "${param.mailUrl}"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Let the mailbox load",
+          "parameters": {
+            "ms": "6000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "assert",
+          "description": "We are not sitting on a login page",
+          "parameters": {
+            "kind": "visible",
+            "role": "button",
+            "name": "New"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "getText",
+          "description": "Read the first row of the message list",
+          "parameters": {
+            "css": "[role='option'] >> nth=0",
+            "storeAs": "firstMessage"
+          }
+        }
+      ]
+    }
+  ]
+}

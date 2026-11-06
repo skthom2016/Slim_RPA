@@ -101,7 +101,12 @@ public static class ActionCatalog
         Browser("getText",  [],        ["timeoutMs"], ["value"]),
         Browser("getValue", [],        ["timeoutMs"], ["value"]),
         Browser("getAttr",  ["attribute"], ["timeoutMs"], ["value"]),
-        Browser("assert",   ["kind", "expected"], ["timeoutMs"], []),
+        // The runtime needs an element for every kind except urlEquals, and only
+        // urlEquals and textEquals need an expected value, so neither can be demanded here.
+        Browser("assert",   ["kind"], ["expected", "timeoutMs"], [], needsElement: false),
+        // Reads every element the target matches, joined; the one action where several
+        // matches are the point rather than an error.
+        Browser("getTexts", [], ["limit", "separator", "timeoutMs"], ["value"]),
         Browser("delay",    ["ms"],    [], [], targeted: false),
     ];
 
