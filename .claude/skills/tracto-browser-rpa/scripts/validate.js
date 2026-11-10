@@ -238,6 +238,15 @@ function checkBrowserStep(step, where, ctx) {
   if (name === 'navigate' && p.url && !p.url.includes('${') && !/^[a-z][a-z0-9+.-]*:\/\//i.test(p.url))
     report.error(`${where}: "url" must be absolute (https://...), got "${p.url}"`);
 
+  // The runtime reads "ms", "timeoutMs" and "limit" while it validates the script, which happens
+  // before any ${...} is substituted. A variable in one of them is therefore never a number by
+  // the time it is read, and the run is rejected. They have to be literal.
+  for (const key of ['ms', 'timeoutMs', 'limit']) {
+    if (p[key] && p[key].includes('${'))
+      report.error(`${where}: "${key}" cannot be a variable — it is read before `
+        + `\${...} is substituted. Write the number in the step, got "${p[key]}"`);
+  }
+
   if (name === 'delay' && p.ms && !p.ms.includes('${')) {
     if (!/^\d+$/.test(p.ms)) report.error(`${where}: "ms" must be a whole number in a string, got "${p.ms}"`);
     else if (Number(p.ms) > META.maxDelayMs) report.warn(`${where}: a browser delay is capped at ${META.maxDelayMs} ms`);

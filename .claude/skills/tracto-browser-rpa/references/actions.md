@@ -54,6 +54,20 @@ on `getText`, `getValue`, `getAttr` and `getTexts`.
 | `getTexts` | **yes** | | `limit`, `separator`, `timeoutMs` | `value`, `count` |
 | `delay` | no | `ms` | | |
 
+### `ms`, `timeoutMs` and `limit` must be literal numbers
+
+These three are read while the script is validated, which happens before any `${...}` is
+substituted. A variable in one of them is never a number by the time it is read, so the run is
+rejected before a browser opens:
+
+```
+Run ...: script rejected — step.7: limit must be a non-negative integer.
+```
+
+Write the number in the step. A desktop segment is the other way round — it expands variables
+per step, before the handler parses them — so `"ms": "${param.wait}"` works there and not here.
+The validator in this skill reports it as an error.
+
 ---
 
 ## navigate
