@@ -122,6 +122,12 @@ func main() {
 	r.Get("/admin/telemetry", th.List)
 	r.Get("/admin/telemetry/{runId}", th.GetByRun)
 
+	// Run logs: what a runtime warned or failed about while it ran a job
+	lgh := handlers.NewLogHandler(database)
+	r.Post("/jobs/{runId}/logs", lgh.Append)
+	r.Get("/admin/logs", lgh.List)
+	r.Get("/admin/logs/{runId}", lgh.GetByRun)
+
 	// Admin: schedules
 	sh := handlers.NewScheduleHandler(database)
 	r.Post("/admin/schedules", sh.Create)

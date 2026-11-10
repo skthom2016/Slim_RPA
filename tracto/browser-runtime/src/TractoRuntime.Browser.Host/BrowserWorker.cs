@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using TractoRuntime.Browser.Diagnostics;
 
 namespace TractoRuntime.Browser.Host;
 
@@ -12,6 +13,7 @@ public sealed class BrowserWorker(
     BrowserHostOptions options,
     OrchestratorClient orchestrator,
     BrowserRunEngine engine,
+    RunLogSink logSink,
     ILogger<BrowserWorker> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -62,6 +64,24 @@ public sealed class BrowserWorker(
         log.LogInformation("Job acquired — runId {RunId}, artifact {Artifact}/{Version}",
             lease.RunId, lease.ArtifactId, lease.ArtifactVersion);
 
+        // From here until the result is in, every Warning and Error the host logs is collected
+        // against this run. Started before the lease is accepted so a failure there is kept too,
+        // and sent in the finally so no exit from the run loses what explains it.
+        logSink.BeginRun(lease.RunId, lease.AttemptId);
+        try
+        {
+            await RunLeasedJobAsync(lease, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            var entries = logSink.EndRunAndDrain();
+            await orchestrator.SendLogsAsync(lease.RunId, lease.AttemptId, options.WorkerId, entries,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RunLeasedJobAsync(JobLease lease, CancellationToken ct)
+    {
         try
         {
             await orchestrator.AcceptLeaseAsync(lease, options.WorkerId, ct).ConfigureAwait(false);

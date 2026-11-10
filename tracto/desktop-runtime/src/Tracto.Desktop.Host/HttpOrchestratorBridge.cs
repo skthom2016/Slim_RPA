@@ -8,6 +8,7 @@ using Tracto.Contract.Models;
 using Tracto.Contract.Models.Execution;
 using Tracto.Contract.Models.Protocol;
 using Tracto.Contract.Orchestrator;
+using Tracto.Desktop.Protocol;
 using static Tracto.Contract.Models.ReconcileDisposition;
 
 namespace Tracto.Desktop.Host;
@@ -190,6 +191,44 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
         resp.EnsureSuccessStatusCode();
         _leaseCache.TryRemove(result.LeaseId, out _);
         _params.TryRemove(result.LeaseId, out _);
+    }
+
+    // ── Run logs ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sends what the worker logged while running a job. Failing to store logs must never fail
+    /// the run itself — the result has already been submitted by this point — so a rejection is
+    /// swallowed rather than thrown.
+    /// </summary>
+    public async Task SendRunLogsAsync(
+        string runId, string? attemptId, string workerId,
+        IReadOnlyList<RunLogEntry> entries, CancellationToken ct = default)
+    {
+        if (entries.Count == 0) return;
+
+        var body = new
+        {
+            workerId,
+            runtime   = "desktop",
+            attemptId,
+            entries   = entries.Select(e => new
+            {
+                level      = e.Level,
+                stepId     = e.StepId,
+                message    = e.Message,
+                occurredAt = e.OccurredAt.UtcDateTime.ToString("O"),
+            }).ToArray(),
+        };
+
+        try
+        {
+            using var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/logs", body, JsonOpts, ct);
+            // A rejection is not worth a console line of its own: the run already reported.
+        }
+        catch (Exception)
+        {
+            // The Orchestrator may be down; the run's own result matters more than its logs.
+        }
     }
 
     // ── Reconcile ─────────────────────────────────────────────────────────────

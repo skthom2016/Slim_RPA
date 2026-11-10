@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using TractoRuntime.Browser.Diagnostics;
 
 namespace TractoRuntime.Browser.Host;
 
@@ -136,6 +137,44 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         {
             var detail = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             throw new InvalidOperationException($"Result rejected: {(int)resp.StatusCode} {detail}");
+        }
+    }
+
+    /// <summary>
+    /// Sends what the worker logged while running a job. Failing to store logs must never fail
+    /// the run itself — the result has already been submitted by this point — so a rejection is
+    /// logged and swallowed rather than thrown.
+    /// </summary>
+    public async Task SendLogsAsync(
+        string runId, string? attemptId, string workerId,
+        IReadOnlyList<RunLogEntry> entries, CancellationToken ct)
+    {
+        if (entries.Count == 0) return;
+
+        var body = new
+        {
+            workerId,
+            runtime   = "browser",
+            attemptId,
+            entries   = entries.Select(e => new
+            {
+                level      = e.Level,
+                stepId     = e.StepId,
+                message    = e.Message,
+                occurredAt = e.OccurredAt.UtcDateTime.ToString("O"),
+            }),
+        };
+
+        try
+        {
+            using var resp = await http.PostAsJsonAsync($"jobs/{runId}/logs", body, Json, ct)
+                .ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                logger.LogDebug("Run {RunId}: log upload returned {Status}.", runId, (int)resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Run {RunId}: log upload failed.", runId);
         }
     }
 

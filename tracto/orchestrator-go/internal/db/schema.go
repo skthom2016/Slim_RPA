@@ -201,6 +201,26 @@ CREATE TABLE IF NOT EXISTS TelemetryEvents (
 CREATE INDEX IF NOT EXISTS IX_TelemetryEvents_RunId_OccurredAt ON TelemetryEvents(RunId, OccurredAt);
 CREATE INDEX IF NOT EXISTS IX_TelemetryEvents_EventType ON TelemetryEvents(EventType);
 
+-- What a runtime logged while it ran a job, kept so a failure can be explained afterwards.
+-- Only Warning and Error are stored; Info is the worker's own console business and would bury
+-- the two lines that matter. Runtime is 'desktop' or 'browser', so one run's logs read as one
+-- story even when its segments ran on different workers.
+CREATE TABLE IF NOT EXISTS RunLogs (
+    Id          TEXT NOT NULL PRIMARY KEY,
+    RunId       TEXT NOT NULL,
+    AttemptId   TEXT,
+    WorkerId    TEXT,
+    Runtime     TEXT,
+    Level       TEXT NOT NULL,
+    StepId      TEXT,
+    Message     TEXT NOT NULL,
+    OccurredAt  TEXT NOT NULL,
+    ReceivedAt  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS IX_RunLogs_RunId_OccurredAt ON RunLogs(RunId, OccurredAt);
+CREATE INDEX IF NOT EXISTS IX_RunLogs_Level ON RunLogs(Level);
+
 CREATE TABLE IF NOT EXISTS SecurityEvents (
     Id          TEXT NOT NULL PRIMARY KEY,
     EventType   TEXT NOT NULL,

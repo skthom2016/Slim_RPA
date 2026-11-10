@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using TractoRuntime.Browser.Configuration;
+using TractoRuntime.Browser.Diagnostics;
 using TractoRuntime.Browser.Host;
 
 // Settings come from a .env file beside the executable, then one in the folder the worker was
@@ -31,12 +32,17 @@ if (args.Length > 0 && args[0].Equals("--login", StringComparison.OrdinalIgnoreC
     return await ProfileLogin.RunAsync(options, args[1], args.Length > 2 ? args[2] : null);
 }
 
+// Warnings and errors go to the console for whoever is watching, and to the sink, which sends
+// them to the Orchestrator so the run can be explained after the window is closed.
+var runLogSink = new RunLogSink();
+
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o =>
 {
     o.SingleLine      = true;
     o.TimestampFormat = "HH:mm:ss ";
 });
+builder.Logging.AddProvider(new RunLogForwarder(runLogSink));
 
 Console.WriteLine($"[Browser Host] Orchestrator: {options.OrchestratorUrl}  Worker: {options.WorkerId}  Mode: {options.Mode}"
     + (string.IsNullOrWhiteSpace(options.Profile) ? "" : $"  Profile: {options.Profile}"));
@@ -45,6 +51,7 @@ var playwright = await Playwright.CreateAsync();
 
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(playwright);
+builder.Services.AddSingleton(runLogSink);
 builder.Services.AddHttpClient<OrchestratorClient>(client =>
 {
     client.BaseAddress = new Uri(options.OrchestratorUrl.TrimEnd('/') + "/");

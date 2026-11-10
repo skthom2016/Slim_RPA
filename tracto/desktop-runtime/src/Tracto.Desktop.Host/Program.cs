@@ -26,8 +26,16 @@ string sessionId       = Environment.GetEnvironmentVariable("INTERACTIVE_SESSION
 Console.WriteLine($"[Desktop Host] Starting — Orchestrator: {orchestratorUrl}  Worker: {workerId}");
 
 // ── Build host ────────────────────────────────────────────────────────────────
+// Warnings and errors go to the console for whoever is watching, and to the sink, which
+// sends them to the Orchestrator so the run can be explained after the window is closed.
+var runLogSink = new RunLogSink();
+
 var host = Host.CreateDefaultBuilder(args)
-    .ConfigureLogging(b => b.SetMinimumLevel(LogLevel.Information))
+    .ConfigureLogging(b =>
+    {
+        b.SetMinimumLevel(LogLevel.Information);
+        b.AddProvider(new RunLogForwarder(runLogSink));
+    })
     .ConfigureServices(services =>
     {
         // ── HTTP clients ──────────────────────────────────────────────────────
@@ -84,6 +92,7 @@ var host = Host.CreateDefaultBuilder(args)
         });
 
         // ── Host config + worker ──────────────────────────────────────────────
+        services.AddSingleton(runLogSink);
         services.AddSingleton(new HostConfig(workerId, workerVersion, sessionId));
         services.AddHostedService<DesktopRuntimeWorker>();
     })
@@ -100,18 +109,21 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
     private readonly HttpOrchestratorBridge  _orch;
     private readonly ScriptExecutionEngine   _engine;
     private readonly HostConfig              _cfg;
+    private readonly RunLogSink              _logSink;
     private readonly ILogger<DesktopRuntimeWorker> _log;
 
     public DesktopRuntimeWorker(
         HttpOrchestratorBridge orch,
         ScriptExecutionEngine engine,
         HostConfig cfg,
+        RunLogSink logSink,
         ILogger<DesktopRuntimeWorker> log)
     {
-        _orch   = orch;
-        _engine = engine;
-        _cfg    = cfg;
-        _log    = log;
+        _orch    = orch;
+        _engine  = engine;
+        _cfg     = cfg;
+        _logSink = logSink;
+        _log     = log;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -159,56 +171,68 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
             _log.LogInformation("Job acquired — runId: {RunId}", job.RunId);
 
-            using var jobCts      = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var heartbeatTask = HeartbeatLoop.RunAsync(
-                _orch, _cfg.WorkerId, job.LeaseId, intervalMs: 15_000, jobCts.Token,
-                onStopRequested: () =>
-                {
-                    _log.LogWarning("Run {RunId}: orchestrator cancelled the run or the lease was lost — stopping", job.RunId);
-                    jobCts.Cancel();
-                });
-
-            var startedAt = DateTimeOffset.UtcNow;
-            RunState runState;
-            List<StepResult> steps;
-
-            var outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // From here until the result is in, every Warning and Error the host logs is
+            // collected against this run, and sent in the finally so no exit loses it.
+            _logSink.BeginRun(job.RunId, job.AttemptId);
             try
             {
-                (runState, steps) = await _engine.RunAsync(job, _orch.GetParams(job.LeaseId), outputs, jobCts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                runState = RunState.Cancelled;
-                steps    = [];
-            }
-            catch (Exception ex)
-            {
-                _log.LogError(ex, "Unhandled error in run {RunId}", job.RunId);
-                runState = RunState.Unknown;
-                steps    = [];
+                using var jobCts      = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var heartbeatTask = HeartbeatLoop.RunAsync(
+                    _orch, _cfg.WorkerId, job.LeaseId, intervalMs: 15_000, jobCts.Token,
+                    onStopRequested: () =>
+                    {
+                        _log.LogWarning("Run {RunId}: orchestrator cancelled the run or the lease was lost — stopping", job.RunId);
+                        jobCts.Cancel();
+                    });
+
+                var startedAt = DateTimeOffset.UtcNow;
+                RunState runState;
+                List<StepResult> steps;
+
+                var outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    (runState, steps) = await _engine.RunAsync(job, _orch.GetParams(job.LeaseId), outputs, jobCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    runState = RunState.Cancelled;
+                    steps    = [];
+                }
+                catch (Exception ex)
+                {
+                    _log.LogError(ex, "Unhandled error in run {RunId}", job.RunId);
+                    runState = RunState.Unknown;
+                    steps    = [];
+                }
+                finally
+                {
+                    await jobCts.CancelAsync();
+                    try { await heartbeatTask; }
+                    catch (Exception ex) { _log.LogWarning(ex, "Heartbeat loop ended with an error"); }
+                }
+
+                try
+                {
+                    _orch.SetOutputs(job.LeaseId, outputs);
+                    await submitter.SubmitAsync(
+                        _orch, job, runState, steps,
+                        unknownReason: runState == RunState.Unknown ? "UnhandledHostException" : null,
+                        startedAt: startedAt,
+                        ct: ct);
+
+                    _log.LogInformation("Run {RunId} complete — state: {State}", job.RunId, runState);
+                }
+                catch (Exception ex)
+                {
+                    _log.LogError(ex, "Failed to submit result for run {RunId}", job.RunId);
+                }
             }
             finally
             {
-                await jobCts.CancelAsync();
-                try { await heartbeatTask; }
-                catch (Exception ex) { _log.LogWarning(ex, "Heartbeat loop ended with an error"); }
-            }
-
-            try
-            {
-                _orch.SetOutputs(job.LeaseId, outputs);
-                await submitter.SubmitAsync(
-                    _orch, job, runState, steps,
-                    unknownReason: runState == RunState.Unknown ? "UnhandledHostException" : null,
-                    startedAt: startedAt,
-                    ct: ct);
-
-                _log.LogInformation("Run {RunId} complete — state: {State}", job.RunId, runState);
-            }
-            catch (Exception ex)
-            {
-                _log.LogError(ex, "Failed to submit result for run {RunId}", job.RunId);
+                var entries = _logSink.EndRunAndDrain();
+                await _orch.SendRunLogsAsync(job.RunId, job.AttemptId, _cfg.WorkerId, entries,
+                    CancellationToken.None);
             }
         }
     }
