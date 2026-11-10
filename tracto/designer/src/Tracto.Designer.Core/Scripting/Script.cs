@@ -6,8 +6,12 @@ using System.Runtime.CompilerServices;
 
 public sealed class Script : INotifyPropertyChanged
 {
+    /// <summary>What a script is called before anyone names it. Code that decides whether an
+    /// author chose a name compares against this rather than repeating the literal.</summary>
+    public const string DefaultName = "Untitled Script";
+
     private string _id = Guid.NewGuid().ToString("N");
-    private string _name = "Untitled Script";
+    private string _name = DefaultName;
     private string _version = "1.0.0";
     private string _targetRuntime = "desktop";
 

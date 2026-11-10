@@ -88,6 +88,7 @@ CREATE INDEX IF NOT EXISTS IX_LeaseRecords_State_LastHeartbeatAt ON LeaseRecords
 CREATE TABLE IF NOT EXISTS ArtifactRecords (
     ArtifactId      TEXT NOT NULL,
     Version         TEXT NOT NULL,
+    Name            TEXT,
     SchemaVersion   TEXT NOT NULL,
     ContentHash     TEXT NOT NULL,
     StoredAt        TEXT NOT NULL,

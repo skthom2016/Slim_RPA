@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -18,7 +19,7 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	includeDeleted := r.URL.Query().Get("includeDeleted") == "true"
 	includeSegments := r.URL.Query().Get("includeSegments") == "true"
 
-	query := `SELECT ArtifactId, Version, SchemaVersion, ContentHash, StoredAt, IsDeleted, SignatureValid
+	query := `SELECT ArtifactId, Version, SchemaVersion, ContentHash, StoredAt, IsDeleted, SignatureValid, Name
 	          FROM ArtifactRecords WHERE 1=1`
 	if !includeDeleted {
 		query += ` AND IsDeleted=0`
@@ -37,6 +38,7 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	type artifactRow struct {
 		ArtifactId    string `json:"artifactId"`
+		Name          string `json:"name"`
 		Version       string `json:"version"`
 		SchemaVersion string `json:"schemaVersion"`
 		ContentHash   string `json:"contentHash"`
@@ -49,12 +51,14 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var a artifactRow
 		var isDeleted, sigValid int
+		var name sql.NullString
 		if err := rows.Scan(
 			&a.ArtifactId, &a.Version, &a.SchemaVersion, &a.ContentHash,
-			&a.StoredAt, &isDeleted, &sigValid,
+			&a.StoredAt, &isDeleted, &sigValid, &name,
 		); err != nil {
 			continue
 		}
+		a.Name = name.String
 		a.IsDeleted = isDeleted != 0
 		a.SignatureValid = sigValid != 0
 		artifacts = append(artifacts, a)
@@ -64,6 +68,32 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 		"artifacts": artifacts,
 		"count":     len(artifacts),
 	})
+}
+
+// parseScriptName reads the script's own "name" out of a published payload so the console can
+// show something a person chose rather than only the artifact id. The payload may be bare or
+// wrapped as {"schemaVersion":"1","script":{...}}, and is the same shape for flat and
+// segmented scripts. An unreadable payload yields "", which lists fall back from.
+func parseScriptName(raw []byte) string {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return ""
+	}
+	if inner, ok := root["script"]; ok {
+		var innerMap map[string]json.RawMessage
+		if json.Unmarshal(inner, &innerMap) == nil && innerMap != nil {
+			root = innerMap
+		}
+	}
+	nameRaw, ok := root["name"]
+	if !ok {
+		return ""
+	}
+	var name string
+	if err := json.Unmarshal(nameRaw, &name); err != nil {
+		return ""
+	}
+	return name
 }
 
 type ArtifactHandler struct{ db *sql.DB }
@@ -114,6 +144,7 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	if segmented != nil {
 		segmentCount = len(segmented.Segments)
 	}
+	scriptName := parseScriptName(raw)
 
 	// Check if version already exists
 	var existing string
@@ -138,9 +169,9 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 			segRaw := segmentPayload(segmented, i)
 			segHash := sha256.Sum256(segRaw)
 			h.db.Exec(`
-				INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId)
-				VALUES(?,?,?,?,?,0,0,?)`,
-				segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID)
+				INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId,Name)
+				VALUES(?,?,?,?,?,0,0,?,?)`,
+				segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID, scriptName)
 			h.db.Exec(`INSERT OR REPLACE INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`, segID, version, segRaw)
 		}
 		respond(w, http.StatusCreated, map[string]any{
@@ -157,11 +188,11 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	tx.Exec(`
-		INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,SelectorContent)
-		VALUES(?,?,?,?,?,0,?,?)`,
+		INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,SelectorContent,Name)
+		VALUES(?,?,?,?,?,0,?,?,?)`,
 		artifactID, version, req.SchemaVersion, contentHash, now,
 		req.Signature != nil && *req.Signature != "",
-		req.SelectorContent,
+		req.SelectorContent, scriptName,
 	)
 	tx.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`,
 		artifactID, version, raw)
@@ -173,9 +204,9 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		tx.Exec(`DELETE FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`, segID, version)
 		tx.Exec(`DELETE FROM ArtifactContents WHERE ArtifactId=? AND Version=?`, segID, version)
 		tx.Exec(`
-			INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId)
-			VALUES(?,?,?,?,?,0,0,?)`,
-			segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID)
+			INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId,Name)
+			VALUES(?,?,?,?,?,0,0,?,?)`,
+			segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID, scriptName)
 		tx.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`, segID, version, segRaw)
 	}
 

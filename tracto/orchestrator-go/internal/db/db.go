@@ -35,6 +35,7 @@ var addedColumns = []struct{ Table, Column, Type string }{
 	{"RunRecords", "ParentRunId", "TEXT"},
 	{"RunRecords", "SegmentIndex", "INTEGER"},
 	{"ArtifactRecords", "ParentArtifactId", "TEXT"},
+	{"ArtifactRecords", "Name", "TEXT"},
 }
 
 func addColumns(db *sql.DB) error {

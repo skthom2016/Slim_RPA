@@ -394,3 +394,15 @@ code {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ── Artifact name over id ────────────────────────────────────────────────── */
+.artifact-name { font-weight: 600; }
+.artifact-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+/* Published before names were stored: the id stands in for the name, so it keeps
+   the monospace of an id without the weight of a title. */
+.artifact-name-missing { font-family: var(--mono); font-weight: 400; }

@@ -25,6 +25,37 @@ public class ScriptEditorViewModelTests
     }
 
     [Fact]
+    public void A_Draft_Does_Not_Rename_A_Script_The_Author_Already_Named()
+    {
+        var vm = new ScriptEditorViewModel();
+        var mine = new Script { Name = "Invoice Run", Version = "2.1.0" };
+        var originalId = mine.Id;
+        vm.LoadScript(mine);
+
+        vm.ApplyDraft(new Script { Name = "Recorded Script", TargetRuntime = "desktop",
+            Steps = { new ScriptStep { StepNumber = 1, Action = "delay",
+                Parameters = { ["ms"] = "100" } } } });
+
+        vm.Script!.Name.Should().Be("Invoice Run");
+        vm.Script.Version.Should().Be("2.1.0");
+        vm.Script.Id.Should().Be(originalId);
+        vm.Script.Steps.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void A_Draft_Names_A_Script_Nobody_Has_Named()
+    {
+        var vm = new ScriptEditorViewModel();
+        vm.LoadScript(new Script());   // still called "Untitled Script"
+
+        vm.ApplyDraft(new Script { Name = "savenotpad", TargetRuntime = "desktop",
+            Steps = { new ScriptStep { StepNumber = 1, Action = "delay",
+                Parameters = { ["ms"] = "100" } } } });
+
+        vm.Script!.Name.Should().Be("savenotpad");
+    }
+
+    [Fact]
     public void AddStep_Increases_StepCount()
     {
         var vm = new ScriptEditorViewModel();

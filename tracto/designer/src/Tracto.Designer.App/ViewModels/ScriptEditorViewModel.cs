@@ -286,6 +286,14 @@ public sealed class ScriptEditorViewModel : INotifyPropertyChanged
     {
         if (_script is null || !_script.IsSegmented)
         {
+            // The draft brings steps, not identity. A name and version the author already typed
+            // outlive a recording; replacing them would silently publish under a name nobody chose.
+            if (_script is not null)
+            {
+                draft.Id      = _script.Id;
+                draft.Version = _script.Version;
+                if (_script.Name != Script.DefaultName) draft.Name = _script.Name;
+            }
             LoadScript(draft);
             return;
         }

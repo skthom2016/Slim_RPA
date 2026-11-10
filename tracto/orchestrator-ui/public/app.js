@@ -168,9 +168,15 @@ async function loadArtifacts() {
             ? `<span class="badge b-CANCELLED">Deleted</span>`
             : `<span class="badge b-SUCCEEDED">Active</span>`;
         const canRun = !a.isDeleted;
+        // The name is what a person chose; the id is how the orchestrator addresses it. Artifacts
+        // published before the name was stored have none, and show the id on its own.
+        const nameCell = a.name
+            ? `<div class="artifact-name">${esc(a.name)}</div>
+               <div class="artifact-id">${esc(a.artifactId)}</div>`
+            : `<div class="artifact-name artifact-name-missing">${esc(a.artifactId)}</div>`;
         return `
         <tr>
-            <td>${esc(a.artifactId)}</td>
+            <td>${nameCell}</td>
             <td><code>${esc(a.version)}</code></td>
             <td>${esc(a.schemaVersion)}</td>
             <td>${sigBadge}</td>
