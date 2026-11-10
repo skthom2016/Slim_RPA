@@ -25,3 +25,6 @@ secrets/
 .idea/
 .vscode/settings.json
 .vscode/launch.json
+
+## Local settings and secrets (.env holds passwords)
+.env

@@ -2,7 +2,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using TractoRuntime.Browser.Configuration;
 using TractoRuntime.Browser.Host;
+
+// Settings come from a .env file beside the executable, then one in the folder the worker was
+// started from; TRACTO_ENV_FILE names a different file instead. This is where a
+// ${secret:NAME} reference finds TRACTO_SECRET_NAME, so it must happen before any job runs.
+// A real environment variable always wins over the file.
+var envFiles = Environment.GetEnvironmentVariable("TRACTO_ENV_FILE") is { Length: > 0 } named
+    ? EnvFile.LoadAll(named)
+    : EnvFile.LoadAll(Path.Combine(AppContext.BaseDirectory, ".env"), ".env");
+
+foreach (var file in envFiles)
+    Console.WriteLine($"[Browser Host] Settings loaded from {file}");
 
 var builder = Host.CreateApplicationBuilder(args);
 
