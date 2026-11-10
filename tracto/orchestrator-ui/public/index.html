@@ -151,6 +151,12 @@
     <div class="tab-pane" id="tab-logs">
       <div class="toolbar">
         <input type="text" id="logs-run-id" placeholder="Paste Run ID (UUID)…">
+        <label>Show</label>
+        <select id="logs-level-filter">
+          <option value="">Warnings and errors</option>
+          <option value="Error">Errors only</option>
+          <option value="Warning">Warnings only</option>
+        </select>
         <button class="btn btn-primary" id="btn-logs-load">Load Logs</button>
         <button class="btn btn-secondary" id="btn-logs-clear">Clear</button>
       </div>
@@ -174,6 +180,22 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" id="run-dismiss">Cancel</button>
       <button class="btn btn-primary"   id="run-confirm">▶ Submit Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete artifact modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="delete-overlay">
+  <div class="modal">
+    <div class="modal-title">Delete Script</div>
+    <div class="modal-desc" id="delete-artifact-label"></div>
+    <div class="modal-note">
+      The script is marked deleted and stops appearing in this list. Runs that already used it
+      keep their history. A script a running job depends on cannot be deleted.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="delete-dismiss">Cancel</button>
+      <button class="btn btn-danger"    id="delete-confirm">Delete</button>
     </div>
   </div>
 </div>

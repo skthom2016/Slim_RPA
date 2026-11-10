@@ -156,7 +156,7 @@ async function loadArtifacts() {
     const tbody = document.getElementById('artifacts-body');
 
     if (!data.artifacts || data.artifacts.length === 0) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No artifacts uploaded yet</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No artifacts uploaded yet</td></tr>`;
         return;
     }
 
@@ -183,10 +183,48 @@ async function loadArtifacts() {
             <td><code title="${a.contentHash}">${a.contentHash.substring(0, 14)}…</code></td>
             <td>${fmtDate(a.storedAt)}</td>
             <td>${delBadge}</td>
-            <td>${canRun ? `<button class="btn btn-sm btn-primary" onclick="promptRun('${esc(a.artifactId)}','${esc(a.version)}')">▶ Run</button>` : '—'}</td>
+            <td class="row-actions">${canRun
+                ? `<button class="btn btn-sm btn-primary" onclick="promptRun('${esc(a.artifactId)}','${esc(a.version)}')">▶ Run</button>
+                   <button class="btn btn-sm btn-icon btn-danger" title="Delete this script"
+                           onclick="promptDelete('${esc(a.artifactId)}','${esc(a.version)}','${esc(a.name || a.artifactId)}')">🗑</button>`
+                : '—'}</td>
         </tr>`;
     }).join('');
 }
+
+// ── Delete artifact modal ─────────────────────────────────────────────────────
+// Deleting is not undoable from this console, so it always goes through the modal.
+let _delArtifactId = null, _delVersion = null;
+
+function promptDelete(artifactId, version, label) {
+    _delArtifactId = artifactId;
+    _delVersion    = version;
+    document.getElementById('delete-artifact-label').textContent =
+        `Delete "${label}" version ${version}?`;
+    document.getElementById('delete-overlay').classList.add('visible');
+}
+
+document.getElementById('delete-dismiss').addEventListener('click', () => {
+    document.getElementById('delete-overlay').classList.remove('visible');
+});
+
+document.getElementById('delete-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget)
+        document.getElementById('delete-overlay').classList.remove('visible');
+});
+
+document.getElementById('delete-confirm').addEventListener('click', async () => {
+    document.getElementById('delete-overlay').classList.remove('visible');
+    try {
+        await api(`/artifacts/${encodeURIComponent(_delArtifactId)}/versions/${encodeURIComponent(_delVersion)}`,
+            { method: 'DELETE' });
+        toast(`Deleted ${_delArtifactId} ${_delVersion}`);
+        loadArtifacts();
+        loadOverview();
+    } catch (e) {
+        toast('Delete failed: ' + e.message, true);
+    }
+});
 
 // ── Workers tab ───────────────────────────────────────────────────────────────
 async function loadWorkers() {
@@ -243,27 +281,42 @@ function tlDotClass(eventType) {
     return 'tl-gray';
 }
 
-async function loadLogs(runId) {
-    runId = (runId || document.getElementById('logs-run-id').value).trim();
-    if (!runId) { toast('Paste a Run ID first', true); return; }
-
-    document.getElementById('logs-run-id').value = runId;
-    const container = document.getElementById('logs-content');
-    container.innerHTML = `<div class="notice notice-info">Loading…</div>`;
-
-    let events;
-    try { events = await api(`/admin/telemetry/${encodeURIComponent(runId)}`); }
-    catch (e) { container.innerHTML = `<div class="notice notice-error">Error: ${esc(e.message)}</div>`; return; }
-
-    if (!events || events.length === 0) {
-        container.innerHTML = `<div class="notice notice-warning">
-            No telemetry events found for this run.<br>
-            The job may still be queued (no worker picked it up yet), or the Run ID is incorrect.
+// What the desktop and browser runtimes warned or failed about, newest run first. These are the
+// lines that say why a run failed; the timeline below only says that it did.
+function renderRunLogs(logs) {
+    if (!logs || logs.length === 0) {
+        return `<div class="notice notice-info">
+            No warnings or errors were recorded for this run.
+            ${''/* A clean run is the normal case and worth saying plainly. */}
         </div>`;
-        return;
     }
 
-    container.innerHTML = `<div class="timeline">` +
+    return `<div class="log-list">` + logs.map(l => {
+        const cls     = l.level === 'Error' ? 'log-error' : 'log-warn';
+        const where   = [l.runtime, l.workerId].filter(Boolean).map(esc).join(' · ');
+        const segment = l.segmentRunId ? ` · segment ${esc(shortId(l.segmentRunId))}` : '';
+        return `
+        <div class="log-row ${cls}">
+            <div class="log-meta">
+                <span class="log-level">${esc(l.level)}</span>
+                <span class="log-time">${fmtDate(l.occurredAt)}</span>
+                ${l.stepId ? `<span class="log-step">${esc(l.stepId)}</span>` : ''}
+            </div>
+            <div class="log-message">${esc(l.message)}</div>
+            <div class="log-where">${where}${segment}</div>
+        </div>`;
+    }).join('') + `</div>`;
+}
+
+function renderTimeline(events) {
+    if (!events || events.length === 0) {
+        return `<div class="notice notice-warning">
+            No lifecycle events for this run. The job may still be queued (no worker has picked
+            it up yet), or the Run ID is wrong.
+        </div>`;
+    }
+
+    return `<div class="timeline">` +
         events.map((ev, i) => {
             const dotCls = tlDotClass(ev.eventType);
             const isLast = i === events.length - 1;
@@ -278,6 +331,40 @@ async function loadLogs(runId) {
                 </div>
             </div>`;
         }).join('') + `</div>`;
+}
+
+async function loadLogs(runId) {
+    runId = (runId || document.getElementById('logs-run-id').value).trim();
+    if (!runId) { toast('Paste a Run ID first', true); return; }
+
+    document.getElementById('logs-run-id').value = runId;
+    const level     = document.getElementById('logs-level-filter').value;
+    const container = document.getElementById('logs-content');
+    container.innerHTML = `<div class="notice notice-info">Loading…</div>`;
+
+    // Both are fetched together: a run that failed has a reason in one and a shape in the other.
+    const [logs, events] = await Promise.all([
+        api(`/admin/logs/${encodeURIComponent(runId)}` + (level ? `?level=${encodeURIComponent(level)}` : ''))
+            .catch(e => ({ error: e.message })),
+        api(`/admin/telemetry/${encodeURIComponent(runId)}`).catch(e => ({ error: e.message })),
+    ]);
+
+    if (logs.error && events.error) {
+        container.innerHTML = `<div class="notice notice-error">Error: ${esc(logs.error)}</div>`;
+        return;
+    }
+
+    const logSection = logs.error
+        ? `<div class="notice notice-error">Could not load run logs: ${esc(logs.error)}</div>`
+        : renderRunLogs(logs.logs);
+
+    container.innerHTML = `
+        <h3 class="logs-heading">What the runtimes reported</h3>
+        ${logSection}
+        <h3 class="logs-heading">Run lifecycle</h3>
+        ${events.error
+            ? `<div class="notice notice-error">Could not load the timeline: ${esc(events.error)}</div>`
+            : renderTimeline(events)}`;
 }
 
 function openLogs(runId) {
@@ -359,7 +446,9 @@ document.getElementById('run-confirm').addEventListener('click', async () => {
             }),
         });
         toast(`Job queued — Run ID: ${result.runId || '?'}`);
-        switchTab('jobs', 'Queued');
+        // Show every state, not just Queued: a job that a worker picks up straight away is
+        // Running before the list first draws, and filtering to Queued hides it.
+        switchTab('jobs', '');
     } catch (e) {
         toast('Failed to submit job: ' + e.message, true);
     }
@@ -434,6 +523,10 @@ document.getElementById('artifacts-show-deleted').addEventListener('change', loa
 
 document.getElementById('logs-run-id').addEventListener('keydown', e => {
     if (e.key === 'Enter') loadLogs();
+});
+
+document.getElementById('logs-level-filter').addEventListener('change', () => {
+    if (document.getElementById('logs-run-id').value.trim()) loadLogs();
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
