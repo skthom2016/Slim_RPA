@@ -41,6 +41,7 @@ New-NeeliRPA/
 │   ├── desktop-runtime/             ← C# script execution engine
 │   ├── designer/                    ← C# WPF script designer app
 │   ├── hello-world/                 ← sample REST API (port 3000)
+│   ├── sheet-service/               ← Go spreadsheet backend (port 5090)
 │   ├── browser-runtime/             ← C# browser automation runtime
 │   ├── terminal-runtime/            ← C# terminal automation runtime
 │   ├── contract/                    ← shared execution contract (interfaces)
@@ -93,7 +94,7 @@ node --version
 
 ## 4. Getting the Code Running
 
-Open **5 separate PowerShell terminals**. Run one command in each.
+Open **6 separate PowerShell terminals**. Run one command in each.
 
 ### Terminal 1 — Orchestrator (start this first)
 ```powershell
@@ -155,6 +156,134 @@ This worker registers as `runtimeType=browser` and only picks up scripts whose
 - Full settings list (`BROWSER_VIEWPORT_WIDTH`, `LOCATOR_WAIT_MS`, `TRACTO_SECRET_<NAME>`,
   etc.) and the browser action reference: `tracto/browser-runtime/README.md`.
 
+### Terminal 6 — Sheet Service (needed by any script that reads or writes a spreadsheet)
+```powershell
+cd New-NeeliRPA\tracto\sheet-service
+go run .
+# Listens on http://localhost:5090
+```
+
+This is the Go backend behind every spreadsheet action. Scripts never open Excel to read data —
+they call this service with `http.post` and get rows back as variables, which is faster than
+driving the UI and does not need Excel installed or the machine's keyboard.
+
+Three endpoints:
+
+| Endpoint | Does |
+|---|---|
+| `POST /batch` | reads rows `startRow..endRow` (capped at 5000), optionally only the rows still pending |
+| `POST /update` | writes named columns on named rows; if any row or column is invalid, nothing is written |
+| `POST /apply` | reads the pending rows and writes the same values to all of them in one call — the usual way to approve a batch. Needs a positive `limit` and a non-empty `set`; replies with `updated`, `rows` and `text` |
+
+A request names the file with `path` and the worksheet with `sheet`; the source type is worked
+out from the path. Credentials never appear in a request or a script.
+
+| Path looks like | Type | What it needs |
+|---|---|---|
+| `C:\data\book.xlsx`, `\\server\share\book.xlsx` | `xlsx` | nothing — works out of the box |
+| `https://docs.google.com/spreadsheets/d/<id>/…` | `gsheet` | a Google service-account key (below) |
+| `https://<tenant>.sharepoint.com/…`, `https://1drv.ms/…` | `graph` | an Entra app plus one device-code sign-in (below) |
+
+Settings come from environment variables, and the service also reads a `.env` file from its own
+folder at start. Copy `.env.example` to `.env` and fill in only what you use — `.env` is
+git-ignored, so credentials never reach the repository.
+
+```powershell
+cd New-NeeliRPA\tracto\sheet-service
+Copy-Item .env.example .env
+notepad .env
+```
+
+A local `.xlsx` must not be open in Excel while the service writes to it: writing rewrites the
+whole file.
+
+Check it is up:
+```powershell
+Invoke-RestMethod "http://localhost:5090/health"    # {"status":"ok"}
+```
+
+Example scripts that use it: `rpa-scripts\demo\segmented\items-*.json`.
+
+---
+
+### Signing in — SharePoint/OneDrive, Google, and Outlook
+
+Three different sign-ins for three different jobs. None of them puts a password in a script.
+
+#### SharePoint and OneDrive workbooks — one device-code sign-in
+
+Microsoft's Excel range API accepts signed-in users only, so the service signs in once as a
+service account and keeps that sign-in alive by itself.
+
+1. In the Entra app registration: add the **delegated** permission `Files.ReadWrite.All`
+   (an admin may need to consent) and turn on **Allow public client flows**. Put the
+   Application (client) ID and Directory (tenant) ID into `.env` as `MS_CLIENT_ID` and
+   `MS_TENANT_ID`.
+2. Sign in once:
+   ```powershell
+   cd New-NeeliRPA\tracto\sheet-service
+   go run . login            # or: .\sheet-service.exe login -name default
+   ```
+   It prints a code and a link. Open the link on any device, enter the code, and sign in as the
+   service account.
+3. That is the last sign-in. The access and refresh tokens are saved in the SQLite file named by
+   `SHEET_SERVICE_DB` (`sheet-service.db` by default), and the service renews the hourly access
+   token from the refresh token on its own.
+
+Nobody signs in again unless Microsoft stops accepting the refresh token — a password change,
+an admin revoking it, a Conditional Access policy, or a long idle period. Requests then fail
+with `401` and the message `microsoft sign-in is missing or expired; run: sheet-service login`.
+Run step 2 again.
+
+A script can name a particular saved sign-in with `"connection": "<name>"` inside `source`;
+without one it uses `default`.
+
+#### Google Sheets
+
+Set `GOOGLE_APPLICATION_CREDENTIALS` in `.env` to the path of the service-account key file
+(or `GOOGLE_ACCESS_TOKEN` to a ready token), then **share the spreadsheet with the service
+account's e-mail address** — an unshared sheet fails even with valid credentials.
+
+Full guides: `sheet-service/docs/google-sheets-setup.md` and
+`sheet-service/docs/microsoft-sharepoint-setup.md`.
+
+#### Outlook — a signed-in browser profile
+
+This one is unrelated to the sheet service. It is for browser segments that act inside Outlook
+on the web: reading the mailbox, composing, sending.
+
+The script holds no password. A person signs a named browser profile in once, by hand, and the
+segment then names that profile:
+
+```powershell
+cd New-NeeliRPA\tracto\browser-runtime\src\TractoRuntime.Browser.Host
+dotnet run -- --login default https://outlook.office.com
+```
+
+A Chromium window opens. Sign in, complete MFA, wait for the mailbox to load, then **close the
+window**. The cookies live in that profile folder from then on.
+
+Name it on the browser segment:
+
+```json
+{ "name": "Send the mail", "runtime": "browser", "profile": "default", "steps": [ … ] }
+```
+
+Three things to know:
+
+- **Close the sign-in window before running anything.** The profile folder is locked while a
+  browser holds it open, and a run naming the same profile fails until it is free.
+- **One run at a time per profile.** Two jobs naming the same profile cannot overlap. Use
+  separate profile names for flows that run together.
+- **Sign-ins expire.** When Outlook starts showing a login page again, run `--login` again.
+
+Without a profile every run gets an empty browser with nothing signed in, which is what you want
+for a search or any public page, and lets several runs go at once.
+
+Example script: `rpa-scripts\demo\sendemailV4.json`.
+
+---
+
 ### Optional — Designer (for recording/editing scripts visually)
 ```powershell
 cd New-NeeliRPA\tracto
@@ -165,6 +294,7 @@ dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
 ```powershell
 Invoke-RestMethod "http://localhost:5080/health"   # Orchestrator
 Invoke-RestMethod "http://localhost:3000/health"   # Hello World API
+Invoke-RestMethod "http://localhost:5090/health"   # Sheet Service
 Invoke-RestMethod "http://localhost:5080/workers"  # shows desktop and browser workers once registered
 # Then open http://localhost:4000 in a browser
 ```
