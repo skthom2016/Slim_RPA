@@ -42,6 +42,25 @@ type BatchResponse struct {
 	NextStartRow int         `json:"nextStartRow"`
 }
 
+// CellRequest reads one cell: the value in Column on sheet row Row. Column is a header name.
+// With Required set, an empty or missing cell is an error rather than an empty value, so a flow
+// that must have the value stops instead of carrying on with nothing.
+type CellRequest struct {
+	Source   sheet.Config `json:"source"`
+	Row      int          `json:"row"`
+	Column   string       `json:"column"`
+	Required bool         `json:"required"`
+}
+
+// CellResponse is flat on purpose: a script reads each field as ${name.value}, ${name.row} and
+// so on, and only top-level scalars of a reply are reachable from a script.
+type CellResponse struct {
+	Row    int    `json:"row"`
+	Column string `json:"column"`
+	Value  string `json:"value"`
+	Found  bool   `json:"found"` // false when the cell is empty or the row has no data
+}
+
 // RowUpdate sets several columns of one row.
 type RowUpdate struct {
 	Row    int               `json:"row"`
@@ -125,7 +144,55 @@ func New() http.Handler {
 	mux.HandleFunc("POST /batch", batch)
 	mux.HandleFunc("POST /update", update)
 	mux.HandleFunc("POST /apply", apply)
+	mux.HandleFunc("POST /cell", cell)
 	return mux
+}
+
+func cell(w http.ResponseWriter, r *http.Request) {
+	var req CellRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	if req.Row <= 0 || strings.TrimSpace(req.Column) == "" {
+		fail(w, http.StatusBadRequest, errors.New("cell needs a positive row and a column name"))
+		return
+	}
+	src, err := sheet.Open(req.Source)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	b, err := src.ReadRows(r.Context(), req.Row, req.Row)
+	if err != nil {
+		fail(w, statusFor(err), err)
+		return
+	}
+	known := false
+	for _, h := range b.Header {
+		if h == req.Column {
+			known = true
+			break
+		}
+	}
+	if !known {
+		fail(w, http.StatusBadRequest, errors.New("column \""+req.Column+"\" not found in header"))
+		return
+	}
+
+	resp := CellResponse{Row: req.Row, Column: req.Column}
+	for _, row := range b.Rows {
+		if row.Number == req.Row {
+			resp.Value = strings.TrimSpace(row.Values[req.Column])
+			break
+		}
+	}
+	resp.Found = resp.Value != ""
+	if req.Required && !resp.Found {
+		fail(w, http.StatusUnprocessableEntity,
+			errors.New("row "+strconv.Itoa(req.Row)+" has no value in column \""+req.Column+"\""))
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func apply(w http.ResponseWriter, r *http.Request) {

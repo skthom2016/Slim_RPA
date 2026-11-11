@@ -73,6 +73,14 @@ Setup notes:
 
 The older single-cell form (`"updates": [ { "row": 32, "column": "Bot_Status", "value": "SUCCESS" } ]`) is also accepted, alone or together with `rows`. The response is `{"rows": 2, "cells": 4}`. If any row or column in the call is invalid, nothing is written. A `409` means the file changed after it was read (see below).
 
+`POST /cell` reads one value: the cell in `column` (a header name) on sheet row `row`. The reply is flat, so a script reads it as `${name.value}`:
+
+```json
+{ "source": { "path": "C:/data/book.xlsx", "sheet": "Invoices" }, "row": 2, "column": "InvoiceNumber", "required": true }
+```
+
+The response is `{"row": 2, "column": "InvoiceNumber", "value": "349236", "found": true}`. An unknown column is a `400`. An empty cell returns `"value": ""` and `"found": false`, unless `required` is true, in which case it is a `422`, so a flow that cannot continue without the value stops instead of carrying on.
+
 `GET /health` returns `{"status":"ok"}`.
 
 ## Behaviour to know

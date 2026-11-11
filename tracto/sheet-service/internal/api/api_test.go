@@ -155,6 +155,71 @@ func TestUpdate_EmptyRequestIsRejected(t *testing.T) {
 	}
 }
 
+func TestCell_ReadsOneValueAsFlatFields(t *testing.T) {
+	path := workbook(t)
+	h := New()
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/cell", `{"source":`+src+`,"row":4,"column":"Bot_Comments"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var got map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	// Flat scalars only: a script reaches nothing nested in a reply.
+	if got["value"] != "keep" || got["row"] != float64(4) || got["column"] != "Bot_Comments" || got["found"] != true {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestCell_UnknownColumnIsRejected(t *testing.T) {
+	path := workbook(t)
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, New(), "/cell", `{"source":`+src+`,"row":2,"column":"No_Such_Column"}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "not found in header") {
+		t.Fatalf("got %d: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestCell_EmptyCellIsAnEmptyValueUnlessRequired(t *testing.T) {
+	path := workbook(t)
+	h := New()
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/cell", `{"source":`+src+`,"row":2,"column":"Bot_Status"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var got CellResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.Value != "" || got.Found {
+		t.Fatalf("got %+v, want an empty value that is not found", got)
+	}
+
+	rec = post(t, h, "/cell", `{"source":`+src+`,"row":2,"column":"Bot_Status","required":true}`)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status %d, want 422 for a required empty cell", rec.Code)
+	}
+}
+
+func TestCell_RowBeyondTheDataIsNotFound(t *testing.T) {
+	path := workbook(t)
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, New(), "/cell", `{"source":`+src+`,"row":50,"column":"Style_ID","required":true}`)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status %d: %s, want 422", rec.Code, rec.Body)
+	}
+}
+
+func TestCell_RequiresRowAndColumn(t *testing.T) {
+	rec := post(t, New(), "/cell", `{"source":{"path":"x.xlsx","sheet":"Data"},"row":0,"column":""}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", rec.Code)
+	}
+}
+
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)

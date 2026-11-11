@@ -181,6 +181,15 @@ Write specific rows and columns in one call: `POST /update` with `{"source":{...
 
 `source.path` forms: local `C:/data/book.xlsx`; Google `https://docs.google.com/spreadsheets/d/<id>/edit` (a real Google Sheet, not an uploaded `.xlsx`, shared with the service account as Editor); SharePoint/OneDrive `https://<tenant>.sharepoint.com/...`. Use forward slashes in paths. A column name that does not match row 1 exactly fails with `column "X" not found in header`. A SharePoint 401 means the saved sign-in expired: a person must run `sheet-service login`; the script cannot fix it.
 
+Read ONE cell into a variable. Use this, not `/batch`, when a later step needs a single value such as an ID: `/batch` returns a table with a header line, not a bare value.
+```json
+{ "stepNumber": 1, "action": "http.post", "description": "Read the invoice number",
+  "parameters": { "url": "http://localhost:5090/cell",
+    "body": "{\"source\":{\"path\":\"C:/data/invoices.xlsx\",\"sheet\":\"Invoices\"},\"row\":2,\"column\":\"InvoiceNumber\",\"required\":true}",
+    "storeAs": "invoice" } }
+```
+Outputs: `${invoice.value}`, `${invoice.row}`, `${invoice.column}`, `${invoice.found}`. `required` makes an empty cell fail the step, which is what you want when the next step cannot work without it. In a later segment the value is `${param.invoice.value}`.
+
 Show a result on screen: add `app.launch notepad.exe`, `delay`, then `notepad.type` with `${read.text}`.
 
 ## 12. Repeat something N times
