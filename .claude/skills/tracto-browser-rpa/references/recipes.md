@@ -250,9 +250,11 @@ When a step does fail, the host logs the page URL and title and saves a screensh
 
 ## 11. Repeating something
 
-There is no loop. Write the steps again for each item, or read them all at once with `getTexts`
-and let whatever consumes the result split it. A page of fifty rows cannot be walked by a
-script; that is a limit, not a gap to work around. See `limits.md`.
+There is no loop in a script. For each row of a sheet, write a child script for one item and let a
+main job start a sheet-service batch that runs it once per row: see `loops-and-conditions.md`,
+which has a verified child. To read many matches on one page, use `getTexts` and let whatever
+consumes the result split it. A page of fifty rows cannot be walked by a script; that is a limit,
+not a gap to work around. See `limits.md`.
 
 ---
 

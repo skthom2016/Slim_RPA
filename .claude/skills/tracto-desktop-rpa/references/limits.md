@@ -5,8 +5,8 @@ Tell the developer plainly when a request hits one of these. Do not invent an ac
 ## Constructs that do not exist
 | Missing | Workaround |
 |---|---|
-| Loops | Repeat steps in the JSON, or a set-based sheet-service call (`/apply`, `/update`) |
-| Conditions / branches | None. A script is a straight line. Split into separate scripts that a person or scheduler chooses between. |
+| Loops | Not in the script. A main job starts a sheet-service batch (`/process/start`) that runs one child job per sheet row; see `loops-and-conditions.md`. A set-based call (`/apply`, `/update`) covers a change to many rows with no child job. Copying steps is right only for a fixed, known count. |
+| Conditions / branches | Not in the script. Choose which published script runs (a person, a scheduler or a main job), or let a column such as `Status` decide which rows a batch does. A rule in Go that picks between two child scripts is **not built yet**; see `loops-and-conditions.md`. |
 | Error handling, retry, timeout per step | None. The first failure stops the run. Add `delay`s and specific window titles to avoid failures. |
 | Setting or computing a variable | Only `storeAs` outputs and `${now.*}` exist. No string functions, no arithmetic. |
 | Sub-flows, includes | None. Copy steps. A segmented script chains scripts in a fixed order but does not call one from another. |

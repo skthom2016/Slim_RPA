@@ -267,9 +267,12 @@ with the files checked on disk afterwards. Templates for each are in `references
 ## Core rules (the runtime behaves exactly like this)
 
 1. **Straight line only.** Steps run in order. The first failed step stops the run, and the
-   segments after it never start. There are no loops, conditions, branches or error handlers.
-   For repetition, repeat the steps in the JSON, or use a set-based API call
-   (`references/recipes.md`, "Rows from a sheet").
+   segments after it never start. There are no loops, conditions, branches or error handlers,
+   and a script never gets them. **A loop is not written in the script:** a short main job asks
+   sheet-service (Go) to start a batch and ends, and sheet-service runs one child job per row.
+   **A decision is not written in the script either:** it is made outside it, by choosing which
+   published script runs. Read `references/loops-and-conditions.md` before writing anything
+   that repeats or branches. Do not copy a block of steps N times when N can change.
 2. **Success does not mean it worked.** The runtime reports a step as succeeded when the
    keystrokes were sent. Many actions are silent when something is wrong (see rule 3), and
    dialogs can swallow keys. The run state alone proves nothing; design for observable effects
@@ -361,6 +364,9 @@ with the files checked on disk afterwards. Templates for each are in `references
 - `references/actions.md`: all 14 actions with parameters, outputs, behaviour and traps.
 - `references/recipes.md`: step-by-step patterns for common desktop jobs and for multi-segment
   flows, each marked verified or not.
+- `references/loops-and-conditions.md`: how a loop ("for each row") and a decision ("if this, run
+  that") are done in Tracto: not in the script, but by sheet-service running a child job per row
+  from a main job that ends at once. The request, the rules, what is verified and what is not built.
 - `references/limits.md`: what the runtime cannot do, workarounds, and what to ask the core team
   to add.
 - `references/templates/*.json`: working scripts to copy. The verified ones from the table

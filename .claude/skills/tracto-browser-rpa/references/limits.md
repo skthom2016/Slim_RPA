@@ -5,8 +5,16 @@ Tell the developer plainly when one of these blocks the request. Do not invent a
 ## No branching, no loops, no retry
 
 Steps run in order and the first failure stops the run. There is no `if`, no loop, no retry and
-no error handler. To do something to five rows, write five sets of steps, or use `getTexts` to
-read them all in one go and hand the joined text on.
+no error handler, and a script never gets them.
+
+- **To do something for each row of a sheet:** write a child script for one item and let a main
+  job start a sheet-service batch that runs it once per row. Writing the steps out N times is
+  right only for a fixed, known N: a copy with no value still runs, with `${...}` left in the step
+  as text. See `loops-and-conditions.md`.
+- **To read many matches on one page:** use `getTexts`, which reads them all in one go and hands
+  the joined text on.
+- **To choose between two paths:** choose which published script runs. A rule in Go that picks
+  between two child scripts per row is not built yet. See `loops-and-conditions.md`.
 
 ## Only flat text comes back
 

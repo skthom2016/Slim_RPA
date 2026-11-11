@@ -150,7 +150,12 @@ choice for a search or any public page and lets several runs go at once.
 ## Core rules
 
 1. **Straight line only.** Steps run in order; the first failure stops the run and the segments
-   after it never start. No loops, conditions or error handlers.
+   after it never start. No loops, conditions or error handlers, and a script never gets them.
+   **To repeat for each row, write a small child script for one item** (the item arrives as
+   `${param.<name>}`, the results leave as `storeAs`), and let a main job start a sheet-service
+   batch that runs the child once per row. **A decision is made outside the script,** by choosing
+   which published script runs. Read `references/loops-and-conditions.md` before writing
+   anything that repeats or branches. Do not copy steps N times when N can change.
 2. **A bad script is rejected before a browser opens.** An unknown action, a missing required
    parameter, a step with no element, a `name` without a `role`, a missing secret: all are
    refused up front, so the failure names the step rather than a timeout.
@@ -197,6 +202,10 @@ choice for a search or any public page and lets several runs go at once.
 - `references/recipes.md`: worked patterns — a search, a sign-in either way, an autocomplete
   field, a form, reading a list, asserting, handing a value to a desktop segment — each marked
   verified or not.
+- `references/loops-and-conditions.md`: how a loop ("for each row") and a decision ("if this, run
+  that") are done in Tracto: not in the script, but by sheet-service running a child job per row
+  from a main job that ends at once. Includes a verified browser child. What is verified and what
+  is not built.
 - `references/credentials.md`: signing in without a password in the script.
 - `references/limits.md`: what the runtime cannot do, and what to ask for.
 - `references/templates/*.json`: scripts to copy.
