@@ -12,6 +12,7 @@ import (
 	"tracto/sheet-service/internal/api"
 	"tracto/sheet-service/internal/envfile"
 	"tracto/sheet-service/internal/msauth"
+	"tracto/sheet-service/internal/process"
 )
 
 // loadEnv reads the .env file next to the executable, then the one in the working directory.
@@ -66,6 +67,28 @@ func main() {
 	if port == "" {
 		port = "5090"
 	}
-	log.Printf("sheet-service listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, api.New()))
+
+	// Progress of batches that run a child job for each row is kept in a file of its own.
+	batchDB := os.Getenv("SHEET_SERVICE_BATCH_DB")
+	if batchDB == "" {
+		batchDB = "sheet-batches.db"
+	}
+	store, err := process.OpenStore(batchDB)
+	if err != nil {
+		log.Fatalf("opening %s: %v", batchDB, err)
+	}
+	defer store.Close()
+	if n, err := store.InterruptRunning(); err != nil {
+		log.Fatalf("checking %s: %v", batchDB, err)
+	} else if n > 0 {
+		log.Printf("%d batch(es) were running when the service last stopped; marked Interrupted", n)
+	}
+	orchURL := os.Getenv("SHEET_SERVICE_ORCHESTRATOR_URL")
+	if orchURL == "" {
+		orchURL = "http://127.0.0.1:5080"
+	}
+	pm := process.NewManager(store, process.NewOrchestrator(orchURL))
+
+	log.Printf("sheet-service listening on :%s (orchestrator %s)", port, orchURL)
+	log.Fatal(http.ListenAndServe(":"+port, api.NewWithProcess(pm)))
 }

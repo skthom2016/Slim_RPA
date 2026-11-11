@@ -27,6 +27,7 @@ const SHEET_FIELDS = {
   '/update': ['rows', 'cells'],
   '/apply': ['updated', 'rows', 'text'],
   '/cell': ['row', 'column', 'value', 'found'],
+  '/process/start': ['batchId', 'state', 'total'],
 };
 
 function checkHostDrift(report) {
@@ -263,7 +264,7 @@ function checkDesktopStep(step, where, ctx) {
   }
   let sheetRoute = null;
   if (step.action === 'http.post' && typeof p.url === 'string') {
-    const m = /^https?:\/\/(?:localhost|127\.0\.0\.1):5090(\/[a-z]*)/i.exec(p.url);
+    const m = /^https?:\/\/(?:localhost|127\.0\.0\.1):5090(\/[a-z]*(?:\/[a-z]+)?)/i.exec(p.url);
     if (m) sheetRoute = m[1];
   }
   if (step.action === 'http.post' && p.body && !p.body.includes('${')) {
@@ -272,7 +273,7 @@ function checkDesktopStep(step, where, ctx) {
     catch (e) { if (!p.contentType || /json/i.test(p.contentType)) report.error(`${where}: "body" is not valid JSON (${e.message}). Inner quotes must be escaped as \\" and backslashes in paths doubled or written as /.`); }
     if (body && sheetRoute) checkSheetBody(sheetRoute, body, where, report);
   }
-  if (sheetRoute && !SHEET_FIELDS[sheetRoute]) report.error(`${where}: sheet-service has no route "${sheetRoute}". Use /batch, /cell, /update or /apply.`);
+  if (sheetRoute && !SHEET_FIELDS[sheetRoute]) report.error(`${where}: sheet-service has no route "${sheetRoute}". Use /batch, /cell, /update, /apply or /process/start.`);
 
   if (p.storeAs !== undefined) defineStoreAs(p.storeAs, step, sheetRoute, where, ctx);
 }
@@ -370,6 +371,15 @@ function checkSheetBody(route, b, where, report) {
     if (!Number.isInteger(b.limit) || b.limit < 1) report.error(`${where}: /apply needs "limit" of at least 1`);
     if (!b.set || typeof b.set !== 'object' || Object.keys(b.set).length === 0) report.error(`${where}: /apply needs a non-empty "set" object`);
     else for (const [k, val] of Object.entries(b.set)) if (typeof val !== 'string') report.error(`${where}: set.${k} must be a string, got ${typeof val}`);
+  }
+  if (route === '/process/start') {
+    const c = b.child;
+    if (!c || typeof c !== 'object' || !c.artifactId || !c.version) report.error(`${where}: /process/start needs "child": {"artifactId", "version"}, the published script to run for each row`);
+    for (const k of ['params', 'outputs']) {
+      if (!b[k] || typeof b[k] !== 'object' || Object.keys(b[k]).length === 0) report.error(`${where}: /process/start needs a non-empty "${k}" object`);
+      else for (const [name, col] of Object.entries(b[k])) if (typeof col !== 'string' || !col) report.error(`${where}: ${k}.${name} must be a column name`);
+    }
+    if (b.timeoutSeconds !== undefined && (!Number.isInteger(b.timeoutSeconds) || b.timeoutSeconds < 1)) report.error(`${where}: timeoutSeconds must be a whole number of at least 1`);
   }
   if (route === '/cell') {
     if (!Number.isInteger(b.row) || b.row < 1) report.error(`${where}: /cell needs "row" as a number of at least 1 (the sheet row, header is row 1)`);

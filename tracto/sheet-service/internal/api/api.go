@@ -13,6 +13,7 @@ import (
 
 	"tracto/sheet-service/internal/engine"
 	"tracto/sheet-service/internal/msauth"
+	"tracto/sheet-service/internal/process"
 	"tracto/sheet-service/internal/sheet"
 )
 
@@ -136,8 +137,16 @@ func text(header []string, rows []sheet.Row) string {
 	return sb.String()
 }
 
-func New() http.Handler {
+// New returns the stateless sheet routes only.
+func New() http.Handler { return NewWithProcess(nil) }
+
+// NewWithProcess adds the routes that run a child job for each row of a sheet. They are the one
+// part of this service that keeps state, so they exist only when a Manager is supplied.
+func NewWithProcess(pm *process.Manager) http.Handler {
 	mux := http.NewServeMux()
+	if pm != nil {
+		registerProcess(mux, pm)
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})

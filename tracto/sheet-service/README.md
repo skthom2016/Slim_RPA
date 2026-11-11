@@ -83,9 +83,41 @@ The response is `{"row": 2, "column": "InvoiceNumber", "value": "349236", "found
 
 `GET /health` returns `{"status":"ok"}`.
 
+## Running a child job for each row (`/process`)
+
+A Tracto script runs in a straight line and has no loop, so repetition lives here: for each pending row of a sheet this service queues a child job on the Orchestrator, waits for it, and writes what it returned back into that row. The service knows nothing about any particular site; the request says which column feeds which child parameter and which child output fills which column.
+
+`POST /process/start` begins a batch and replies at once, so whatever started it (usually a short main job) can end without waiting:
+
+```json
+{
+  "source": { "path": "C:/data/invoices.xlsx", "sheet": "Invoices" },
+  "child": { "artifactId": "acme-child-fetch-invoice", "version": "1.0.0" },
+  "params":  { "invoiceId": "Id" },
+  "outputs": { "invItem.value": "InvoiceItem", "invTotal.value": "Total", "invDate.value": "Date" },
+  "statusColumn": "Status",
+  "messageColumn": "Message",
+  "timeoutSeconds": 180
+}
+```
+
+- `params` maps a child parameter to the column that supplies it. The child reads it as `${param.invoiceId}`.
+- `outputs` maps a name the child published with `storeAs` (a `getText` stored as `invItem` publishes `invItem.value`) to the column it is written to. A child that succeeds without returning one of them is recorded as failed, not written half-empty.
+- A row is pending until its `statusColumn` holds a `doneValues` entry (default `["Done"]`). Each row ends `Done` or `Failed`; `messageColumn` says why, and is cleared when a retry succeeds. Starting the batch again therefore does only the rows that are not done.
+- `timeoutSeconds` is how long one child may run (default 300). A child that overruns is cancelled so it does not hold the worker.
+- Rows run one at a time, in sheet order. Do not run a second worker on the same signed-in browser profile.
+
+The reply is `{"batchId": "...", "state": "Running", "total": 9}`. It is refused with `400` when a column is not in the header, when a column is used twice, or when the child script is not published; with `409` (and the running `batchId`) when a batch is already running on the same sheet; and with `502` when the Orchestrator cannot be reached.
+
+`GET /process/{batchId}` reports progress: the state (`Running`, `Completed`, `CompletedWithErrors`, `Cancelled`, `Stopped`, `Interrupted`), counts, and each row with its child run id and message. `POST /process/{batchId}/cancel` cancels the child in flight and stops.
+
+Every child is queued with the batch id as its `businessJobId`, so a batch's runs can be traced together. A batch stops (`Stopped`) rather than failing every remaining row when three rows in a row cannot reach the Orchestrator, or when a result cannot be written to the sheet (usually because the workbook is open in Excel). If the service restarts mid-batch the batch is marked `Interrupted`; start it again to carry on.
+
+Settings (in `.env`): `SHEET_SERVICE_ORCHESTRATOR_URL` (default `http://127.0.0.1:5080`) and `SHEET_SERVICE_BATCH_DB` (default `sheet-batches.db`, a file of its own: it holds only batch progress, never sheet values).
+
 ## Behaviour to know
 
-- Row numbers are valid for the read that produced them; nothing is kept between runs.
+- Row numbers are valid for the read that produced them. The routes above keep nothing between calls; only `/process` keeps batch progress.
 - `endOfData` means the requested range ran past the last non-empty row. It assumes the data has no blank gap as long as the rest of the range.
 - `xlsx`: reading streams the file, so memory depends on the batch size. Writing rewrites the whole file, and the file must not be open in Excel.
 - `gsheet`: each call asks the API for only the rows needed. Google allows 60 reads and 60 writes per minute per user (300 per project), and a batch counts as one request.

@@ -7,10 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 
 	"tracto/sheet-service/internal/msauth"
+	"tracto/sheet-service/internal/process"
 )
 
 func workbook(t *testing.T) (path string) {
@@ -217,6 +219,100 @@ func TestCell_RequiresRowAndColumn(t *testing.T) {
 	rec := post(t, New(), "/cell", `{"source":{"path":"x.xlsx","sheet":"Data"},"row":0,"column":""}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d, want 400", rec.Code)
+	}
+}
+
+// ── POST /process/start ──────────────────────────────────────────────────────
+
+func processHandler(t *testing.T) http.Handler {
+	t.Helper()
+	orch := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/artifacts/"):
+			_, _ = w.Write([]byte("{}"))
+		case r.Method == http.MethodPost && r.URL.Path == "/jobs":
+			_, _ = w.Write([]byte(`{"runId":"run-1","state":"RUNNING"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/jobs/run-1":
+			_, _ = w.Write([]byte(`{"state":"SUCCEEDED","outputs":{"out":"result"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(orch.Close)
+	store, err := process.OpenStore(filepath.Join(t.TempDir(), "batches.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	m := process.NewManager(store, process.NewOrchestrator(orch.URL))
+	m.PollEvery = time.Millisecond
+	return NewWithProcess(m)
+}
+
+func TestProcess_StartRepliesAtOnceAndTheBatchCanBeReadBack(t *testing.T) {
+	path := workbook(t)
+	h := processHandler(t)
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	rec := post(t, h, "/process/start", `{"source":`+src+`,
+		"child":{"artifactId":"c","version":"1.0.0"},
+		"params":{"sid":"Style_ID"},"outputs":{"out":"Bot_Comments"},"statusColumn":"Bot_Status"}`)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	// Flat fields, so a script can read them as ${batch.batchId} and ${batch.total}.
+	var started map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &started)
+	id, _ := started["batchId"].(string)
+	if id == "" || started["state"] != "Running" || started["total"] != float64(3) {
+		t.Fatalf("got %v", started)
+	}
+
+	var batch struct {
+		State  string `json:"state"`
+		Counts struct {
+			Done int `json:"done"`
+		} `json:"counts"`
+	}
+	for i := 0; i < 500; i++ {
+		get := httptest.NewRecorder()
+		h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/process/"+id, nil))
+		_ = json.Unmarshal(get.Body.Bytes(), &batch)
+		if batch.State != "Running" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if batch.State != "Completed" || batch.Counts.Done != 3 {
+		t.Fatalf("got %+v", batch)
+	}
+}
+
+func TestProcess_RoutesRefuseWhatTheyShould(t *testing.T) {
+	path := workbook(t)
+	h := processHandler(t)
+	src := `{"type":"xlsx","path":` + jsonString(path) + `,"sheet":"Data"}`
+
+	if rec := post(t, h, "/process/start", `{"source":`+src+`,"child":{"artifactId":"c","version":"1"},
+		"params":{"sid":"No_Such_Column"},"outputs":{"out":"Bot_Comments"},"statusColumn":"Bot_Status"}`); rec.Code != http.StatusBadRequest ||
+		!strings.Contains(rec.Body.String(), "not found in header") {
+		t.Errorf("unknown column: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post(t, h, "/process/start", `not json`); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad body: %d", rec.Code)
+	}
+
+	get := httptest.NewRecorder()
+	h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/process/nope", nil))
+	if get.Code != http.StatusNotFound {
+		t.Errorf("unknown batch: %d", get.Code)
+	}
+	if rec := post(t, h, "/process/nope/cancel", ``); rec.Code != http.StatusNotFound {
+		t.Errorf("cancel unknown: %d", rec.Code)
+	}
+	// Without a Manager the stateless service has no process routes at all.
+	if rec := post(t, New(), "/process/start", `{}`); rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("no manager: %d", rec.Code)
 	}
 }
 
