@@ -108,7 +108,7 @@ Batch states: `Running`, `Completed`, `CompletedWithErrors`, `Cancelled`, `Stopp
 ### Rules to follow
 
 - **Publish the child first.** Starting a batch for an unpublished child is refused (`400`), so the main job fails with the reason.
-- **The main job must end at once.** Workers run one job at a time. A main job that waited for its children would hold the worker the children need, and if they need the same kind of worker the run hangs for ever with no error. Starting the batch and ending avoids it.
+- **No job may start another job and wait for it. Only Go waits.** Workers run one job at a time. A job that waits for another holds its worker, and if the job it waits for needs the same kind of worker, the run hangs for ever with no error. This applies to the main job and to every child alike: a main job that waited for its children, or a child that called Go to start a sub-child and waited for it, deadlocks the same way (a chain of waiting jobs holds one worker per link). The main job therefore starts the batch and ends at once, and a child never starts another job. Go (sheet-service) waits for each job, and it holds no worker while it does.
 - **One batch per sheet.** A second start on the same sheet is refused (`409`, with the running `batchId`).
 - **Children run sequentially.** A signed-in browser profile can only be used by one run at a time, so do not run a second browser worker on the same profile to speed it up.
 - **A child must be safe to run again**, because a retry runs it again for the rows that failed.
@@ -128,6 +128,18 @@ There is no `if` in a script. The decision is made outside it, by choosing which
 - **A reason a row failed.** A child that cannot do its work fails, and the row says why in `Message`; the rest carry on.
 
 **Not built yet:** a rule evaluated in Go that picks between two child scripts per row (for example "if this value is above a limit run flow A, otherwise flow B"). Do not write a request shape for it and do not put the comparison in a script. If a task needs it, say so plainly: the row loop exists, the branch does not.
+
+**How the branch must be built when it is.** Go decides *between* jobs; a child never calls Go to branch:
+
+```
+Go, for one row:
+  run child A  -> A returns a value and ends          (A holds a worker only while it runs)
+  Go checks its rule on that value                    (Go waits and holds no worker)
+  run child B or child C                              (a worker is free again)
+  write the result into the row
+```
+
+A child that calls Go and waits for a sub-child deadlocks (see the rule above). A child that calls Go and ends at once does not deadlock, but it has finished before the sub-child runs, so its row cannot receive the sub-child's result. A child that calls Go only for a quick answer cannot act on it, because a script has no `if`: the answer could only be typed as a value, which is a parameter, not a branch.
 
 The browser runtime also refuses business predicates in `assert` by design (it checks the screen, it does not make business decisions), so a comparison such as "price above 100" cannot be written there.
 
