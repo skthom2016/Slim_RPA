@@ -102,7 +102,8 @@ A Tracto script runs in a straight line and has no loop, so repetition lives her
 ```
 
 - `params` maps a child parameter to the column that supplies it. The child reads it as `${param.invoiceId}`.
-- `outputs` maps a name the child published with `storeAs` (a `getText` stored as `invItem` publishes `invItem.value`) to the column it is written to. A child that succeeds without returning one of them is recorded as failed, not written half-empty.
+- `outputs` maps a name the child published with `storeAs` (a `getText` stored as `invItem` publishes `invItem.value`) to the column it is written to. Optional: a child that only does something, such as sending an email, returns nothing and needs none. A child that succeeds without returning one of them is recorded as failed, not written half-empty.
+- `successMessage` (optional, needs `messageColumn`) is written to the message column when a row succeeds, for example `"Message sent"`. Without it the column is cleared on success.
 - A row is pending until its `statusColumn` holds a `doneValues` entry (default `["Done"]`). Each row ends `Done` or `Failed`; `messageColumn` says why, and is cleared when a retry succeeds. Starting the batch again therefore does only the rows that are not done.
 - `timeoutSeconds` is how long one child may run (default 300). A child that overruns is cancelled so it does not hold the worker.
 - Rows run one at a time, in sheet order. Do not run a second worker on the same signed-in browser profile.

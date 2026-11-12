@@ -395,7 +395,6 @@ func TestStart_RefusesARequestThatCannotRunBeforeAnythingHappens(t *testing.T) {
 		"status column reused":    func(r *StartRequest) { r.StatusColumn = "Total" },
 		"no child":                func(r *StartRequest) { r.Child.ArtifactID = "" },
 		"no params":               func(r *StartRequest) { r.Params = nil },
-		"no outputs":              func(r *StartRequest) { r.Outputs = nil },
 	} {
 		r := request(path)
 		mutate(&r)
@@ -504,5 +503,28 @@ func TestStore_InterruptRunningMarksWhatAPreviousProcessLeft(t *testing.T) {
 	}
 	if _, err := store.Get("nope"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("got %v, want ErrNotFound", err)
+	}
+}
+
+func TestBatch_AChildWithNoOutputsStillGetsStatusAndSuccessMessage(t *testing.T) {
+	path := workbook(t, ids("111", "222")...)
+	f := newFakeOrch(t, func(map[string]string) behaviour { return behaviour{State: "SUCCEEDED"} })
+	m := manager(t, f)
+
+	r := request(path)
+	r.Outputs = nil
+	r.SuccessMessage = "Message sent"
+	b := finished(t, m, start(t, m, r).BatchID)
+
+	if b.State != BatchCompleted || b.Counts.Done != 2 {
+		t.Fatalf("got state %s counts %+v", b.State, b.Counts)
+	}
+	for _, row := range []int{2, 3} {
+		if got := cell(t, path, fmt.Sprintf("E%d", row)); got != "Done" {
+			t.Errorf("row %d Status = %q", row, got)
+		}
+		if got := cell(t, path, fmt.Sprintf("F%d", row)); got != "Message sent" {
+			t.Errorf("row %d Message = %q", row, got)
+		}
 	}
 }

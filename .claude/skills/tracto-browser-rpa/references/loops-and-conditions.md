@@ -76,9 +76,10 @@ The `params` default is only used when the child is run on its own; the batch ov
 | `source` | The sheet: `path` and `sheet` (tab name). Forward slashes in the path. |
 | `child` | `artifactId` and `version` of the published child script. |
 | `params` | Child parameter name -> the column that supplies it. The child reads `${param.<name>}`. |
-| `outputs` | Name the child published -> the column it is written to. |
+| `outputs` | Optional. Name the child published -> the column it is written to. Leave it out for a child that only does something, such as sending an email: its row still gets `Status`. |
 | `statusColumn` | Holds `Done` or `Failed` per row. A row is pending until it holds a `doneValues` entry (default `["Done"]`). Default column name `Status`. |
-| `messageColumn` | Optional. Says why a row failed; cleared when a retry succeeds. |
+| `messageColumn` | Optional. Says why a row failed; on success it is cleared, or set to `successMessage`. |
+| `successMessage` | Optional, needs `messageColumn`. Text written there when a row succeeds, for example `Message sent`. |
 | `timeoutSeconds` | How long one child may run before it is cancelled. Default 300. |
 
 **Output names are `storeAs` plus the field.** A `getText` stored as `invItem` publishes `invItem.value`, so the request says `"invItem.value"`. `getTexts` publishes `.value` and `.count`. A `http.post` publishes `.statusCode`, `.body` and the top-level fields of a JSON reply.
@@ -118,6 +119,19 @@ Batch states: `Running`, `Completed`, `CompletedWithErrors`, `Cancelled`, `Stopp
 
 Full API: `tracto/sheet-service/README.md`, section "Running a child job for each row".
 
+### Changing the child later
+
+The main job does not hold a job id. It names the child by **artifact id and version**, written as text in its `http.post` body (`"child":{"artifactId":"...","version":"1.0.0"}`); sheet-service queues a new run of that published script for each row.
+
+- A published version can never be replaced with different content: publishing it again returns `VERSION_CONFLICT`. A changed child therefore needs a **new version number** (`1.0.1`), published under the same id.
+- The main job keeps running the old child until its body names the new version. That edit changes the main script, so it gets a new version too.
+- So a change to the child is three edits: bump and publish the child; point the main body at the new child version; bump and publish the main. Keep the id the same.
+- A version of `latest` is not supported; the version is required.
+
+### A child that returns nothing
+
+`outputs` is optional. A child that only does something, such as sending an email, returns no value, and its row still gets `Status`. To show something in the sheet, set `messageColumn` and `successMessage` (for example `"Message sent"`); that text is written to the message column when the row succeeds. `successMessage` is a fixed text, not something the child read from the page.
+
 ## Conditions
 
 There is no `if` in a script. The decision is made outside it, by choosing which published script runs. What exists today:
@@ -151,7 +165,7 @@ Copying a block of steps N times looks like a loop but is not one. The number of
 
 1. Write the child: one item, parameters in, `storeAs` out, no sheet access. Validate it, publish it.
 2. Make the workbook: input column(s), one column per output, `Status`, `Message`.
-3. Write the main job: the one `http.post` above, with the child's id and version and the column mappings. Validate and publish it.
+3. Write the main job: the one `http.post` above, with the child's id and version and the column mappings. Validate and publish it. When the child changes later, see "Changing the child later".
 4. Run the main job. Read `GET /process/<batchId>` and the sheet for the result.
 
 ## Verified and not verified

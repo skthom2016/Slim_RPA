@@ -27,13 +27,17 @@ type StartRequest struct {
 	// Params maps a child parameter name to the column that supplies it.
 	Params map[string]string `json:"params"`
 	// Outputs maps a name the child published (its storeAs value, such as "invItem.value") to
-	// the column it is written to.
+	// the column it is written to. Optional: a child that only does something (sends an email)
+	// returns nothing, and its row still gets a status.
 	Outputs map[string]string `json:"outputs"`
 	// StatusColumn holds Done or Failed for each row. A row is pending until it holds a DoneValue.
 	StatusColumn string   `json:"statusColumn"`
 	DoneValues   []string `json:"doneValues"`
 	// MessageColumn, when set, says why a row failed, and is cleared when it later succeeds.
 	MessageColumn string `json:"messageColumn"`
+	// SuccessMessage, when set with MessageColumn, is written there when a row succeeds
+	// (for example "Message sent"). Without it the column is cleared on success.
+	SuccessMessage string `json:"successMessage"`
 	// TimeoutSeconds is how long one child may run before it is cancelled (default 300).
 	TimeoutSeconds int `json:"timeoutSeconds"`
 }
@@ -132,9 +136,6 @@ func (r *StartRequest) validate() error {
 	}
 	if len(r.Params) == 0 {
 		return invalid("params is required: say which column feeds which child parameter")
-	}
-	if len(r.Outputs) == 0 {
-		return invalid("outputs is required: say which child output fills which column")
 	}
 	used := map[string]string{}
 	for name, col := range r.Params {
@@ -454,7 +455,7 @@ func (m *Manager) processRow(ctx context.Context, batchID string, req StartReque
 	}
 	cells = append(cells, sheet.CellUpdate{Row: row.Number, Column: req.StatusColumn, Value: statusDone})
 	if req.MessageColumn != "" {
-		cells = append(cells, sheet.CellUpdate{Row: row.Number, Column: req.MessageColumn, Value: ""})
+		cells = append(cells, sheet.CellUpdate{Row: row.Number, Column: req.MessageColumn, Value: req.SuccessMessage})
 	}
 	if err := m.write(req.Source, cells); err != nil {
 		msg := fmt.Sprintf("child run %s succeeded but its result could not be written to the sheet: %v", runID, err)
