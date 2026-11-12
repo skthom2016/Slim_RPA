@@ -13,8 +13,9 @@ no error handler, and a script never gets them.
   as text. See `loops-and-conditions.md`.
 - **To read many matches on one page:** use `getTexts`, which reads them all in one go and hands
   the joined text on.
-- **To choose between two paths:** choose which published script runs. A rule in Go that picks
-  between two child scripts per row is not built yet. See `loops-and-conditions.md`.
+- **To choose between two paths:** the main job passes the values to a Go API, which checks the
+  condition and queues the appropriate child. That branch API is not built yet: say so and create
+  it first. See `loops-and-conditions.md`.
 
 ## Only flat text comes back
 

@@ -273,6 +273,7 @@ with the files checked on disk afterwards. Templates for each are in `references
    **A decision is not written in the script either:** it is made outside it, by choosing which
    published script runs. Read `references/loops-and-conditions.md` before writing anything
    that repeats or branches. Do not copy a block of steps N times when N can change.
+   **A repeat over any source of items (rows of a sheet, invoices in a PDF, files in a folder, records from an API) is a main job and a child job with a Go API between them.** If no API reads that kind of source yet, say so and create the matching API first; see `references/loops-and-conditions.md`, "Any other source of items". **A decision that depends on a value (if this, run that) is also a main job and a child job: the main job passes the values to a Go API and ends, and the API checks the condition and queues the appropriate child.** No branch API exists yet; if the task needs one, say so and create it first; see `references/loops-and-conditions.md`, "Conditions".
 2. **Success does not mean it worked.** The runtime reports a step as succeeded when the
    keystrokes were sent. Many actions are silent when something is wrong (see rule 3), and
    dialogs can swallow keys. The run state alone proves nothing; design for observable effects

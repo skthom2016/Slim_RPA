@@ -5,8 +5,8 @@ A Tracto script has no `if`, no loop and no retry, and one will never be added t
 ## The rule
 
 - **Inside a script:** steps run top to bottom, once. The first failure stops the run. The `condition` field exists in the format but every runtime ignores it, so writing one changes nothing.
-- **A loop ("for each row"):** a short **main job** asks the Go service (sheet-service, port 5090) to start a batch, then ends. sheet-service queues a **child job** for each pending row, one at a time, waits for it, and writes its results back into the row.
-- **A decision ("if this, run that"):** made outside the script, by choosing which published script runs. See "Conditions".
+- **A loop ("for each row"):** a short **main job** asks the Go service (sheet-service, port 5090) to start a batch, then ends. For any source other than a sheet, the same shape needs a matching Go API; see "Any other source of items". sheet-service queues a **child job** for each pending row, one at a time, waits for it, and writes its results back into the row.
+- **A decision ("if this, run that"):** made outside the script, by a Go API that checks the condition and queues the appropriate child. See "Conditions".
 
 The main job is not the loop and does not wait for it. It only starts it.
 
@@ -132,18 +132,60 @@ The main job does not hold a job id. It names the child by **artifact id and ver
 
 `outputs` is optional. A child that only does something, such as sending an email, returns no value, and its row still gets `Status`. To show something in the sheet, set `messageColumn` and `successMessage` (for example `"Message sent"`); that text is written to the message column when the row succeeds. `successMessage` is a fixed text, not something the child read from the page.
 
+### Any other source of items: build the API that calls the child
+
+`/process/start` reads the items from a sheet. The pattern is not tied to sheets: the items could be the invoice numbers in a PDF, the files in a folder, the records an API returns, or a list in a database. **Whenever a task has to do something once per item, build it as a main job and a child job, with a Go API in between.** Never loop inside the script, and never copy steps.
+
+1. **Is there an API that already reads this kind of source?** Today only sheets are covered (`/process/start`: `.xlsx`, Google Sheets, SharePoint/OneDrive). If the items are in a sheet, use it.
+2. **If not, a matching API has to be created before the flow can be written.** Tell the developer this plainly, name the source, and add the API as a piece of work of its own (a Go endpoint, in sheet-service or another Go service). Do not work around it with a script. A PDF with many invoices needs an endpoint that extracts the invoice ids and then runs the child once per id.
+3. **Then write the child and the main job as usual.** The main job is the same single `http.post` to the new endpoint, and the child takes one item as `${param.<name>}`.
+
+What every such API must do, so that it behaves like `/process/start`:
+
+- **Read the items once, at start, in Go.** The script never sees the whole list.
+- **Refuse a request that cannot run, before anything starts:** the child is not published (`400`), a named field or column is missing, or a batch is already running on the same source (`409`).
+- **Reply at once** with a batch id (`202`) and do the work in the background, so the main job ends in seconds.
+- **Run the child once per item, one at a time:** queue it through the Orchestrator (`POST /jobs` with the child's artifact id and version, the item's values as `params`, the batch id as `businessJobId` and `batchId:itemKey` as `eventId`), poll `GET /jobs/{runId}` until it ends, and cancel it (`POST /jobs/{runId}/cancel`) if it overruns its timeout. Go waits; no job waits for another job.
+- **Record each item's result where a person can see it:** `Done` or `Failed`, the child's outputs if any, and the runtime's own error line for a failure. For a sheet that is the row; for a PDF or an API it is a result sheet, a file or a store.
+- **A failed item does not stop the others.** A rerun does only the items that are not `Done`. A result that cannot be recorded, or an Orchestrator that cannot be reached three times in a row, stops the batch.
+- **Offer `GET /<route>/<batchId>` for progress and `POST /<route>/<batchId>/cancel`**, and mark a batch `Interrupted` if the service restarts mid-batch.
+- **Test it against a fake Orchestrator**, as `internal/process/runner_test.go` does: order, failure of one item, rerun, timeout and cancel, refusal before start.
+
+What can be reused: `tracto/sheet-service/internal/process/orch.go` is the Orchestrator client (submit, get, cancel, check a script is published, first error line) and works for any source. The batch loop in `runner.go` and the store in `store.go` are written around sheet rows; a source whose items have no row number needs them generalised to an item key, or a record of its own.
+
 ## Conditions
 
-There is no `if` in a script. The decision is made outside it, by choosing which published script runs. What exists today:
+There is no `if` in a script. The decision is made outside it, in Go. What exists today:
 
 - **A column as the condition.** The batch only processes rows whose `Status` is not `Done`. Setting a row's `Status` to `Done` (or any `doneValues` entry) skips it, so a sheet can say which rows to do.
-- **The caller chooses the script.** A person, a scheduler, or a main job submits one published script or another. Two scripts are two branches; each stays a straight line.
+- **The caller chooses the script.** A person or a scheduler submits one published script or another. Two scripts are two branches; each stays a straight line. When the choice depends on a value, a Go branch API makes it (below).
 - **A technical check that stops the run.** The browser `assert` action fails the run when the page is not as expected (an element missing, text different). It stops the run; it does not pick a different path.
 - **A reason a row failed.** A child that cannot do its work fails, and the row says why in `Message`; the rest carry on.
 
-**Not built yet:** a rule evaluated in Go that picks between two child scripts per row (for example "if this value is above a limit run flow A, otherwise flow B"). Do not write a request shape for it and do not put the comparison in a script. If a task needs it, say so plainly: the row loop exists, the branch does not.
+**A decision that depends on a value (if this, run that) is also a main job and a child job with a Go API between them.** The script never compares anything. The main job passes the values to a Go API and ends; the Go API checks the condition and queues the appropriate child.
 
-**How the branch must be built when it is.** Go decides *between* jobs; a child never calls Go to branch:
+```
+Main job (desktop or browser)  --POST /<branch route>-->  Go API
+ passes the values, then ends                               checks the rule on the values it was given
+                                                            queues child A, B or C (Orchestrator POST /jobs)
+                                                            waits for it, records which branch ran and the result
+```
+
+The values come from the flow: a parameter of the main job, or a value an earlier segment read (`${param.price.value}`), or, for a loop, the row's cells or an earlier item's result. The last segment of the main job is the desktop `http.post` that hands them over.
+
+**Not built yet.** No branch endpoint exists today. When a task needs one, tell the developer plainly that the branch API is missing and that creating it is a piece of work of its own (a Go endpoint, in sheet-service or another Go service); then write the main job and the children against it. Do not put the comparison in a script, and do not invent a request shape for an endpoint that does not exist: design the endpoint first.
+
+What a branch API must do:
+
+- **Take the values in the request**, not read them from the screen. The rule is part of the request (a field, an operator, a value, the child to run) or of the endpoint's own code. A script never receives the answer and acts on it, because it has no `if`.
+- **Always say what happens when no rule matches** (a default child, or refuse the request). A silent no-match must not run nothing and report success.
+- **Refuse before anything runs** when a named child is not published (`400`).
+- **Reply at once** (`202` with a batch id) and run the chosen child in the background, like `/process/start`; the main job ends.
+- **Queue the chosen child through the Orchestrator** (`POST /jobs`, the values as `params`, the batch id as `businessJobId`), poll it, cancel it on timeout. Go waits; no job waits for another job.
+- **Record which branch ran, why and what came of it**, where a person can see it, so a wrong choice can be traced.
+- **Offer progress and cancel routes**, and test it against a fake Orchestrator.
+
+**A decision inside a loop** is the same API called per item. Go runs child A for the row, checks its rule on A's returned value or on the row's cells, then runs child B or C and writes the result into the row:
 
 ```
 Go, for one row:
@@ -153,7 +195,7 @@ Go, for one row:
   write the result into the row
 ```
 
-A child that calls Go and waits for a sub-child deadlocks (see the rule above). A child that calls Go and ends at once does not deadlock, but it has finished before the sub-child runs, so its row cannot receive the sub-child's result. A child that calls Go only for a quick answer cannot act on it, because a script has no `if`: the answer could only be typed as a value, which is a parameter, not a branch.
+A script never calls Go and waits for a sub-job (see the rule above: it deadlocks). A child that calls Go and ends at once does not deadlock, but it has finished before the chosen child runs, so its row cannot receive that child's result. So the decision is always made where Go already owns the loop: in the batch, or in a branch API called by a main job that ends.
 
 The browser runtime also refuses business predicates in `assert` by design (it checks the screen, it does not make business decisions), so a comparison such as "price above 100" cannot be written there.
 
