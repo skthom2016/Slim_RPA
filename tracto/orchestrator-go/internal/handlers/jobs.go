@@ -98,26 +98,7 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// A segmented script becomes a parent run plus one child run per segment.
-	if seg := loadSegmentedScript(h.db, req.ScriptArtifactId, req.ScriptVersion); seg != nil {
-		runID, err := startSegmentedRun(h.db, seg, runSpec{
-			TriggerType:   req.TriggerType,
-			InputRefs:     req.InputRefs,
-			SecretRefs:    req.SecretRefs,
-			Params:        req.Params,
-			Deadline:      req.Deadline,
-			EventId:       req.EventId,
-			BusinessJobId: req.BusinessJobId,
-		})
-		if err != nil {
-			errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-			return
-		}
-		respond(w, http.StatusOK, map[string]any{"runId": runID, "state": "RUNNING", "segments": len(seg.Segments)})
-		return
-	}
-
-	runID, err := insertRun(h.db, runSpec{
+	spec := runSpec{
 		ArtifactId:    req.ScriptArtifactId,
 		Version:       req.ScriptVersion,
 		SchemaVersion: req.SchemaVersion,
@@ -128,13 +109,17 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		Deadline:      req.Deadline,
 		EventId:       req.EventId,
 		BusinessJobId: req.BusinessJobId,
-	})
+	}
+	runID, state, segments, err := enqueueRun(h.db, spec)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
-
-	respond(w, http.StatusOK, map[string]string{"runId": runID, "state": "QUEUED"})
+	if segments > 0 {
+		respond(w, http.StatusOK, map[string]any{"runId": runID, "state": state, "segments": segments})
+		return
+	}
+	respond(w, http.StatusOK, map[string]string{"runId": runID, "state": state})
 }
 
 // scriptRuntimeType returns the targetRuntime declared by a stored script ("desktop",

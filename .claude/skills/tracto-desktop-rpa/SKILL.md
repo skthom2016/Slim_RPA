@@ -273,7 +273,7 @@ with the files checked on disk afterwards. Templates for each are in `references
    **A decision is not written in the script either:** it is made outside it, by choosing which
    published script runs. Read `references/loops-and-conditions.md` before writing anything
    that repeats or branches. Do not copy a block of steps N times when N can change.
-   **A repeat over any source of items (rows of a sheet, invoices in a PDF, files in a folder, records from an API) is a main job and a child job with a Go API between them.** If no API reads that kind of source yet, say so and create the matching API first; see `references/loops-and-conditions.md`, "Any other source of items". **A decision that depends on a value (if this, run that) is also a main job and a child job: the main job passes the values to a Go API and ends, and the API checks the condition and queues the appropriate child.** No branch API exists yet; if the task needs one, say so and create it first; see `references/loops-and-conditions.md`, "Conditions".
+   **A repeat over any source of items (rows of a sheet, invoices in a PDF, files in a folder, records from an API) is a main job and a child job with a Go API between them.** If no API reads that kind of source yet, say so and create the matching API first; see `references/loops-and-conditions.md`, "Any other source of items". **A decision that depends on a value (if this, run that) is also a main job and a child job: the main job passes the values to a Go API and ends, and the API checks the condition and queues the appropriate child.** No branch API exists yet; if the task needs one, say so and create it first; see `references/loops-and-conditions.md`, "Conditions". **A script that must run at a time or on a repeating pattern (daily, hourly, weekly, on the 1st) is started by an Orchestrator schedule, not by anything inside the script.** Read `references/scheduling.md` for when a schedule, a continuation or a batch is the right choice.
 2. **Success does not mean it worked.** The runtime reports a step as succeeded when the
    keystrokes were sent. Many actions are silent when something is wrong (see rule 3), and
    dialogs can swallow keys. The run state alone proves nothing; design for observable effects
@@ -368,6 +368,7 @@ with the files checked on disk afterwards. Templates for each are in `references
 - `references/loops-and-conditions.md`: how a loop ("for each row") and a decision ("if this, run
   that") are done in Tracto: not in the script, but by sheet-service running a child job per row
   from a main job that ends at once. The request, the rules, what is verified and what is not built.
+- `references/scheduling.md`: what can start a run (a person, an Orchestrator schedule, a continuation, an event that is not built) and when the scheduler is the right choice; the schedule request, what it guarantees and what it does not, and how to write a script that runs unattended.
 - `references/limits.md`: what the runtime cannot do, workarounds, and what to ask the core team
   to add.
 - `references/templates/*.json`: working scripts to copy. The verified ones from the table

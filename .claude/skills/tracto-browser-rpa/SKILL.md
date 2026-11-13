@@ -156,7 +156,7 @@ choice for a search or any public page and lets several runs go at once.
    batch that runs the child once per row. **A decision is made outside the script,** by choosing
    which published script runs. Read `references/loops-and-conditions.md` before writing
    anything that repeats or branches.
-   **A repeat over any source of items (rows of a sheet, invoices in a PDF, files in a folder, records from an API) is a main job and a child job with a Go API between them.** If no API reads that kind of source yet, say so and create the matching API first; see `references/loops-and-conditions.md`, "Any other source of items". **A decision that depends on a value (if this, run that) is also a main job and a child job: the main job passes the values to a Go API and ends, and the API checks the condition and queues the appropriate child.** No branch API exists yet; if the task needs one, say so and create it first; see `references/loops-and-conditions.md`, "Conditions". Do not copy steps N times when N can change.
+   **A repeat over any source of items (rows of a sheet, invoices in a PDF, files in a folder, records from an API) is a main job and a child job with a Go API between them.** If no API reads that kind of source yet, say so and create the matching API first; see `references/loops-and-conditions.md`, "Any other source of items". **A decision that depends on a value (if this, run that) is also a main job and a child job: the main job passes the values to a Go API and ends, and the API checks the condition and queues the appropriate child.** No branch API exists yet; if the task needs one, say so and create it first; see `references/loops-and-conditions.md`, "Conditions". **A script that must run at a time or on a repeating pattern (daily, hourly, weekly, on the 1st) is started by an Orchestrator schedule, not by anything inside the script.** Read `references/scheduling.md` for when a schedule, a continuation or a batch is the right choice. Do not copy steps N times when N can change.
 2. **A bad script is rejected before a browser opens.** An unknown action, a missing required
    parameter, a step with no element, a `name` without a `role`, a missing secret: all are
    refused up front, so the failure names the step rather than a timeout.
@@ -207,6 +207,7 @@ choice for a search or any public page and lets several runs go at once.
   that") are done in Tracto: not in the script, but by sheet-service running a child job per row
   from a main job that ends at once. Includes a verified browser child. What is verified and what
   is not built.
+- `references/scheduling.md`: what can start a run (a person, an Orchestrator schedule, a continuation, an event that is not built) and when the scheduler is the right choice; the schedule request, what it guarantees and what it does not, and how to write a script that runs unattended.
 - `references/credentials.md`: signing in without a password in the script.
 - `references/limits.md`: what the runtime cannot do, and what to ask for.
 - `references/templates/*.json`: scripts to copy.

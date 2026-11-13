@@ -36,6 +36,15 @@ var addedColumns = []struct{ Table, Column, Type string }{
 	{"RunRecords", "SegmentIndex", "INTEGER"},
 	{"ArtifactRecords", "ParentArtifactId", "TEXT"},
 	{"ArtifactRecords", "Name", "TEXT"},
+	{"ScheduleRecords", "ParamsJson", "TEXT"},
+	{"ScheduleRecords", "TimeZone", "TEXT"},
+	{"ScheduleRecords", "NextRunAt", "TEXT"},
+	{"ScheduleRecords", "LastFireAt", "TEXT"},
+	{"ScheduleRecords", "LastRunId", "TEXT"},
+	{"ScheduleRecords", "LastStatus", "TEXT"},
+	{"ScheduleRecords", "LastError", "TEXT"},
+	{"ScheduleRecords", "OverlapPolicy", "TEXT"},
+	{"ScheduleRecords", "GraceSeconds", "INTEGER"},
 }
 
 func addColumns(db *sql.DB) error {

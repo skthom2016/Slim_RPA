@@ -17,6 +17,12 @@ no error handler, and a script never gets them.
   condition and queues the appropriate child. That branch API is not built yet: say so and create
   it first. See `loops-and-conditions.md`.
 
+## No clock inside a script
+
+A script has no timer and cannot repeat itself. To run at a time or on a repeating pattern, an
+Orchestrator schedule (`POST /admin/schedules`) starts the published script on a cron pattern in
+a named time zone. Starting a run from an event is not built. See `scheduling.md`.
+
 ## Only flat text comes back
 
 A read publishes a single `value`. A table cannot be read into rows and columns; `getTexts`
@@ -45,7 +51,7 @@ one another; segments needing no sign-in can run in parallel.
 
 A profile keeps cookies, not credentials. When the site ends the session or asks for MFA, the
 run lands on a login page and fails. Someone has to run `--login` again. Plan for it on any
-schedule that runs unattended for long.
+schedule that runs unattended for long (see `scheduling.md`).
 
 ## No file downloads or uploads from a step
 

@@ -17,6 +17,7 @@ import (
 	"tracto/orchestrator/internal/db"
 	"tracto/orchestrator/internal/handlers"
 	"tracto/orchestrator/internal/middleware"
+	"tracto/orchestrator/internal/scheduler"
 	"tracto/orchestrator/internal/services"
 )
 
@@ -147,6 +148,7 @@ func main() {
 
 	go services.LeaseExpiryMonitor(ctx, database, logger)
 	go services.DeadlineMonitor(ctx, database, logger)
+	go scheduler.New(database, logger).Run(ctx)
 
 	// ── Server ────────────────────────────────────────────────────────────────
 	server := &http.Server{
