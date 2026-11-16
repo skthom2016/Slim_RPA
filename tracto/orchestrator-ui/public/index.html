@@ -24,6 +24,9 @@
       <a href="#" class="nav-link" data-tab="jobs">
         <span class="icon">📋</span> Jobs
       </a>
+      <a href="#" class="nav-link" data-tab="schedules">
+        <span class="icon">🗓</span> Schedules
+      </a>
       <a href="#" class="nav-link" data-tab="artifacts">
         <span class="icon">📦</span> Artifacts
       </a>
@@ -95,6 +98,59 @@
           <tbody id="jobs-body"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- Schedules ───────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-schedules">
+      <div class="toolbar">
+        <label>Show</label>
+        <select id="sched-view">
+          <option value="upcoming">Upcoming</option>
+          <option value="completed">Completed</option>
+        </select>
+        <span id="sched-limit-wrap" style="display:none">
+          <label>Limit</label>
+          <input type="number" id="sched-limit" value="50" min="1" max="200">
+        </span>
+        <button class="btn btn-secondary" id="btn-sched-refresh">↺ Refresh</button>
+        <button class="btn btn-primary"   id="btn-sched-new">＋ New schedule</button>
+      </div>
+
+      <div class="table-wrap" id="sched-upcoming-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Next run</th>
+              <th>Script</th>
+              <th>Ver</th>
+              <th>Schedule</th>
+              <th>Time zone</th>
+              <th>Status</th>
+              <th>Last fire</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sched-upcoming-body"></tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap" id="sched-completed-wrap" style="display:none">
+        <table>
+          <thead>
+            <tr>
+              <th>Scheduled for</th>
+              <th>Finished</th>
+              <th>Script</th>
+              <th>Ver</th>
+              <th>Schedule</th>
+              <th>State</th>
+              <th>Run</th>
+            </tr>
+          </thead>
+          <tbody id="sched-completed-body"></tbody>
+        </table>
+      </div>
+      <div class="refresh-hint" id="sched-count"></div>
     </div>
 
     <!-- Artifacts ────────────────────────────────────────────────────────── -->
@@ -209,6 +265,75 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" id="cancel-dismiss">Close</button>
       <button class="btn btn-danger"    id="cancel-confirm">Confirm Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Schedule modal (create and edit) ──────────────────────────────────── -->
+<div class="modal-overlay" id="sched-overlay">
+  <div class="modal modal-wide">
+    <div class="modal-title" id="sched-modal-title">Schedule</div>
+    <div class="modal-desc" id="sched-modal-sub"></div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label for="sched-artifact">Script</label>
+        <select id="sched-artifact"></select>
+      </div>
+      <div class="form-row">
+        <label for="sched-version">Version</label>
+        <select id="sched-version"></select>
+      </div>
+      <div class="form-row form-full">
+        <label for="sched-cron">Schedule (cron)</label>
+        <input type="text" id="sched-cron" placeholder="0 8 * * 1-5" spellcheck="false" autocomplete="off">
+        <div class="form-hint">Five fields: minute, hour, day of month, month, day of week, read in the time zone below.
+          <code>0 8 * * 1-5</code> is 08:00 on weekdays; <code>*/15 * * * *</code> is every 15 minutes.</div>
+      </div>
+      <div class="form-row">
+        <label for="sched-zone">Time zone</label>
+        <input type="text" id="sched-zone" list="sched-zones" placeholder="Asia/Kolkata" autocomplete="off">
+        <datalist id="sched-zones"></datalist>
+      </div>
+      <div class="form-row">
+        <label for="sched-overlap">If the last run is still going</label>
+        <select id="sched-overlap">
+          <option value="skip">Skip this fire</option>
+          <option value="queue">Queue it behind</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="sched-grace">Grace after downtime (seconds)</label>
+        <input type="number" id="sched-grace" min="60" max="86400" value="900">
+        <div class="form-hint">How late a missed fire may still run.</div>
+      </div>
+      <div class="form-row">
+        <label class="check"><input type="checkbox" id="sched-enabled" checked> Enabled</label>
+      </div>
+      <div class="form-row form-full">
+        <label for="sched-params">Parameters (JSON, text values only)</label>
+        <textarea id="sched-params" rows="3" spellcheck="false" placeholder='{"sheetName": "Sheet1"}'></textarea>
+      </div>
+    </div>
+    <div class="form-error" id="sched-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="sched-dismiss">Cancel</button>
+      <button class="btn btn-primary"   id="sched-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete schedule modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="sched-delete-overlay">
+  <div class="modal">
+    <div class="modal-title">Delete Schedule</div>
+    <div class="modal-desc" id="sched-delete-label"></div>
+    <div class="modal-note">
+      The schedule stops firing and is removed from this list. Runs it already started keep their
+      history and stay under Completed.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="sched-delete-dismiss">Cancel</button>
+      <button class="btn btn-danger"    id="sched-delete-confirm">Delete</button>
     </div>
   </div>
 </div>

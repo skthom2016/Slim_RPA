@@ -16,7 +16,7 @@ How the UiPath process `BankAvailCheck` 1.0.4 is rebuilt on Tracto: what exists 
 
 Every run checks whether each entity's MT940 bank statements have arrived for today, triggers a second bot for the ones that are missing, and mails two summaries.
 
-1. **Read the configuration.** `Framework\InitAllSettings.xaml` reads `E:\Automation\Data\Config\MasterConfig.xlsx`, sheets `Settings`, `Entities` and `Constants`, into a key/value dictionary. Keys used later: `entities` (a comma-separated list), `avail_receiver_id`, `cc_receiver_id`, `DTSS_receiver_id`, and the five Office 365 keys `APP ID`, `Application Secret`, `Tenant ID`, `senderID` and `password`.
+1. **Read the configuration.** `Framework\InitAllSettings.xaml` reads `E:\Automation\Data\Config\MasterConfig.xlsx` into a key/value dictionary. Only the `Settings` sheet is in use; the other sheets are not (see [configuration-workbooks.md](configuration-workbooks.md)). Keys used later: `entities` (a comma-separated list), `avail_receiver_id`, `cc_receiver_id`, `DTSS_receiver_id`, and the five Office 365 keys `APP ID`, `Application Secret`, `Tenant ID`, `senderID` and `password`.
 2. **Prepare.** Build an empty table with columns `Entity` and `Bank Account Number`. Set today's date as `dd MMM yyyy`, and the statement root to `C:\Automation\Data\Input\Statements1\BankStatements`.
 3. **For each entity**, check whether the folder `<root>\<today>\<entity>` exists.
    - **It exists:** the entity is available. Add it to the available list.
@@ -43,7 +43,7 @@ The story area names the area of work in the effort estimate (A platform capabil
 | 2 | **Prepare.** An empty table with columns Entity and Bank Account Number. The date is `dd MMM yyyy` from the machine's clock. The statements root `C:\Automation\Data\Input\Statements1\BankStatements` and the recipient key `DTSS` are hard-coded. | The date comes from the schedule's time zone. The root and the recipients come from configuration. | B1 |
 | 3 | **Entity loop.** The entity list is split on commas and each entity is handled in turn. There is no `Try`/`Catch` anywhere, so one failure ends the run. | A separate outcome per entity; one failure does not stop the others. | B1 |
 | 4 | **Check the folder.** `{root}\{date}\{entity}` exists means the entity is available and is added to the available list. | A filesystem exists check in Go. | B2 |
-| 5 | **Fetch what is missing.** The entity name is written to `BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then `run_Bank_bot.bat` runs through PowerShell with no timeout and no exit-code check, then the folder is checked again. | Go writes the cell, runs the batch file as a named program with a timeout and reads its exit code, and checks again. | B2 |
+| 5 | **Fetch what is missing.** The entity name is written to `BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then `run_Bank_bot.bat` runs through PowerShell with no timeout and no exit-code check, then the folder is checked again. | Go writes the cell, runs the batch file as a named program with a timeout and reads its exit code, and checks again. Once the Python service's API document is read, this step becomes a call to that service, which holds the Oracle Fusion access, with the entity as an argument and no cell or batch file. | B2 |
 | 6 | **Find the missing accounts.** If the folder is still missing, read `{entity}_check\bank_statements_check.xlsx` (`Sheet1`, `A1:E200`) and the entity's sheet in `BankMaster.xlsx` (`A1:A40`). For every bank in that list, every check row with the same `BANK_ACCOUNT_NAME` and `AVAILABLE = "N"` is added to the unavailable table. A missing check workbook throws. | Read the whole used ranges and compare the two in Go. A missing workbook is recorded for that entity only. | B3 |
 | 7 | **Build the report.** Duplicates are removed, then an HTML table with the heading "Unavailable Bank List". The column "Bank Account Number" holds the account name. | The same table, built in Go. | B3 |
 | 8 | **Availability mail.** Sent always, to `avail_receiver_id`, CC `cc_receiver_id`, subject `MT940 statement status`, plain text, even when the list is empty. | Sent through Graph; when the list is empty the mail is skipped or says so. | B3 |
@@ -171,7 +171,7 @@ What Go still cannot learn from an exit code is whether the bot actually *fetche
 
 ## What the configuration sheet becomes
 
-`MasterConfig.xlsx` stays where it is and keeps its shape; sheet-service reads it. Two changes:
+Only the `Settings` sheet of `MasterConfig.xlsx` is used and only that is read; `BankMaster.xlsx` is read in full. Two changes:
 
 - **All five Office 365 keys are removed.** `APP ID`, `Application Secret`, `Tenant ID`, `senderID` and `password` go, because mail goes out on the service's own Microsoft sign-in. The client secret in particular does not belong in a workbook that is opened by a robot and shared across the estate; see the security finding below.
 - **The hard-coded paths move into it.** `C:\Automation\Data\Input\Statements1\BankStatements`, `E:\Automation\Data\Config\BankMaster.xlsx` and the batch file path are literals inside the UiPath workflow today, including a drive letter that differs between them. In Tracto they belong in `Settings` next to the rest, so the flow can run on another machine without an edit to a published script.

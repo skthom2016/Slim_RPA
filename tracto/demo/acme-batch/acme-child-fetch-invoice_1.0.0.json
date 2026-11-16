@@ -1,0 +1,33 @@
+{
+  "id": "acme-child-fetch-invoice",
+  "name": "ACME Child: Fetch One Invoice",
+  "version": "1.0.0",
+  "params": {
+    "invoiceId": "349236"
+  },
+  "segments": [
+    {
+      "name": "Search one invoice on ACME",
+      "runtime": "browser",
+      "profile": "default",
+      "steps": [
+        { "stepNumber": 1, "action": "navigate", "description": "Open the invoice search page",
+          "parameters": { "url": "https://acme-test.uipath.com/invoices/search" } },
+        { "stepNumber": 2, "action": "wait", "description": "Wait for the search box (not there means the profile is signed out)",
+          "parameters": { "css": "#invoiceNumber", "timeoutMs": "15000" } },
+        { "stepNumber": 3, "action": "fill", "description": "Type the invoice number the batch passed in",
+          "parameters": { "css": "#invoiceNumber", "value": "${param.invoiceId}" } },
+        { "stepNumber": 4, "action": "click", "description": "Click Search",
+          "parameters": { "role": "button", "name": "Search" } },
+        { "stepNumber": 5, "action": "wait", "description": "Wait for the result row (not there means no such invoice)",
+          "parameters": { "css": "table.table td:nth-child(3)", "timeoutMs": "15000" } },
+        { "stepNumber": 6, "action": "getText", "description": "Read Invoice Item",
+          "parameters": { "css": "table.table td:nth-child(3)", "storeAs": "invItem" } },
+        { "stepNumber": 7, "action": "getText", "description": "Read Total",
+          "parameters": { "css": "table.table td:nth-child(4)", "storeAs": "invTotal" } },
+        { "stepNumber": 8, "action": "getText", "description": "Read Date",
+          "parameters": { "css": "table.table td:nth-child(5)", "storeAs": "invDate" } }
+      ]
+    }
+  ]
+}

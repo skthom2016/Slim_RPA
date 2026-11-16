@@ -454,9 +454,276 @@ document.getElementById('run-confirm').addEventListener('click', async () => {
     }
 });
 
+// ── Schedules tab ─────────────────────────────────────────────────────────────
+// Upcoming: every schedule, the one that fires soonest first. The server does the sorting; a
+// schedule that is switched off has no next run and comes last. Completed: the runs schedules
+// started that have finished, most recently finished first.
+let _schedules    = [];     // the upcoming list as last loaded, for the edit form
+let _artifactList = [];     // published scripts, for the form
+let _schedEditing = null;   // the schedule being edited, or null when creating one
+
+function relTime(iso) {
+    if (!iso) return '';
+    const secs = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
+    if (secs <= 0)  return 'due now';
+    if (secs < 90)  return 'in ' + secs + ' s';
+    const mins = Math.round(secs / 60);
+    if (mins < 90)  return 'in ' + mins + ' min';
+    const hrs = Math.floor(mins / 60), rest = mins % 60;
+    if (hrs < 48)   return 'in ' + hrs + ' h' + (rest ? ' ' + rest + ' min' : '');
+    return 'in ' + Math.round(hrs / 24) + ' days';
+}
+
+async function loadSchedules() {
+    const view = document.getElementById('sched-view').value;
+    document.getElementById('sched-upcoming-wrap').style.display  = view === 'upcoming'  ? '' : 'none';
+    document.getElementById('sched-completed-wrap').style.display = view === 'completed' ? '' : 'none';
+    document.getElementById('sched-limit-wrap').style.display     = view === 'completed' ? '' : 'none';
+    if (view === 'completed') { await loadCompletedSchedules(); return; }
+
+    let items;
+    try { items = await api('/admin/schedules?view=upcoming'); }
+    catch (e) { toast('Failed to load schedules: ' + e.message, true); return; }
+    _schedules = items;
+
+    const tbody = document.getElementById('sched-upcoming-body');
+    document.getElementById('sched-count').textContent =
+        items.length ? `${items.length} schedule${items.length === 1 ? '' : 's'}, soonest first` : '';
+    if (items.length === 0) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No schedules yet. Use “New schedule” to create one.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = items.map(s => {
+        const status = (s.enabled
+            ? `<span class="badge b-AVAILABLE">SCHEDULED</span>`
+            : `<span class="badge b-OFFLINE">DISABLED</span>`)
+            + (s.activeRunState ? ` ${badge(s.activeRunState)}` : '');
+        const next = s.enabled && s.nextRunAt
+            ? `<div class="sched-when" title="${esc(s.nextRunAt)} (UTC)">${esc(s.nextRunLocal || fmtDate(s.nextRunAt))}</div>
+               <div class="sched-sub">${esc(relTime(s.nextRunAt))}</div>`
+            : '—';
+        const last = s.lastFireAt
+            ? `<div>${fmtDate(s.lastFireAt)}</div>
+               <div class="sched-sub" title="${esc(s.lastError || '')}">${s.lastStatus ? badge(String(s.lastStatus).toUpperCase()) : ''}
+                 ${s.lastRunId ? `<button class="link-id" onclick="openLogs('${esc(s.lastRunId)}')" title="${esc(s.lastRunId)}">${shortId(s.lastRunId)}</button>` : ''}</div>`
+            : '—';
+        return `
+        <tr>
+            <td>${next}</td>
+            <td>${esc(s.artifactId)}</td>
+            <td><code>${esc(s.version)}</code></td>
+            <td class="sched-cron">${esc(s.cronExpression)}</td>
+            <td>${esc(s.timeZone)}</td>
+            <td style="white-space:nowrap">${status}</td>
+            <td>${last}</td>
+            <td class="row-actions">
+                <button class="btn btn-sm btn-secondary" onclick="openScheduleModal('${esc(s.scheduleId)}')">Edit</button>
+                <button class="btn btn-sm btn-icon btn-danger" title="Delete this schedule"
+                        onclick="promptDeleteSchedule('${esc(s.scheduleId)}')">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadCompletedSchedules() {
+    const limit = parseInt(document.getElementById('sched-limit').value, 10) || 50;
+    let data;
+    try { data = await api('/admin/schedules/completed?limit=' + Math.min(Math.max(limit, 1), 200)); }
+    catch (e) { toast('Failed to load completed runs: ' + e.message, true); return; }
+
+    const tbody = document.getElementById('sched-completed-body');
+    document.getElementById('sched-count').textContent =
+        data.total ? `Showing ${data.items.length} of ${data.total}, most recently finished first` : '';
+    if (!data.items || data.items.length === 0) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No scheduled run has finished yet</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = data.items.map(r => {
+        const sched = r.scheduleExists
+            ? `<span class="sched-cron">${esc(r.cronExpression)}</span> <span class="sched-sub">${esc(r.timeZone)}</span>`
+            : `<span class="sched-sub">schedule deleted</span>`;
+        return `
+        <tr>
+            <td>${fmtDate(r.scheduledFor || r.queuedAt)}</td>
+            <td>${fmtDate(r.finishedAt)}</td>
+            <td>${esc(r.artifactId)}</td>
+            <td><code>${esc(r.version)}</code></td>
+            <td>${sched}</td>
+            <td>${badge(r.state)}</td>
+            <td><button class="link-id" onclick="openLogs('${esc(r.runId)}')" title="${esc(r.runId)}">${shortId(r.runId)}</button></td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Schedule form (create and edit) ───────────────────────────────────────────
+async function ensureArtifacts() {
+    const data = await api('/artifacts');
+    _artifactList = (data.artifacts || []).filter(a => !a.isDeleted);
+}
+
+function fillZones() {
+    const list = document.getElementById('sched-zones');
+    if (list.children.length) return;
+    let zones;
+    try { zones = Intl.supportedValuesOf('timeZone'); }
+    catch { zones = ['Asia/Kolkata', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney']; }
+    if (!zones.includes('UTC')) zones.unshift('UTC');
+    list.innerHTML = zones.map(z => `<option value="${esc(z)}"></option>`).join('');
+}
+
+function fillVersionOptions(artifactId, selected) {
+    const sel = document.getElementById('sched-version');
+    const versions = _artifactList.filter(a => a.artifactId === artifactId).map(a => a.version);
+    if (selected && !versions.includes(selected)) versions.unshift(selected);
+    sel.innerHTML = versions.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    sel.value = selected || versions[0] || '';
+}
+
+async function openScheduleModal(scheduleId) {
+    try { await ensureArtifacts(); }
+    catch (e) { toast('Failed to load scripts: ' + e.message, true); return; }
+    fillZones();
+
+    const s = scheduleId ? _schedules.find(x => x.scheduleId === scheduleId) : null;
+    _schedEditing = s || null;
+    const artSel = document.getElementById('sched-artifact');
+
+    if (s) {
+        document.getElementById('sched-modal-title').textContent = 'Edit Schedule';
+        document.getElementById('sched-modal-sub').textContent   = s.scheduleId;
+        const label = (_artifactList.find(a => a.artifactId === s.artifactId) || {}).name || s.artifactId;
+        artSel.innerHTML = `<option value="${esc(s.artifactId)}">${esc(label)}</option>`;
+        artSel.disabled  = true;               // a schedule's script cannot be changed, only its version
+        fillVersionOptions(s.artifactId, s.version);
+        document.getElementById('sched-cron').value    = s.cronExpression;
+        document.getElementById('sched-zone').value    = s.timeZone;
+        document.getElementById('sched-overlap').value = s.overlapPolicy;
+        document.getElementById('sched-grace').value   = s.graceSeconds;
+        document.getElementById('sched-enabled').checked = s.enabled;
+        document.getElementById('sched-params').value  =
+            Object.keys(s.params || {}).length ? JSON.stringify(s.params, null, 2) : '';
+    } else {
+        document.getElementById('sched-modal-title').textContent = 'New Schedule';
+        document.getElementById('sched-modal-sub').textContent   = 'Runs a published script on a timetable.';
+        const ids = [...new Set(_artifactList.map(a => a.artifactId))];
+        artSel.innerHTML = ids.map(id => {
+            const a = _artifactList.find(x => x.artifactId === id);
+            return `<option value="${esc(id)}">${esc(a.name || id)}</option>`;
+        }).join('');
+        artSel.disabled = false;
+        fillVersionOptions(artSel.value, null);
+        document.getElementById('sched-cron').value    = '';
+        document.getElementById('sched-zone').value    = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        document.getElementById('sched-overlap').value = 'skip';
+        document.getElementById('sched-grace').value   = 900;
+        document.getElementById('sched-enabled').checked = true;
+        document.getElementById('sched-params').value  = '';
+    }
+    document.getElementById('sched-error').textContent = '';
+    document.getElementById('sched-overlay').classList.add('visible');
+    document.getElementById('sched-cron').focus();
+}
+
+function closeScheduleModal() {
+    document.getElementById('sched-overlay').classList.remove('visible');
+    _schedEditing = null;
+}
+
+function sameParams(a, b) {
+    const ka = Object.keys(a || {}).sort(), kb = Object.keys(b || {}).sort();
+    return ka.length === kb.length && ka.every((k, i) => k === kb[i] && a[k] === b[k]);
+}
+
+async function saveSchedule() {
+    const err = document.getElementById('sched-error');
+    err.textContent = '';
+
+    let params = {};
+    const raw = document.getElementById('sched-params').value.trim();
+    if (raw) {
+        try { params = JSON.parse(raw); }
+        catch { err.textContent = 'Parameters must be valid JSON, for example {"sheetName": "Sheet1"}.'; return; }
+        if (params === null || typeof params !== 'object' || Array.isArray(params) ||
+            Object.values(params).some(v => typeof v !== 'string')) {
+            err.textContent = 'Parameters must be a JSON object whose values are all text, for example {"sheetName": "Sheet1"}.';
+            return;
+        }
+    }
+
+    const form = {
+        cronExpression: document.getElementById('sched-cron').value.trim(),
+        timeZone:       document.getElementById('sched-zone').value.trim(),
+        version:        document.getElementById('sched-version').value,
+        overlapPolicy:  document.getElementById('sched-overlap').value,
+        graceSeconds:   parseInt(document.getElementById('sched-grace').value, 10),
+        enabled:        document.getElementById('sched-enabled').checked,
+        params,
+    };
+    if (!form.cronExpression) { err.textContent = 'Enter a cron expression.'; return; }
+    if (!form.timeZone)       { err.textContent = 'Enter a time zone, for example Asia/Kolkata.'; return; }
+    if (Number.isNaN(form.graceSeconds)) { err.textContent = 'Grace must be a number of seconds.'; return; }
+
+    try {
+        if (_schedEditing) {
+            // Send only what changed: changing the expression or the time zone restarts the next
+            // run from now, which editing a parameter should not do.
+            const cur = _schedEditing, patch = {};
+            if (form.cronExpression !== cur.cronExpression) patch.cronExpression = form.cronExpression;
+            if (form.timeZone       !== cur.timeZone)       patch.timeZone       = form.timeZone;
+            if (form.version        !== cur.version)        patch.version        = form.version;
+            if (form.overlapPolicy  !== cur.overlapPolicy)  patch.overlapPolicy  = form.overlapPolicy;
+            if (form.graceSeconds   !== cur.graceSeconds)   patch.graceSeconds   = form.graceSeconds;
+            if (form.enabled        !== cur.enabled)        patch.enabled        = form.enabled;
+            if (!sameParams(form.params, cur.params))       patch.params         = form.params;
+            if (Object.keys(patch).length === 0) { closeScheduleModal(); toast('No changes to save'); return; }
+            await api('/admin/schedules/' + encodeURIComponent(cur.scheduleId),
+                      { method: 'PATCH', body: JSON.stringify(patch) });
+        } else {
+            await api('/admin/schedules', {
+                method: 'POST',
+                body: JSON.stringify({ ...form, artifactId: document.getElementById('sched-artifact').value }),
+            });
+        }
+    } catch (e) {
+        err.textContent = e.message;            // the server's own words: a bad cron, an unknown zone
+        return;
+    }
+    closeScheduleModal();
+    toast('Schedule saved');
+    loadSchedules();
+}
+
+// ── Delete schedule ───────────────────────────────────────────────────────────
+let _delScheduleId = null;
+
+function promptDeleteSchedule(scheduleId) {
+    const s = _schedules.find(x => x.scheduleId === scheduleId);
+    _delScheduleId = scheduleId;
+    document.getElementById('sched-delete-label').textContent = s
+        ? `${s.artifactId} ${s.version}, ${s.cronExpression} (${s.timeZone})`
+        : scheduleId;
+    document.getElementById('sched-delete-overlay').classList.add('visible');
+}
+
+function closeDeleteSchedule() {
+    document.getElementById('sched-delete-overlay').classList.remove('visible');
+    _delScheduleId = null;
+}
+
+async function confirmDeleteSchedule() {
+    if (!_delScheduleId) return;
+    const id = _delScheduleId;
+    try { await api('/admin/schedules/' + encodeURIComponent(id), { method: 'DELETE' }); }
+    catch (e) { toast('Delete failed: ' + e.message, true); return; }
+    closeDeleteSchedule();
+    toast('Schedule deleted');
+    loadSchedules();
+}
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 const TAB_TITLES = {
-    overview: 'Overview', jobs: 'Jobs', artifacts: 'Artifacts', workers: 'Workers', logs: 'Logs'
+    overview: 'Overview', jobs: 'Jobs', schedules: 'Schedules', artifacts: 'Artifacts', workers: 'Workers', logs: 'Logs'
 };
 let currentTab = 'overview';
 
@@ -482,6 +749,7 @@ function refreshTab(tab) {
     switch (tab) {
         case 'overview':  loadOverview();  break;
         case 'jobs':      loadJobs();      break;
+        case 'schedules': loadSchedules(); break;
         case 'artifacts': loadArtifacts(); break;
         case 'workers':   loadWorkers();   break;
     }
@@ -516,6 +784,22 @@ document.getElementById('btn-logs-load').addEventListener('click',         () =>
 document.getElementById('btn-logs-clear').addEventListener('click',        () => {
     document.getElementById('logs-run-id').value = '';
     document.getElementById('logs-content').innerHTML = '';
+});
+
+document.getElementById('sched-view').addEventListener('change', loadSchedules);
+document.getElementById('sched-limit').addEventListener('change', loadSchedules);
+document.getElementById('btn-sched-refresh').addEventListener('click', loadSchedules);
+document.getElementById('btn-sched-new').addEventListener('click', () => openScheduleModal(null));
+document.getElementById('sched-save').addEventListener('click', saveSchedule);
+document.getElementById('sched-dismiss').addEventListener('click', closeScheduleModal);
+document.getElementById('sched-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('sched-overlay')) closeScheduleModal();
+});
+document.getElementById('sched-artifact').addEventListener('change', e => fillVersionOptions(e.target.value, null));
+document.getElementById('sched-delete-dismiss').addEventListener('click', closeDeleteSchedule);
+document.getElementById('sched-delete-confirm').addEventListener('click', confirmDeleteSchedule);
+document.getElementById('sched-delete-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('sched-delete-overlay')) closeDeleteSchedule();
 });
 
 document.getElementById('jobs-state-filter').addEventListener('change', loadJobs);

@@ -10,8 +10,8 @@ Paths are as configured in the UiPath estate. `{date}` is `dd MMM yyyy` from the
 E:\Automation\
   Data\
     Config\
-      MasterConfig.xlsx                 settings for flows 1, 2, 3 and 4
-      BankMaster.xlsx                   flow 1
+      MasterConfig.xlsx                 only its Settings sheet is read, by flows 1 to 4
+      BankMaster.xlsx                   flow 1, every sheet
       PasswordsPDF.txt                  flow 4 (PDF open passwords)
     SampleExtract.xlsx                  flow 3 template, copied per entity
     Input\
@@ -54,7 +54,7 @@ C:\xampp\htdocs\prod\run_Bank_bot.bat  flow 1: the fetch bot
 
 ## Flow 1: BankAvailCheck
 
-- **Reads** `MasterConfig.xlsx` (sheets Settings, Entities, Constants), `BankMaster.xlsx` (sheet per entity, `A1:A40`, column `BANK_ACCOUNT_NAME`), and `{entity}_check\bank_statements_check.xlsx` (`Sheet1`, `A1:E200`, columns `BANK_ACCOUNT_NAME` and `AVAILABLE`).
+- **Reads** `MasterConfig.xlsx` (sheet Settings), `BankMaster.xlsx` (sheet per entity, `A1:A40`, column `BANK_ACCOUNT_NAME`), and `{entity}_check\bank_statements_check.xlsx` (`Sheet1`, `A1:E200`, columns `BANK_ACCOUNT_NAME` and `AVAILABLE`).
 - **Writes** one cell: the entity name into `BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, which is how the fetch bot learns the entity.
 - **Creates** no folders and no files. The result is two mails.
 
@@ -65,7 +65,7 @@ C:\xampp\htdocs\prod\run_Bank_bot.bat  flow 1: the fetch bot
 - **Staging:** every attachment is first saved to `SourceDownload`. A ZIP is extracted into a subfolder named after the archive, its files are moved on, and then both the archive and the subfolder are deleted.
 - **Files created:** each attachment is moved to `PDF_JPEG` or `XLS` as `{customer}_{dd MMM yyyy hh mm ss}_{n}{ext}`. A mail with no attachment is saved to `MailBody` as `{customer or Others}_{dd MMM yyyy hh mm ss}_{n}.eml`.
 - **Queue items** carry the full path of the moved file (`PDF_JPEG`, `XLS` or `MailBody` folder plus file name).
-- **Workbooks updated:** `LogTracker.xlsx` (sheet `Email Tracker`, rows appended without headers), `ModuleTracker.xlsx` (cell `B2` of the entity's sheet), and `MasterConfig.xlsx` (the mail count written next to `{entity}_MailCount` in `InboxMonitor`, rows `A6:A16`).
+- **Workbooks updated:** `LogTracker.xlsx` (sheet `Email Tracker`, rows appended without headers), `ModuleTracker.xlsx` (cell `B2` of the entity's sheet), and, where the package writes it, the mail count next to `{entity}_MailCount` in the `InboxMonitor` sheet of `MasterConfig.xlsx` (a sheet no flow reads).
 
 ## Flow 3: India.Excel.Extraction
 
@@ -84,7 +84,7 @@ C:\xampp\htdocs\prod\run_Bank_bot.bat  flow 1: the fetch bot
 
 ## Flow 4: Payment.Advice.Extraction
 
-- **Reads** the queue `{entity}_PDF_JPEG_Queue`, `MasterConfig.xlsx` (sheets Settings, Constants, PDF Extraction, EmailDetails), `Validation Station.xlsx`, `PasswordsPDF.txt` and `Config\Payment advice header.xlsx`.
+- **Reads** the queue `{entity}_PDF_JPEG_Queue`, `MasterConfig.xlsx` (sheet Settings), `Validation Station.xlsx`, `PasswordsPDF.txt` and `Config\Payment advice header.xlsx`.
 - **Per document:** a per-document results workbook with a sheet per table and a `DocPath` sheet, saved as `{docName}.xlsx` in `...\Output\PDF_JPEG\Extracted Files\`, plus `DocumentProcessing\Output\{docName}.xlsx` and `temp.xlsx` inside the robot's working folder. The processed PDF is moved to `...\Output\ExtractedPDF\`. A failed document is moved to `...\Output\PDF_JPEG\Exception\` and a row is added to `D:\Automation\Tracker\PDF Extractor Logs\{date}.xlsx`.
 - **Once per entity, after the queue is empty:** the per-document workbooks are consolidated into `...\Output\PDF_JPEG\Extracted payment advice.xlsx` (sheets for header, `Table`, `Output`, `Errors` and `Credit Note`). It is then copied to `ExtractedPaymentAdvices\PDF_JPEG\ML_ExtractedFiles\{date}\{entity}\Extracted payment advices.xlsx` (folder created first), cleaned, and left with the advice rows on the first sheet.
 

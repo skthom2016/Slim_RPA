@@ -87,9 +87,14 @@ func RunIsActive(db *sql.DB, runID string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	return !isTerminalState(state), nil
+}
+
+// isTerminalState reports whether a run in this state never moves on.
+func isTerminalState(state string) bool {
 	switch strings.ToLower(state) {
 	case "succeeded", "failed", "handedoff", "cancelled", "timedout", "unknown":
-		return false, nil
+		return true
 	}
-	return true, nil
+	return false
 }

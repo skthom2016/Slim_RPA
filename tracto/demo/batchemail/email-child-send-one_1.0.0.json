@@ -1,0 +1,180 @@
+{
+  "id": "email-child-send-one",
+  "name": "Email Child: Send One Email",
+  "version": "1.0.0",
+  "params": {
+    "to": "tibin@neelitech.com",
+    "subject": "test",
+    "message": "test message"
+  },
+  "segments": [
+    {
+      "name": "Send one email in Outlook",
+      "runtime": "browser",
+      "mode": "headed",
+      "profile": "default",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "navigate",
+          "description": "Open Outlook mail",
+          "parameters": {
+            "url": "https://outlook.cloud.microsoft/mail/"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait 5000 ms",
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "click",
+          "description": "Click New",
+          "parameters": {
+            "role": "button",
+            "name": "New"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Wait 5000 ms",
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "click",
+          "description": "Click To",
+          "parameters": {
+            "label": "To"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "fill",
+          "description": "Enter the recipient",
+          "parameters": {
+            "label": "To",
+            "value": "${param.to}"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Wait 3000 ms",
+          "parameters": {
+            "ms": "3000"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "press",
+          "description": "Press Tab in To",
+          "parameters": {
+            "label": "To",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "action": "delay",
+          "description": "Wait 2400 ms",
+          "parameters": {
+            "ms": "2400"
+          }
+        },
+        {
+          "stepNumber": 10,
+          "action": "press",
+          "description": "Press Tab in To",
+          "parameters": {
+            "label": "To",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 11,
+          "action": "delay",
+          "description": "Wait 500 ms",
+          "parameters": {
+            "ms": "500"
+          }
+        },
+        {
+          "stepNumber": 12,
+          "action": "press",
+          "description": "Press Tab in Cc",
+          "parameters": {
+            "label": "Cc",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 13,
+          "action": "delay",
+          "description": "Wait 3700 ms",
+          "parameters": {
+            "ms": "3700"
+          }
+        },
+        {
+          "stepNumber": 14,
+          "action": "fill",
+          "description": "Enter the subject",
+          "parameters": {
+            "label": "Subject",
+            "value": "${param.subject}"
+          }
+        },
+        {
+          "stepNumber": 15,
+          "action": "delay",
+          "description": "Wait 1000 ms",
+          "parameters": {
+            "ms": "1000"
+          }
+        },
+        {
+          "stepNumber": 16,
+          "action": "fill",
+          "description": "Enter the message body",
+          "parameters": {
+            "css": "div[aria-label^='Message body']",
+            "value": "${param.message}"
+          }
+        },
+        {
+          "stepNumber": 17,
+          "action": "delay",
+          "description": "Wait 2000 ms",
+          "parameters": {
+            "ms": "2000"
+          }
+        },
+        {
+          "stepNumber": 18,
+          "action": "click",
+          "description": "Click Send",
+          "parameters": {
+            "role": "button",
+            "name": "Send"
+          }
+        },
+        {
+          "stepNumber": 19,
+          "action": "delay",
+          "description": "Wait 3000 ms",
+          "parameters": {
+            "ms": "3000"
+          }
+        }
+      ]
+    }
+  ]
+}

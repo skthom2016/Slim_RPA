@@ -25,7 +25,25 @@ func Open(path string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
+	if err = addIndexes(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create indexes: %w", err)
+	}
 	return db, nil
+}
+
+// Indexes that cover columns added after a table shipped, so they are created once the columns
+// exist. They keep the schedule list and the completed-runs list quick as runs accumulate.
+func addIndexes(db *sql.DB) error {
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS IX_ScheduleRecords_Next ON ScheduleRecords(Enabled, NextRunAt)`,
+		`CREATE INDEX IF NOT EXISTS IX_RunRecords_Trigger ON RunRecords(TriggerType, UpdatedAt)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Columns added after a table's CREATE statement shipped. CREATE TABLE IF NOT EXISTS does

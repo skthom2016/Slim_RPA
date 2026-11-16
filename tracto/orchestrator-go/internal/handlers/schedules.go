@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -33,7 +35,10 @@ type scheduleView struct {
 	LastRunId      *string           `json:"lastRunId"`
 	LastStatus     *string           `json:"lastStatus"`
 	LastError      *string           `json:"lastError"`
-	CreatedAt      string            `json:"createdAt"`
+	// ActiveRunState is the state of the schedule's last run while that run has not finished
+	// (QUEUED or RUNNING), and null otherwise.
+	ActiveRunState *string `json:"activeRunState"`
+	CreatedAt      string  `json:"createdAt"`
 }
 
 const scheduleColumns = `ScheduleId,CronExpression,COALESCE(TimeZone,'UTC'),ArtifactId,Version,
@@ -170,8 +175,22 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /admin/schedules
+//
+// With no view, every schedule in the order it was created. With view=upcoming, the order a
+// person wants to read them in: the schedule that fires soonest first, and a schedule that is
+// switched off (so has no next run) after all the others.
 func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Query(`SELECT ` + scheduleColumns + ` FROM ScheduleRecords ORDER BY CreatedAt`)
+	order := `ORDER BY CreatedAt`
+	switch view := r.URL.Query().Get("view"); view {
+	case "":
+	case "upcoming":
+		order = `ORDER BY Enabled DESC, (NextRunAt IS NULL), NextRunAt ASC, CreatedAt ASC`
+	default:
+		errResp(w, http.StatusBadRequest, "INVALID_REQUEST",
+			"view must be \"upcoming\"; finished runs are at /admin/schedules/completed")
+		return
+	}
+	rows, err := h.db.Query(`SELECT ` + scheduleColumns + ` FROM ScheduleRecords ` + order)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
@@ -186,7 +205,136 @@ func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, v)
 	}
+	if err := rows.Err(); err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	// The database has one connection, so the rows must be closed before the next query.
+	rows.Close()
+	h.fillActiveRuns(items)
 	respond(w, http.StatusOK, items)
+}
+
+// fillActiveRuns marks each schedule whose last run has not finished yet.
+func (h *ScheduleHandler) fillActiveRuns(items []scheduleView) {
+	for i := range items {
+		if items[i].LastRunId == nil {
+			continue
+		}
+		var state string
+		if err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, *items[i].LastRunId).Scan(&state); err != nil {
+			continue
+		}
+		if !isTerminalState(state) {
+			up := strings.ToUpper(state)
+			items[i].ActiveRunState = &up
+		}
+	}
+}
+
+// completedRun is one finished run that a schedule started.
+type completedRun struct {
+	RunId          string  `json:"runId"`
+	ScheduleId     string  `json:"scheduleId"`
+	ScheduleExists bool    `json:"scheduleExists"`
+	ArtifactId     string  `json:"artifactId"`
+	Version        string  `json:"version"`
+	CronExpression *string `json:"cronExpression"`
+	TimeZone       *string `json:"timeZone"`
+	ScheduledFor   *string `json:"scheduledFor"`
+	QueuedAt       string  `json:"queuedAt"`
+	FinishedAt     string  `json:"finishedAt"`
+	State          string  `json:"state"`
+	WorkerId       *string `json:"workerId"`
+}
+
+// GET /admin/schedules/completed?limit=50&offset=0&scheduleId=
+//
+// The runs a schedule started that have finished, most recently finished first. Each run keeps
+// the schedule's id and the fire time in its eventId, which is where scheduleId and scheduledFor
+// come from; a run whose schedule has since been deleted is still listed.
+func (h *ScheduleHandler) Completed(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit, offset := 50, 0
+	if v := q.Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 200 {
+			errResp(w, http.StatusBadRequest, "INVALID_REQUEST", "limit must be between 1 and 200")
+			return
+		}
+		limit = n
+	}
+	if v := q.Get("offset"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			errResp(w, http.StatusBadRequest, "INVALID_REQUEST", "offset must be 0 or more")
+			return
+		}
+		offset = n
+	}
+
+	const scheduleIDExpr = `substr(r.EventId, 1, instr(r.EventId, ':') - 1)`
+	where := `r.TriggerType='Schedule' AND (r.ParentRunId IS NULL OR r.ParentRunId='')
+		AND lower(r.State) IN ('succeeded','failed','handedoff','cancelled','timedout','unknown')`
+	args := []any{}
+	if id := q.Get("scheduleId"); id != "" {
+		where += ` AND ` + scheduleIDExpr + `=?`
+		args = append(args, id)
+	}
+
+	var total int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM RunRecords r WHERE `+where, args...).Scan(&total); err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+
+	rows, err := h.db.Query(`
+		SELECT r.Id, COALESCE(r.EventId,''), COALESCE(r.ScriptArtifactId,''), COALESCE(r.ScriptVersion,''),
+		       r.CreatedAt, COALESCE(r.UpdatedAt, r.CreatedAt), r.State, r.WorkerId,
+		       s.ScheduleId, s.CronExpression, COALESCE(s.TimeZone,'UTC')
+		FROM RunRecords r
+		LEFT JOIN ScheduleRecords s ON s.ScheduleId = `+scheduleIDExpr+`
+		WHERE `+where+`
+		ORDER BY COALESCE(r.UpdatedAt, r.CreatedAt) DESC, r.CreatedAt DESC
+		LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+	if err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	defer rows.Close()
+
+	items := []completedRun{}
+	for rows.Next() {
+		var c completedRun
+		var eventID string
+		var worker, schedID, cron, zone sql.NullString
+		if err := rows.Scan(&c.RunId, &eventID, &c.ArtifactId, &c.Version, &c.QueuedAt, &c.FinishedAt,
+			&c.State, &worker, &schedID, &cron, &zone); err != nil {
+			errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
+		c.State = strings.ToUpper(c.State)
+		if i := strings.Index(eventID, ":"); i >= 0 {
+			c.ScheduleId = eventID[:i]
+			if fire := eventID[i+1:]; fire != "" {
+				c.ScheduledFor = &fire
+			}
+		}
+		if worker.Valid {
+			c.WorkerId = &worker.String
+		}
+		if schedID.Valid {
+			c.ScheduleExists = true
+			c.CronExpression = &cron.String
+			c.TimeZone = &zone.String
+		}
+		items = append(items, c)
+	}
+	if err := rows.Err(); err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	respond(w, http.StatusOK, map[string]any{"total": total, "limit": limit, "offset": offset, "items": items})
 }
 
 // PATCH /admin/schedules/{scheduleId}

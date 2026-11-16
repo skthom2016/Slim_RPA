@@ -1,0 +1,75 @@
+{
+  "id": "items-sharepoint-read-update",
+  "name": "Items SharePoint Read And Update",
+  "version": "1.1.0",
+  "params": {
+    "sheetPath": "https://neelitech-my.sharepoint.com/:x:/r/personal/tibin_neelitech_com/Documents/items-test.xlsx?d=wc2e3310179f94494aa9f4f5599c982e0&csf=1&web=1&e=9PATlA",
+    "sheetName": "Items",
+    "startRow": "2",
+    "endRow": "21",
+    "applyLimit": "2",
+    "sheetApi": "http://localhost:5090"
+  },
+  "segments": [
+    {
+      "name": "Read the sheet and record the result",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Read the first rows of the sheet",
+          "parameters": {
+            "url": "${param.sheetApi}/batch",
+            "body": "{\"source\":{\"path\":\"${param.sheetPath}\",\"sheet\":\"${param.sheetName}\"},\"startRow\":${param.startRow},\"endRow\":${param.endRow}}",
+            "storeAs": "read"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "app.launch",
+          "description": "Open Notepad to show what came back",
+          "parameters": {
+            "executable": "notepad.exe",
+            "attachIfRunning": "false",
+            "timeoutMs": "10000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "delay",
+          "description": "Wait for the Notepad window",
+          "parameters": {
+            "ms": "1500"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "notepad.type",
+          "description": "Write the rows that were read",
+          "parameters": {
+            "text": "FIRST 20 ROWS\r\n${read.text}\r\n"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "http.post",
+          "description": "Approve the pending rows",
+          "parameters": {
+            "url": "${param.sheetApi}/apply",
+            "body": "{\"source\":{\"path\":\"${param.sheetPath}\",\"sheet\":\"${param.sheetName}\"},\"limit\":${param.applyLimit},\"pending\":{\"column\":\"Approval_Status\",\"doneValues\":[\"Approved\",\"Rejected\"]},\"set\":{\"Approval_Status\":\"Approved\",\"Bot_Status\":\"SUCCESS\"}}",
+            "storeAs": "apply"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "notepad.type",
+          "description": "Write how many rows were updated",
+          "parameters": {
+            "text": "UPDATED ${apply.updated} ROWS\r\n${apply.text}"
+          }
+        }
+      ]
+    }
+  ]
+}

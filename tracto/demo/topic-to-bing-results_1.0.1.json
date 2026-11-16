@@ -1,0 +1,266 @@
+{
+  "id": "topic-to-bing-results",
+  "name": "Topic To Bing Results",
+  "version": "1.0.1",
+  "params": {
+    "inputPath": "C:\\Users\\TNT\\Downloads\\rpa-scripts\\demo\\search-topic.txt",
+    "inputName": "search-topic.txt",
+    "outputPath": "C:\\Users\\TNT\\Downloads\\rpa-scripts\\demo\\result.txt",
+    "outputName": "result.txt"
+  },
+  "segments": [
+    {
+      "name": "Read the topic from the input file",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "app.launch",
+          "description": "Open the topic file in Notepad",
+          "parameters": {
+            "executable": "notepad.exe",
+            "args": "${param.inputPath}"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the Notepad window",
+          "parameters": {
+            "ms": "2000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "key",
+          "description": "Select the whole document",
+          "parameters": {
+            "key": "Ctrl+A",
+            "window": "${param.inputName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "key",
+          "description": "Copy it to the clipboard",
+          "parameters": {
+            "key": "Ctrl+C",
+            "window": "${param.inputName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the clipboard settle",
+          "parameters": {
+            "ms": "500"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "clipboard.get",
+          "description": "Read the topic into ${topic.firstLine}",
+          "parameters": {
+            "storeAs": "topic"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "key",
+          "description": "Close Notepad; nothing was changed, so no prompt appears",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.inputName} - Notepad"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search Bing and read the first ten results",
+      "runtime": "browser",
+      "mode": "headed",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "navigate",
+          "description": "Open Bing",
+          "parameters": {
+            "url": "https://www.bing.com/"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "wait",
+          "description": "Wait for the search box",
+          "parameters": {
+            "css": "#sb_form_q",
+            "timeoutMs": "15000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "fill",
+          "description": "Type the topic read from the file",
+          "parameters": {
+            "css": "#sb_form_q",
+            "value": "${param.topic.firstLine}"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "delay",
+          "description": "Bing swallows an Enter sent before its handlers attach",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "press",
+          "description": "Search",
+          "parameters": {
+            "css": "#sb_form_q",
+            "key": "Enter"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "wait",
+          "description": "Wait for the results list",
+          "parameters": {
+            "css": "#b_results",
+            "timeoutMs": "20000"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "getTexts",
+          "description": "Read the first ten result titles",
+          "parameters": {
+            "css": "#b_results li.b_algo h2",
+            "limit": "10",
+            "separator": "\n",
+            "storeAs": "titles"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "getTexts",
+          "description": "Read the ten result links, as a separate list",
+          "parameters": {
+            "css": "#b_results li.b_algo cite",
+            "limit": "10",
+            "separator": "\n",
+            "storeAs": "links"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Write the results to the output file",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "key",
+          "description": "Open the Run dialog",
+          "parameters": {
+            "key": "{LWIN}r"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "action": "delay",
+          "description": "Wait for the dialog",
+          "parameters": {
+            "ms": "1000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "action": "type",
+          "description": "Create the output file empty, so Notepad opens with a known title",
+          "parameters": {
+            "value": "cmd /c type nul > \"${param.outputPath}\""
+          }
+        },
+        {
+          "stepNumber": 4,
+          "action": "key",
+          "description": "Run it",
+          "parameters": {
+            "key": "Enter"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "action": "delay",
+          "description": "Let the command finish",
+          "parameters": {
+            "ms": "1500"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "action": "app.launch",
+          "description": "Open the empty output file in Notepad",
+          "parameters": {
+            "executable": "notepad.exe",
+            "args": "${param.outputPath}"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "action": "delay",
+          "description": "Wait for the window",
+          "parameters": {
+            "ms": "2500"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "action": "notepad.type",
+          "description": "Write the topic and what Bing returned",
+          "parameters": {
+            "text": "BING RESULTS\r\nTopic:  ${param.topic.firstLine}\r\nRun at: ${now.local}\r\nTitles found: ${param.titles.count}   Links found: ${param.links.count}\r\n\r\nTITLES\r\n${param.titles.value}\r\n\r\nLINKS\r\n${param.links.value}\r\n",
+            "windowTitle": "${param.outputName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "action": "delay",
+          "description": "Let the text land",
+          "parameters": {
+            "ms": "800"
+          }
+        },
+        {
+          "stepNumber": 10,
+          "action": "key",
+          "description": "Save; the document already has a path, so no dialog opens",
+          "parameters": {
+            "key": "Ctrl+S",
+            "window": "${param.outputName} - Notepad"
+          }
+        },
+        {
+          "stepNumber": 11,
+          "action": "delay",
+          "description": "Wait for the save to finish",
+          "parameters": {
+            "ms": "1500"
+          }
+        },
+        {
+          "stepNumber": 12,
+          "action": "key",
+          "description": "Close Notepad",
+          "parameters": {
+            "key": "Alt+F4",
+            "window": "${param.outputName} - Notepad"
+          }
+        }
+      ]
+    }
+  ]
+}

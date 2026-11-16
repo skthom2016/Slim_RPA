@@ -70,4 +70,12 @@ Windows has no time zone database of its own; the binary embeds one (`time/tzdat
 
 - Event triggers (a run started by an incoming event) are a separate piece of work; they can use the same queueing code.
 - Ramping up to a target concurrency, and per-schedule retry.
-- A console tab for schedules: they are created and read through the API.
+
+## Schedules page
+
+The console has a **Schedules** page. A drop-down chooses what it lists:
+
+- **Upcoming**: every schedule, the one that fires soonest first and the latest at the bottom; a schedule that is switched off has no next fire and comes last. A badge shows QUEUED or RUNNING while the schedule's last run has not finished. Each row has Edit and Delete, and **New schedule** opens the same form.
+- **Completed**: the runs a schedule started that have finished (succeeded, failed, cancelled, timed out), most recently finished first, with a limit field. A run whose schedule was deleted is still listed. A fire that was skipped is not a run; it shows as the schedule's last status in Upcoming.
+
+API behind it: `GET /admin/schedules?view=upcoming`, `GET /admin/schedules/completed?limit=&offset=&scheduleId=`, and the existing `POST`, `PATCH` and `DELETE` on `/admin/schedules`.

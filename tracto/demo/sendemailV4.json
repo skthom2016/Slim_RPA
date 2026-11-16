@@ -1,0 +1,177 @@
+{
+  "id": "6fc5c7ffff514ca5a916c1ad9713e635",
+  "name": "v3Email",
+  "version": "1.0.0",
+  "params": {},
+  "segments": [
+    {
+      "name": "Segment 1",
+      "runtime": "browser",
+      "mode": "headed",
+      "profile": "default",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "description": "Open https://outlook.cloud.microsoft/mail/",
+          "action": "navigate",
+          "condition": null,
+          "parameters": {
+            "url": "https://outlook.cloud.microsoft/mail/"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "description": "Click button \u0022New\u0022",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "role": "button",
+            "name": "New"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "description": "Click To",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "label": "To"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "description": "enter emailid",
+          "action": "fill",
+          "condition": null,
+          "parameters": {
+            "value": "tibin@neelitech.com",
+            "label": "To"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "description": "Press Tab in To",
+          "action": "press",
+          "condition": null,
+          "parameters": {
+            "label": "To",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "description": "Wait 2400 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "2400"
+          }
+        },
+        {
+          "stepNumber": 10,
+          "description": "Press Tab in To",
+          "action": "press",
+          "condition": null,
+          "parameters": {
+            "label": "To",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 11,
+          "description": "Wait 500 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "500"
+          }
+        },
+        {
+          "stepNumber": 12,
+          "description": "Press Tab in Cc",
+          "action": "press",
+          "condition": null,
+          "parameters": {
+            "label": "Cc",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 13,
+          "description": "Wait 3700 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "3700"
+          }
+        },
+        {
+          "stepNumber": 14,
+          "description": "Enter \u0022v4\u0022 in textbox \u0022Subject\u0022",
+          "action": "fill",
+          "condition": null,
+          "parameters": {
+            "label": "Subject",
+            "value": "v4"
+          }
+        },
+        {
+          "stepNumber": 15,
+          "description": "Press Tab in textbox \u0022Subject\u0022",
+          "action": "press",
+          "condition": null,
+          "parameters": {
+            "label": "Subject",
+            "key": "Tab"
+          }
+        },
+        {
+          "stepNumber": 16,
+          "description": "Wait 3800 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "3800"
+          }
+        },
+        {
+          "stepNumber": 17,
+          "description": "Click button \u0022Send\u0022",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "role": "button",
+            "name": "Send"
+          }
+        }
+      ]
+    }
+  ]
+}

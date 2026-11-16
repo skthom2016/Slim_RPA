@@ -1,0 +1,135 @@
+{
+  "id": "3fa95ed8427543d4bd1ce0da74b3b60d",
+  "name": "zoho login",
+  "version": "1.0.0",
+  "params": {},
+  "segments": [
+    {
+      "name": "justlogin",
+      "runtime": "browser",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "description": "Open https://accounts.zoho.in/signin?servicename=AaaServer\u0026serviceurl=https%3A%2F%2Faccounts.zoho.in%2Fhome",
+          "action": "navigate",
+          "condition": null,
+          "parameters": {
+            "url": "https://accounts.zoho.in/signin?servicename=AaaServer\u0026serviceurl=https%3A%2F%2Faccounts.zoho.in%2Fhome"
+          }
+        },
+        {
+          "stepNumber": 2,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 3,
+          "description": "Enter \u0022tibin@neelitech.com\u0022 in textbox \u0022Email address or mobile number\u0022",
+          "action": "fill",
+          "condition": null,
+          "parameters": {
+            "placeholder": "Email address or mobile number",
+            "value": "tibin@neelitech.com"
+          }
+        },
+        {
+          "stepNumber": 4,
+          "description": "Click button \u0022Next\u0022",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "role": "button",
+            "name": "Next"
+          }
+        },
+        {
+          "stepNumber": 5,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 6,
+          "description": "Enter the password in textbox \u0022Enter password\u0022 (set TRACTO_SECRET_ENTER_PASSWORD on the worker)",
+          "action": "fill",
+          "condition": null,
+          "parameters": {
+            "placeholder": "Enter password",
+            "value": "${secret:ENTER_PASSWORD}"
+          }
+        },
+        {
+          "stepNumber": 7,
+          "description": "Click button \u0022Sign in\u0022",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "role": "button",
+            "name": "Sign in"
+          }
+        },
+        {
+          "stepNumber": 8,
+          "description": "Wait 1200 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "1200"
+          }
+        },
+        {
+          "stepNumber": 9,
+          "description": "Click Profile",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "text": "Profile"
+          }
+        },
+        {
+          "stepNumber": 10,
+          "description": "Wait 5000 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "5000"
+          }
+        },
+        {
+          "stepNumber": 11,
+          "description": "Click #headder_thumb_pic",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "css": "#headder_thumb_pic"
+          }
+        },
+        {
+          "stepNumber": 12,
+          "description": "Wait 3600 ms",
+          "action": "delay",
+          "condition": null,
+          "parameters": {
+            "ms": "3600"
+          }
+        },
+        {
+          "stepNumber": 13,
+          "description": "Click Sign Out",
+          "action": "click",
+          "condition": null,
+          "parameters": {
+            "text": "Sign Out"
+          }
+        }
+      ]
+    }
+  ]
+}

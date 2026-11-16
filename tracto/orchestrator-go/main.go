@@ -133,6 +133,7 @@ func main() {
 	sh := handlers.NewScheduleHandler(database)
 	r.Post("/admin/schedules", sh.Create)
 	r.Get("/admin/schedules", sh.List)
+	r.Get("/admin/schedules/completed", sh.Completed)
 	r.Patch("/admin/schedules/{scheduleId}", sh.Update)
 	r.Delete("/admin/schedules/{scheduleId}", sh.Delete)
 

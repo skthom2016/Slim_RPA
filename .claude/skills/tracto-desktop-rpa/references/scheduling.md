@@ -51,7 +51,7 @@ The Orchestrator's scheduler wakes every 15 seconds, finds schedules whose next 
 - **It only queues.** A queued run starts only when a worker of that runtime is running, and a desktop run needs an unlocked, logged-in session. If no worker is up the run waits in the queue.
 - **A changed script needs a new version**, and the schedule keeps firing the old version until it is moved: `PATCH` the schedule with the new `version`. (A published version can never be replaced; see `loops-and-conditions.md`, "Changing the child later".)
 - **A deleted or missing version** is recorded in `lastStatus` `Failed` and `lastError`; the schedule keeps its next fire.
-- **No console tab yet:** schedules are created and read through the API.
+- **Console:** the Schedules page lists upcoming schedules (soonest first) and completed runs, and creates, edits and deletes schedules.
 
 ## Writing a script that will run on a schedule
 
@@ -80,6 +80,5 @@ Creating the schedule is an action on the live Orchestrator, so it is done by th
 - Starting a run from an event.
 - Retry of a failed scheduled run.
 - Ramping to a target number of concurrent runs.
-- A console tab for schedules.
 
 The browser actions a child uses are in the `tracto-browser-rpa` skill.
