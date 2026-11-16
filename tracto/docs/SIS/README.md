@@ -10,9 +10,27 @@ No code here. Each document ends with an **Open questions** section — those ar
 | [SIS-02](SIS-02-email-pa-dispatcher.md) | **EmailPADispatcher** — read the entity mailboxes, file every advice by customer and type, raise a work item per file, chase the sender when a file is unusable | Go process, no script |
 | [SIS-03](SIS-03-india-excel-extraction.md) | **India.Excel.Extraction** — validate the spreadsheet advices against the agreed layout, clean them, map them onto the standard table | Go process, no script |
 | [SIS-04](SIS-04-payment-advice-extraction.md) | **Payment.Advice.Extraction** — read the PDF advices, correct them per customer, produce the same standard table | Go process over the extraction service, no script |
+| [configuration-workbooks.md](configuration-workbooks.md) | **Configuration workbooks** — the sheets of `MasterConfig.xlsx` and `BankMaster.xlsx`, which flow reads what, and how the entity lists differ | Reference for the stories |
+| [folders-and-files.md](folders-and-files.md) | **Folders and files** — every folder and subfolder the four flows create, and where each sub-workbook and merged workbook is saved | Reference for the stories |
 | [collection-accounting-handoff.md](collection-accounting-handoff.md) | **The hand-off** — how extracted advices reach the existing Python collection accounting service | Reference: the workbook layout flows 3 and 4 write |
+| [extraction-api-exists-and-additions.md](extraction-api-exists-and-additions.md) | **Extraction API: what exists and what to add** — current features, what is missing, and what each attachment type in the UiPath flow needs | Handed to the module team |
 | [extraction-module-updates.md](extraction-module-updates.md) | **Extraction module updates** — what the existing module still needs: PDF password management and image extraction | Handed to the module team |
 | [extraction-service.md](extraction-service.md) | **The extraction service** — the existing Go + Python service flow 4 calls instead of UiPath Document Understanding | Already exists; reference only |
+
+## Conversion at a glance
+
+| Flow | Main job | Child jobs | Go service | Browser runtime | What it creates |
+|---|---|---|---|---|---|
+| 1 BankAvailCheck | `bankcheck-main`: one `http.post` to `/bankcheck/start`, then ends | None. Go runs the fetch bot as a program | `/bankcheck/start`; uses file checks, mail send, the program runner and the sheet engine | Not needed | Nothing except cell `A2` of `BankMaster.xlsx` and two mails |
+| 2 EmailPADispatcher | `maildispatch-main` to `/maildispatch/start` | None | `/maildispatch/start`; uses mail read and send, file operations, the appending write and work items | Not needed | The dated folder tree with `PDF_JPEG`, `XLS` and `MailBody`, the `PA_` pre-download, the trackers |
+| 3 India.Excel.Extraction | `excelextract-main` to `/excelextract/start` | None | `/excelextract/start`; uses file operations, sheet reads, the appending write and mail send | Not needed | One consolidated `Extracted Payment Advices.xlsx` per entity per day, its timestamped copy and the `Extracted Standard Excel Advices` archive folder |
+| 4 Payment.Advice.Extraction | `padvice-main` to `/padvice/start` | None. Each document is one step in the Go loop | `/padvice/start`; calls the document extraction process (LLM), file operations, the appending write and mail send | Not needed | Per-document workbooks, the consolidated workbook, the hand-off workbook, the `Exception` and `ExtractedPDF` folders and the daily log |
+
+- **No child flow is created for any of the four.** Each flow is a main job and a Go service that loops over entities, files or documents, with its own status per item.
+- **The desktop runtime is used only to run the one-step main job**, which is a single HTTP call. No step drives a window or an application.
+- **The browser runtime is not needed anywhere.** No UiPath flow automates a web page; the fetch bot is a console script.
+
+The full folder map, with the subfolders each flow creates and where the sub-workbooks and merged workbooks are saved, is in [folders-and-files.md](folders-and-files.md).
 
 ## How the flows fit together
 
@@ -37,6 +55,8 @@ What that leaves Tracto's job system doing here is worth saying: the schedule, t
 **The hand-off to collection accounting is a file.** The UiPath flows never call an API or touch MySQL: they write `Extracted payment advices.xlsx` into fixed folders, and the existing Python service loads it. Tracto keeps exactly that. See [collection-accounting-handoff.md](collection-accounting-handoff.md) for the layout the loader reads and what flows 3 and 4 must write.
 
 **The queue is a working default, not a settled point.** Everything flow 2 produces is work for a later process, so these documents needed an answer to what a work queue is in Tracto. The working default is a queue-items table in SQLite, decided in [SIS-02](SIS-02-email-pa-dispatcher.md). There is no review screen in this migration, so the reason that first favoured the table no longer applies, and at about 45 documents a working day a sheet is sufficient and simpler. Sheet or table is to be confirmed. Sheets stay for configuration a person edits and for the output workbooks.
+
+**The entity lists differ from one flow to the next.** Seventeen entities appear across the configuration and the Python service, and no two lists match: RARE is dispatched and extracted but has no bank sheet and is not loaded by collection accounting; AEPL and RHSPL are loaded but never dispatched; ONESIS has no recipient. Tracto holds one entity table with a flag per flow. The comparison is in [configuration-workbooks.md](configuration-workbooks.md).
 
 **Two flows are mostly copy-paste today.** Flow 3 is one routine duplicated per entity in a single 500 KB file; flow 4 has five per-customer workflows behind a 180 KB dispatcher. In both the differences are data, so a profile sheet and a rules table replace them, and adding a customer becomes adding a row.
 

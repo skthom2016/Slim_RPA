@@ -44,6 +44,25 @@ Reading the file, far more normalisation appears to happen than that. It does no
 
 Most columns stay empty; the extractor fills about ten of them. The table is written to `<out>\<dd MMM yyyy>\<Entity>\Extracted Payment Advices.xlsx`, with a timestamped copy alongside, and the source file is copied onward.
 
+## UiPath steps and their Tracto equivalent
+
+The story area names the area of work in the effort estimate (A platform capabilities, B to D and F the flows, E the document extraction process, G main jobs and schedules).
+
+The published path is `Main.xaml`, which does everything in its `Init` state through `Entity wise extract.xaml`; its queue loop does nothing. A second path, `All queue.xaml`, is not published. Tracto builds one engine and writes to the folder the loader reads.
+
+| # | UiPath step, with the small points | Tracto equivalent | Story area |
+|---|---|---|---|
+| 1 | **Read the configuration.** `MasterConfig.xlsx` (here on `E:\Automation\FM Excel Extraction\...`), sheets Settings, ExcelExtraction and Constants. Keys `InputPath`, `SampleFilePath`, `OutPath` and `Entity` (DTSS, RHSPL, AEPL, SMC, SLV, USSP, Terminix, SIS, AMRS). The current workbook has no `Entity` key and has an `ExcelMappingPath` instead. | Read the entity table and the profile sheets. | D1 |
+| 2 | **Entity loop.** One pass per entity. A missing `{InputPath}{date}\{Entity}` folder skips the entity silently. | A separate outcome per entity, with the skip recorded. | D1 |
+| 3 | **List the files and make the archive folder.** `*.xlsx` in the entity folder, or `PA_{Entity}*.xlsx` in the AEPL, RARE, DTSS and Terminix branches. The folder `Extracted Standard Excel Advices` is created inside the entity folder. | List with the entity's file pattern from the profile; create the archive folder. | A3, D1 |
+| 4 | **Check each workbook.** The workbook must contain `Sheet1`, and its header must match the eleven standard columns: Sl No, Date of Credit/Value date, Total net amount credited in Bank, Customer Name, UTR Number, Invoice Date, Invoice Number, Invoice Amount, TDS, Other Deductions, Net Amount. | Sheet names read through the sheet engine; column names compared with the profile. | D1 |
+| 5 | **Reject a bad file.** Two mails ("Sheet name is invalid", "File format is invalid") from the production mailbox, and a duplicate pair from a leftover Gmail account. The file is skipped. | One rejection mail to the configured recipients, naming the check that failed and the columns found. | D1 |
+| 6 | **Clean the rows.** A cell in TDS, Other Deductions, Net Amount or Invoice Amount that is exactly `-` becomes blank; an empty TDS or Other Deductions becomes `0`; runs of spaces collapse in the customer name and the total. Fifty-three further rewrite rules sit inside `Comment Out` blocks and never run. | The three live rules, named, and nothing else. | D2 |
+| 7 | **Map and consolidate.** The rows are mapped by position to the output columns ("Mapping to Consolidation Output") and appended to the entity's output workbook, so every valid file of the day is merged into one. The `Filename` column is `{Sl No} {dd MM yyyy} {Entity} ExcelAdvice`. | Mapped by header name with a column map sheet; a row that will not convert is reported and not dropped. | D2, D3 |
+| 8 | **Write the workbook.** `SampleExtract.xlsx` is copied to `{OutPath}\{date}\{Entity}\Extracted Payment Advices.xlsx`, and a timestamped copy `Extracted Payment Advices {ddMMMyyyy hhmmss}.xlsx` is written beside it. DTSS also has `DTSS Extracted Payment Advices.xlsx`. | The same workbook in the same folder, advice rows on the first sheet. | D3, A6 |
+| 9 | **Archive the sources.** Each processed source file is moved into `Extracted Standard Excel Advices`; in one branch a timestamped copy of the source is also made. | Moved after the output is written. | A3, D3 |
+| 10 | **The second path.** `CheckFileExists` proceeds only when the entity folder under `D:\Automation\Data\Input\Payment Advices\{date}\` holds exactly one `.xlsx` named `PA_{entity}`, after a leftover message box. `ExcelExtraction` maps the eleven columns into the twenty-four-column header (`A1:X1`) and writes `D:\...\Excel\Extractor_ExtractedFiles\{date}\{entity}\Extracted Payment Advices.xlsx`. A row that fails conversion is skipped without a trace. | Not carried over as a separate path; the one engine covers it. | D |
+
 ## What is actually in this package
 
 Worth saying plainly, because it shapes the rebuild.
@@ -212,6 +231,8 @@ These need answers before the Tracto flow can be built.
 5. **Is `Sl No` reliable?** It drives the generated file name, so a blank or duplicated value makes names collide. If it is not guaranteed unique we will key on the work row instead.
 6. **Should a customer be mailed twice?** The format alert goes out from two accounts today, one of them a leftover from development whose text names DTSS regardless of which entity failed. Confirming the single right sender and the right wording is a small thing that is visible to customers.
 7. **What should happen to a row that will not convert?** Today it is dropped with no trace, so the output can be short and look complete. The intention is to record it and report it — which means somebody will start seeing rejections that have been invisible.
+
+8. **Which version is live, and what is in the mapping folder?** The current `MasterConfig.xlsx` has a key `ExcelMappingPath` (`E:\Automation\EmailExcelExtraction\Mapping`) and no `Entity` key, while version 1.0.7 reads `Entity` and never reads `ExcelMappingPath`. A mapping folder suggests per-entity column maps in a newer version. We need to know which version is running and the files in that folder, since they would replace the profile and column-map sheets designed here.
 
 ### Not in Tracto yet
 

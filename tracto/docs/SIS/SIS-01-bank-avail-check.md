@@ -33,6 +33,23 @@ There is no `Try`/`Catch` anywhere in `Main.xaml`. A missing check workbook, a f
 
 Although the project carries the REFramework folders, `Main.xaml` does not use them: there is no transaction queue, no retry and no `SetTransactionStatus`. It is one sequence with nested loops and conditions.
 
+## UiPath steps and their Tracto equivalent
+
+The story area names the area of work in the effort estimate (A platform capabilities, B to D and F the flows, E the document extraction process, G main jobs and schedules).
+
+| # | UiPath step, with the small points | Tracto equivalent | Story area |
+|---|---|---|---|
+| 1 | **Read the configuration.** `InitAllSettings` reads `MasterConfig.xlsx`, sheets Settings, Entities and Constants, into a dictionary, and Orchestrator assets overwrite local values. Keys used: `entities` (comma-separated), `avail_receiver_id`, `cc_receiver_id`, `{entity}_receiver_id` for every entity (only the DTSS one is used), and the five Office 365 keys. | Read the same sheets through the sheet engine. The Office 365 keys are not read: mail goes out on the service's own Microsoft sign-in. | B1 |
+| 2 | **Prepare.** An empty table with columns Entity and Bank Account Number. The date is `dd MMM yyyy` from the machine's clock. The statements root `C:\Automation\Data\Input\Statements1\BankStatements` and the recipient key `DTSS` are hard-coded. | The date comes from the schedule's time zone. The root and the recipients come from configuration. | B1 |
+| 3 | **Entity loop.** The entity list is split on commas and each entity is handled in turn. There is no `Try`/`Catch` anywhere, so one failure ends the run. | A separate outcome per entity; one failure does not stop the others. | B1 |
+| 4 | **Check the folder.** `{root}\{date}\{entity}` exists means the entity is available and is added to the available list. | A filesystem exists check in Go. | B2 |
+| 5 | **Fetch what is missing.** The entity name is written to `BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then `run_Bank_bot.bat` runs through PowerShell with no timeout and no exit-code check, then the folder is checked again. | Go writes the cell, runs the batch file as a named program with a timeout and reads its exit code, and checks again. | B2 |
+| 6 | **Find the missing accounts.** If the folder is still missing, read `{entity}_check\bank_statements_check.xlsx` (`Sheet1`, `A1:E200`) and the entity's sheet in `BankMaster.xlsx` (`A1:A40`). For every bank in that list, every check row with the same `BANK_ACCOUNT_NAME` and `AVAILABLE = "N"` is added to the unavailable table. A missing check workbook throws. | Read the whole used ranges and compare the two in Go. A missing workbook is recorded for that entity only. | B3 |
+| 7 | **Build the report.** Duplicates are removed, then an HTML table with the heading "Unavailable Bank List". The column "Bank Account Number" holds the account name. | The same table, built in Go. | B3 |
+| 8 | **Availability mail.** Sent always, to `avail_receiver_id`, CC `cc_receiver_id`, subject `MT940 statement status`, plain text, even when the list is empty. | Sent through Graph; when the list is empty the mail is skipped or says so. | B3 |
+| 9 | **Unavailable mail.** Sent only when something is unavailable, to the `DTSS` list whichever entity is missing, HTML body, same subject. | Sent to each entity's own recipients, with a subject that tells the two mails apart. | B3 |
+| 10 | **Run.** There is no scheduler inside the package; an external trigger runs it once a day, before statement processing. | An Orchestrator schedule and a one-step main job. | G |
+
 ## What this flow actually needs
 
 Almost none of it is UI automation. There is no browser, no desktop application, and nothing typed into a window. What it really does is:
@@ -210,8 +227,8 @@ These need answers before the Tracto flow can be built. They are not blockers fo
 1. **How long may Go wait for the fetch bot, and does its exit code mean anything?** It is a console script, so Go gets an exit code — but whether a zero means "statements fetched" or only "script ran" needs checking, which is why the folder check after it stays. The timeout is a business decision: how long is "the bank is slow" before it is "the bot is broken"? Also needed: whether running it twice for the same entity is harmless, in case a run is repeated.
 2. **Can the fetch bot take the entity as an argument?** Today the entity name is written into one cell of a shared workbook and the bot reads it. If the bot can accept it on the command line instead, the shared cell disappears and entities could eventually run in parallel. If it cannot, the loop stays strictly sequential and we should say so deliberately.
 3. **Which time zone decides "today"?** The folder name is `dd MMM yyyy` from the machine's clock. A run near midnight, or a machine in another region, looks in the wrong folder. The schedule names a zone; the folder date should come from the same answer.
-4. **Should each entity's missing accounts go to that entity's people?** Today every unavailable list goes to the DTSS recipients because of a literal in the workflow. If that is a bug, the entity table needs a recipient column. If it is deliberate because DTSS operations handle all of it, that should be written down.
-5. **Are `A1:E200` and `A1:A40` real limits?** An entity with more than forty accounts, or a check file with more than two hundred rows, silently loses the rest today. In Tracto the limit can simply go — unless those bounds mean something.
+4. **Should each entity's missing accounts go to that entity's people?** Today every unavailable list goes to the DTSS recipients because of a literal in the workflow. The `Entities` sheet already holds a recipient key for each entity, so per-entity recipients need no new data. Two gaps: ONESIS has no key, and AEPL has a key but is not in flow 1's list. Confirm who receives ONESIS's list, and whether the DTSS list stays in copy.
+5. **Is `A1:E200` a real limit on the check workbook?** In `BankMaster.xlsx` no entity has more than ten bank accounts (37 in all), so `A1:A40` truncates nothing today. For the check workbook, Tracto reads the whole used range either way; this matters only if `A1:E200` stood for something real.
 6. **What should the report column be?** It is headed "Bank Account Number" but carries an account *name*. Which one the operations team actually wants decides what we extract.
 7. **Should the summary mail go out when nothing is available?** It is sent unconditionally today, including the empty case.
 8. **Where will the configuration live?** `MasterConfig.xlsx` is shared with the other processes and sits on `E:`, while the statements are on `C:`. For Tracto we need to know who owns that file, whether we may add keys to it, and whether it stays an `.xlsx` on a share or moves to SharePoint or Google Sheets — all three are readable, but the choice affects locking and concurrent access.

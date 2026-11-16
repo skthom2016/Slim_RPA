@@ -46,6 +46,28 @@ And **the notifications do not go out.** `Notifications\Missing Information.xaml
 
 There is also a `Train Extractors Scope` with a `Machine Learning Extractor Trainer`, the feedback loop that sends corrected documents back to retrain the model.
 
+## UiPath steps and their Tracto equivalent
+
+The story area names the area of work in the effort estimate (A platform capabilities, B to D and F the flows, E the document extraction process, G main jobs and schedules).
+
+| # | UiPath step, with the small points | Tracto equivalent | Story area |
+|---|---|---|---|
+| 1 | **Entity driver.** `All queue.xaml` loops `PriorityEntity_1` to `_N`, writes the entity name into cell `B2` of the `PDF Extraction` sheet in `MasterConfig.xlsx`, runs `Main.xaml` once per entity and waits twenty seconds. | The entity passed as a parameter; no shared cell. | G |
+| 2 | **Prepare the run.** Read `MasterConfig.xlsx` and `Validation Station.xlsx` (the keyword list, filtered to the entity and lower-cased). | Configuration and keyword sheets through the sheet engine. | F1 |
+| 3 | **Take the next queue item.** From `{entity}_PDF_JPEG_Queue`. The item gives `FilePath`, `EntityName`, `PAFileName`, `From` and `TimeDate`. | The next work item for the entity. | A5, F |
+| 4 | **Unlock the PDF.** `RemovePDFPassword.xaml` tries about fifty passwords in turn (the file `PasswordsPDF.txt` and two hard-coded arrays) until one opens it. | Unlock with the customer's passwords, held in secure configuration. | E1 |
+| 5 | **Digitize.** UiPath Document OCR (an API key is in the workflow). | The extraction process reads the document, with OCR for scanned pages. | E1, E2 |
+| 6 | **Classify.** A keyword classifier decides the document is a payment advice. | Not needed: every item in the queue is an advice. | none |
+| 7 | **Extract.** The ML skill `PaymentAdvicesIndia` returns the ten header fields, the ten-column invoice table and the one-line or two-line marker. | The extraction process sends the document to an LLM with the payment-advice prompt and field schema. | E3 to E5 |
+| 8 | **Validation Station.** When the document matched a keyword and a credited amount came out, a person confirms or corrects the figures on screen. | Not carried over. Validation and the exceptions record take its place. | F1, F2 |
+| 9 | **Export per document.** A results workbook (a sheet per table plus a `DocPath` sheet) is saved as `{docName}.xlsx` in `Output\PDF_JPEG\Extracted Files\`, and the processed PDF is moved to `Output\ExtractedPDF\`. | The result is kept with the work item and the PDF is filed. | A3, F2 |
+| 10 | **When a document fails.** It is moved to `Output\PDF_JPEG\Exception\`, a row is added to `PDF Extractor Logs\{date}.xlsx`, and the next document runs. | An exceptions record with the reason, the raw reply and the path of the PDF. | F2 |
+| 11 | **Train the extractor.** Validated results are sent back to two ML skills. | Not needed: there is no model to retrain. | none |
+| 12 | **Post-process, once the queue is empty.** Each document is routed by text it contains: `ITC LIMITED ABD NORMAL`, `Lasalle Property Consult`, `ITC LIMITED`, `RBL Bank Limited`, a Hindustan Unilever marker, `ROOTS` (two-line parser) and, for DTSS files named `HSBC Advising Service`, an advice date copied to an empty value date. Amounts in parentheses become negative. | Customer rules held as data, applied to each advice. | F1 |
+| 13 | **Shape the workbook.** Duplicate invoices are removed; rows with no invoice number or no amount go to `Errors`; negative amounts go to `Credit Note`; the rest go to `Output`. | The same split, with dropped duplicates recorded. | F2 |
+| 14 | **Clean and hand off.** The workbook is copied to `ExtractedPaymentAdvices\PDF_JPEG\ML_ExtractedFiles\{date}\{entity}\Extracted payment advices.xlsx`. Amount columns lose stray characters and percentage tokens, negatives are normalised, one customer's European decimals are fixed, and the advice rows are left on the first sheet. | Written in the layout the loader reads. | F2 |
+| 15 | **Notify.** Three HTML mails (extraction failed, mandatory information missing, credit notes), sent from the production mailbox. The call is commented out, so none go out today. | Sent for real, to recipients SIS names. | F2 |
+
 ## Where extraction comes from
 
 **Three of the four SIS flows move to Tracto by writing Go and configuration. This one adds one call to a service that already exists.**
@@ -227,6 +249,8 @@ These need answers before the Tracto flow can be built. The first two are the on
 8. **Where may these documents go?** They are customer financial records and they will leave the machine for the extraction service and from there to a model. Where they go, what is retained, and for how long, is worth settling in writing once for the whole estate rather than per flow.
 9. **Duplicate rows.** They are dropped today with no record of which or why. The intention is to put them on the exception sheet with the row they duplicated — which, as with flow 3, means somebody will start seeing something that has been invisible.
 10. **One HSBC rule and one customer's decimal format** are special cases in the current code. Both are easy to carry over, but it is worth knowing whether they are still needed or are leftovers from a one-off.
+
+11. **Which entities does this flow cover?** The entity list for flows 2 and 4 has fifteen entities. RARE is extracted here but is not in the Python loader's list; AEPL and RHSPL are in the loader's list but not in this one. Confirm the intended coverage (see [configuration-workbooks.md](configuration-workbooks.md)).
 
 ### Not in Tracto yet
 
