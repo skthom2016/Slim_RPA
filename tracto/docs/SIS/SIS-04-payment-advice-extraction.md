@@ -100,7 +100,7 @@ Schedule ─▶ Main job (one http.post) ──POST /padvice/start──▶ Go s
                                                            send the three summary mails
 ```
 
-The per-document work is slow — each one goes to a model, sometimes twice — but the volume is modest, about 45 documents on a working day, so taking them one at a time finishes well inside the day. What the queue buys this flow is not parallelism. It is that each document has its own status and attempt count, so `ANALYZER_BUSY` from the extraction service holds an item and brings it back rather than failing it, nothing is lost if the service restarts part-way through, and an advice that fails validation is recorded with its reason.
+The per-document work is slow — each one goes to a model, sometimes twice — but the volume is modest (the samples hold about 150 documents on a working day, see [payment-advice-samples.md](payment-advice-samples.md); the earlier figure was 45), so taking them one at a time is expected to finish inside the day, subject to the service's time per document. What the queue buys this flow is not parallelism. It is that each document has its own status and attempt count, so `ANALYZER_BUSY` from the extraction service holds an item and brings it back rather than failing it, nothing is lost if the service restarts part-way through, and an advice that fails validation is recorded with its reason.
 
 The workbook it produces is the hand-off to the existing collection accounting service, described in [collection-accounting-handoff.md](collection-accounting-handoff.md): same file name, same folders per entity and day, the advice rows on the first sheet.
 

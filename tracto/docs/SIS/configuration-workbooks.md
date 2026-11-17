@@ -74,6 +74,10 @@ Columns 1, 4 and 5 come from sheets other than `Settings`, which the flows do no
 - The package copy puts `SourceDownloadsPath` and `DailyLogFile` on `D:`; the current workbook puts both on `E:`.
 - The `Entities` sheet exists only in the current workbook.
 
+## The International entity is in none of these lists
+
+Southern Cross Protection (Australia, AUD) has a day folder, per-document workbooks and a day workbook in the sample ([payment-advice-samples.md](payment-advice-samples.md)), but no sheet in `BankMaster.xlsx` and no entry in any of the seven lists above. Whether it belongs to the collection accounting estate, and which of the lists it has to join, is for the process owner.
+
 ## What Tracto carries over
 
 - **From `Settings`:** the entity list (as the entity table, with recipients, mailbox and accepted file types added), the folder paths and the tracker paths.

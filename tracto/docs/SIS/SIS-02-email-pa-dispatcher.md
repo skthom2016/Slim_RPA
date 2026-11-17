@@ -280,7 +280,7 @@ Flows 3 and 4 consume what this one produces, so the item's fields should be set
 | Question | Decision |
 |---|---|
 | What is the queue? | A queue-items table in SQLite as the working default; a sheet is the simpler alternative at this volume and is to be re-confirmed. Sheets stay for configuration and output. |
-| How much volume? | About 1,000 documents a month, roughly 45 a working day. One at a time is enough. |
+| How much volume? | To be re-confirmed. The samples hold about 150 documents a working day across DTSS (22) and Southern Cross Protection (131 on its six distinct days, 248 on the largest); see [payment-advice-samples.md](payment-advice-samples.md). The earlier figure was about 1,000 a month, roughly 45 a day. One at a time is likely still enough; the extraction service's time per document decides. |
 | Who do replies to a sender go to? | The sender only. The original CC and BCC are not copied on. |
 | Does DTSS still skip spreadsheets? | Yes. It stays, held as an `AcceptedTypes` column on the entity row rather than a name in code. |
 

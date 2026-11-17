@@ -4,6 +4,8 @@ Every folder and subfolder the UiPath processes create, every workbook they writ
 
 Paths are as configured in the UiPath estate. `{date}` is `dd MMM yyyy` from the machine's local clock, `{entity}` is the entity name (DTSS, AEPL, RARE, Terminix and the rest).
 
+The International entity (Southern Cross Protection) uses the same day layout under a different root, `...\Input\International\Payment Advices\{date}\Southern-Cross-Protection\`, and adds a `PDF_JPEG\NeedValidation\` folder that copies each document a person confirmed, with its workbook. The day's layout and the file naming are in [payment-advice-samples.md](payment-advice-samples.md).
+
 ## The tree
 
 ```

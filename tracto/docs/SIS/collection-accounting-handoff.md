@@ -39,6 +39,16 @@ Header names are matched exactly, including the spaces in `File name`, `GST Tax 
 
 **One row per invoice line.** The header columns repeat on every line of an advice. The loader keeps one advice per distinct `File name`, so that value is the advice's identity: two advices with the same `File name` collapse into one.
 
+## What the sample files show about the hand-off
+
+The sample day workbooks ([payment-advice-samples.md](payment-advice-samples.md), [output-workbook-reference.md](output-workbook-reference.md)) show what the loader would receive today:
+
+- **Southern Cross Protection's hand-off sheet has 15 columns, and eight of the 22 the loader needs are missing.** The loader selects its columns by name, so it stops at the first missing one (`AdviceNumber`) and inserts nothing. The entity is not in the loader's list either, and its tree is under `...\Input\International\`, not `...\Statements\ExtractedPaymentAdvices\`.
+- **Dates reach the loader as true dates or as text.** A true date is already day and month swapped when it was ambiguous at the source; text is read month-first by the loader. Tracto writes true dates, parsed day-first.
+- **Documents accepted without validation are written twice** in the sample, and the loader inserts every row as an invoice line. Tracto writes each line once.
+- **`NetAmount` is empty for most DTSS lines.** The loader then sets the derived net of every such row to the advice's total, which is only right for a one-line advice.
+- **Matching is by `TotalCreditedAmount` within 10 units when there is no UTR**, which is every International advice. The date is not used.
+
 ## What Tracto does
 
 - Writes the workbook with exactly those headers, the advice rows on the first sheet, in the folder for the entity and day.

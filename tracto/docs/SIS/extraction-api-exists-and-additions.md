@@ -76,6 +76,17 @@ Either way the type is detected from the file's content and not its name, other 
 
 Excel advices, unzipping, replies for unsupported files, per-customer rules (negatives in parentheses, two-line invoices, credit notes), validation of every reply, the advice workbook, the exceptions record and the notification mails.
 
+## What the sample documents add
+
+From the International and DTSS samples ([payment-advice-samples.md](payment-advice-samples.md)):
+
+- **Layouts do not repeat.** 856 International documents come from 607 customers; 433 sent one. A layout-free reader is required, and a per-customer template is not.
+- **Locked files:** 20 of 803 International files are password protected (2.5%); the password list has to be applied before the call.
+- **Images and scans:** 4 images and 5 PDFs without a text layer; two scans were not read by the current process.
+- **Not an advice:** 10 of 803 files (1.2%) are other documents (the entity's own statements, notices, a supplier's invoice). The reader needs a "not a payment advice" answer.
+- **Fields differ by entity:** the International profile has a BSB code and no IFSC code or Indian tax columns, and no UTR; the Indian profile has `TDS`, `GST_TDS`, `wct_tds`, `retention` and `GSTtax_amount`.
+- **A confidence per field** is what lets a document be sent for review; the weakest fields are the payer's name, the net amount where columns compete and the whole table.
+
 ## Decisions needed
 
 1. Where the PDF password list lives.
