@@ -3,7 +3,7 @@
   "name": "ACME Invoice From Excel",
   "version": "1.0.0",
   "params": {
-    "excelPath": "C:/Users/TNT/Downloads/rpa-scripts/demo/acme-invoices.xlsx.xlsx",
+    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/acme-invoices.xlsx.xlsx",
     "sheetName": "Invoices",
     "rowNumber": "2",
     "idColumn": "Id"

@@ -3,7 +3,7 @@
   "name": "Email Batch: Send An Email For Each Row",
   "version": "1.0.1",
   "params": {
-    "excelPath": "C:/Users/TNT/Downloads/rpa-scripts/demo/batchemail/email-content.xlsx",
+    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/batchemail/email-content.xlsx",
     "sheetName": "Sheet1"
   },
   "segments": [
