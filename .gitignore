@@ -6,3 +6,6 @@ bin/
 
 # Local session notes, not shared
 cluaduesssion.txt
+
+# Playwright browser tool output
+.playwright-mcp/

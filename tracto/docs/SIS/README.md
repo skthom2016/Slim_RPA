@@ -6,10 +6,13 @@ No code here. Each document ends with an **Open questions** section — those ar
 
 | Document | The flow | Shape in Tracto |
 |---|---|---|
+| [stories/](stories/README.md) | **Stories and tasks** — 42 stories with acceptance criteria and tasks for building the flows on Tracto, the order of work and the open gaps | The backlog |
+| [open-questions.md](open-questions.md) | **Open questions** — every question still open, written so each can be answered on its own, grouped by process and by who answers | To send for answers |
 | [SIS-01](SIS-01-bank-avail-check.md) | **BankAvailCheck** — check each entity's bank statements have arrived, start a fetch bot for the ones missing, mail two reports | Go process, no script |
 | [SIS-02](SIS-02-email-pa-dispatcher.md) | **EmailPADispatcher** — read the entity mailboxes, file every advice by customer and type, raise a work item per file, chase the sender when a file is unusable | Go process, no script |
 | [SIS-03](SIS-03-india-excel-extraction.md) | **India.Excel.Extraction** — validate the spreadsheet advices against the agreed layout, clean them, map them onto the standard table | Go process, no script |
 | [SIS-04](SIS-04-payment-advice-extraction.md) | **Payment.Advice.Extraction** — read the PDF advices, correct them per customer, produce the same standard table | Go process over the extraction service, no script |
+| [SIS-05](SIS-05-international-bot1.md) | **International_Bot1_SXP** — start the collection accounting run for an International entity through its batch file, read two result counters, mail the outcome with the bank statement and outstanding reports | Go process, no script |
 | [configuration-workbooks.md](configuration-workbooks.md) | **Configuration workbooks** — which sheets are used (`Settings` of `MasterConfig.xlsx`, every sheet of `BankMaster.xlsx`), and how the entity lists differ | Reference for the stories |
 | [payment-advice-samples.md](payment-advice-samples.md) | **Payment advice samples** — what the DTSS and Southern Cross Protection documents and outputs show: layouts, extracted fields, the faults in today's output, what the loader does with them, and what Tracto must do | Reference for the stories |
 | [output-workbook-reference.md](output-workbook-reference.md) | **Output workbooks, column by column** — source field, cleaning rule, fill rate and storage type of every column, for both entity layouts | Reference for the stories |
@@ -28,8 +31,9 @@ No code here. Each document ends with an **Open questions** section — those ar
 | 2 EmailPADispatcher | `maildispatch-main` to `/maildispatch/start` | None | `/maildispatch/start`; uses mail read and send, file operations, the appending write and work items | Not needed | The dated folder tree with `PDF_JPEG`, `XLS` and `MailBody`, the `PA_` pre-download, the trackers |
 | 3 India.Excel.Extraction | `excelextract-main` to `/excelextract/start` | None | `/excelextract/start`; uses file operations, sheet reads, the appending write and mail send | Not needed | One consolidated `Extracted Payment Advices.xlsx` per entity per day, its timestamped copy and the `Extracted Standard Excel Advices` archive folder |
 | 4 Payment.Advice.Extraction | `padvice-main` to `/padvice/start` | None. Each document is one step in the Go loop | `/padvice/start`; calls the document extraction process (LLM), file operations, the appending write and mail send | Not needed | Per-document workbooks, the consolidated workbook, the hand-off workbook, the `Exception` and `ExtractedPDF` folders and the daily log |
+| 5 International_Bot1_SXP | `carun-main` to `/carun/start` | None. Go runs the collection accounting batch as a program | `/carun/start`; uses file operations, the program runner, a cell write and mail send | Not needed | Nothing except cells `B2` and `B3` of `Response_Report.xlsx` and one mail |
 
-- **No child flow is created for any of the four.** Each flow is a main job and a Go service that loops over entities, files or documents, with its own status per item.
+- **No child flow is created for any of them.** Each flow is a main job and a Go service that loops over entities, files or documents, with its own status per item.
 - **The desktop runtime is used only to run the one-step main job**, which is a single HTTP call. No step drives a window or an application.
 - **The browser runtime is not needed anywhere.** No UiPath flow automates a web page; the fetch bot is a console script.
 
@@ -45,6 +49,8 @@ mailboxes ──▶ 02 dispatcher ──┬──▶ 03 spreadsheet advices ─�
                                         └── extraction service
 
 01 bank availability runs alongside, ahead of the bank-statement processing
+collection accounting run (bot_run.py): Indian entities started from the web page (Start Process),
+                                         International entities started by 05
 ```
 
 ## What they have in common
@@ -55,7 +61,7 @@ Across all four, the work that has to be built is almost the same handful of pie
 
 What that leaves Tracto's job system doing here is worth saying: the schedule, the run record, the per-item status and the audit trail. That is not nothing — it is what makes the work observable and rerunnable — but no script drives an application in any of the four.
 
-**The hand-off to collection accounting is a file.** The UiPath flows never call an API or touch MySQL: they write `Extracted payment advices.xlsx` into fixed folders, and the existing Python service loads it. Tracto keeps exactly that. See [collection-accounting-handoff.md](collection-accounting-handoff.md) for the layout the loader reads and what flows 3 and 4 must write.
+**The hand-off to collection accounting is a file.** The UiPath flows never call an API or touch MySQL, and the Python service has no API: it is started as a program (`bot_run.py`, through a batch file), by a person from the web page for the Indian entities and by flow 5 for the International ones ([SIS-05](SIS-05-international-bot1.md)). Flows 3 and 4 write `Extracted payment advices.xlsx` into fixed folders, and the existing Python service loads it. Tracto keeps exactly that. See [collection-accounting-handoff.md](collection-accounting-handoff.md) for the layout the loader reads and what flows 3 and 4 must write.
 
 **The queue is a working default, not a settled point.** Everything flow 2 produces is work for a later process, so these documents needed an answer to what a work queue is in Tracto. The working default is a queue-items table in SQLite, decided in [SIS-02](SIS-02-email-pa-dispatcher.md). There is no review screen in this migration, so the reason that first favoured the table no longer applies, and at about 45 documents a working day a sheet is sufficient and simpler. Sheet or table is to be confirmed. Sheets stay for configuration a person edits and for the output workbooks.
 

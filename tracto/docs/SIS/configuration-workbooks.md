@@ -29,7 +29,11 @@ Sixteen sheets: one per entity, plus `EntitySelected`. Each entity has its own b
 
 Accounts per entity: SIS 10, SISCASH 5, DTSS 3, SLV 3, SMC 2, Terminix 2, USSP 2, RHSPL 2, SISCOCASH 2, and one each for TSIS, AMRS, ONESIS, APS, SSMS and PFS. **That is 37 accounts, and no entity has more than ten**, so the `A1:A40` window flow 1 reads never truncates anything today. There is no sheet for RARE or AEPL.
 
-**What it is for.** Flow 1 checks, per entity, whether the statement of each of these bank accounts is available in Oracle Fusion. A separate bot fetches the statements. The existing Python collection-accounting service holds the Oracle Fusion access, so Tracto calls that Python service through its API and does not reach Oracle Fusion itself. The Python service's API document is awaited; until it is read, the calls, their inputs and their outputs are not fixed, and flow 1's fetch step (see [SIS-01-bank-avail-check.md](SIS-01-bank-avail-check.md)) is written against a placeholder.
+**What it is for.** Flow 1 checks, per entity, whether the statement of each of these bank accounts is available in Oracle Fusion. A separate bot fetches the statements. The existing Python collection-accounting service holds the Oracle Fusion access and Tracto does not reach Oracle Fusion itself. The service has no API and no API documentation: it is started as a program, through a batch file that runs Python ([SIS-05](SIS-05-international-bot1.md)), and flow 1's fetch step runs the fetch bot the same way ([SIS-01-bank-avail-check.md](SIS-01-bank-avail-check.md)).
+
+## The collection accounting service's own settings
+
+The Python service reads the `Settings` sheet of `C:\Automation\Data\Config\MasterConfig.xlsx` (the UiPath processes read `E:\Automation\Data\Config\`), and every value in its MySQL `settings` table overrides the sheet. The table holds what decides a run: `selected_entities` (set by the web page per run), `selected_entities_prod` (DTSS, SIS, SLV, SMC, Terminix, USSP, AMRS, AEPL, SISCASH, SISCOCASH, RHSPL, TSIS, ONESIS, APS, SSMS, PFS), the four step switches, `api_download_path` (`C:\Automation\Data\Input\Statements1`), the Magic xpi report and posting URLs, the per-entity receivables activity ids, and the active run. The download window per entity and report is in the `download_time_config` table. No International entity appears in either. The table also holds the report API credentials and six mailbox passwords in clear text.
 
 ## The entity lists disagree
 
@@ -83,7 +87,7 @@ Southern Cross Protection (Australia, AUD) has a day folder, per-document workbo
 - **From `Settings`:** the entity list (as the entity table, with recipients, mailbox and accepted file types added), the folder paths and the tracker paths.
 - **From `BankMaster.xlsx`:** the per-entity bank account lists, read through the sheet engine.
 - **Not carried over:** the queue names, the other fourteen sheets of `MasterConfig.xlsx`, and the mail text (hard-coded in the UiPath workflows; Tracto keeps its own templates).
-- **The `EntitySelected` cell** stays only if the fetch step cannot take the entity as an argument; a call to the Python service would pass it directly.
+- **The `EntitySelected` cell** stays only if the fetch bot cannot take the entity as a command-line argument.
 - **Credentials.** The workbook holds credentials in clear text under key names on the sheets that are not used (`DTSS_EmailPassword`, `password`, `Application Secret`, `APP ID`, `Tenant ID`, `senderID`, and the API `Username` and `Password`). They are not copied and should be rotated.
 
 ## Points to confirm
@@ -92,4 +96,5 @@ Southern Cross Protection (Australia, AUD) has a day folder, per-document workbo
 2. **Which version is live.** Whether the workbook or the packages are current, and the content of the `ExcelMappingPath` folder.
 3. **Where each entity's mailbox credentials are kept.** They are Orchestrator assets named `{entity}_{AssetCredentialName}`; Tracto needs them as `${secret:NAME}` on the worker.
 4. **Recipients for ONESIS,** which has none.
-5. **The Python service API.** The calls the bank availability check needs (statement availability per entity and bank account, and the fetch), with their inputs and outputs.
+5. **The fetch bot.** `run_Bank_bot.bat` and the code it runs are not in the supplied Python folder; whether it can take the entity as an argument and what its exit code means.
+6. **The International `MasterConfig.xlsx`.** `International_Bot1_SXP` reads its own copy under `E:\Automation\International_CAwithPA\Bot_1\Data\Config\` (sheets `EmailDetails`, `Settings`, `Constants`), with recipient keys per entity and the same five Office 365 keys ([SIS-05](SIS-05-international-bot1.md)). Its content is not supplied.

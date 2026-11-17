@@ -3,7 +3,7 @@
   "name": "ACME Main: Start Invoice Batch",
   "version": "1.0.0",
   "params": {
-    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/acme-batch/acme-batch-invoices.xlsx",
+    "excelPath": "C:/Users/TNT/Downloads/rpa-scripts/acme-batch/acme-batch-invoices.xlsx",
     "sheetName": "Invoices"
   },
   "segments": [
