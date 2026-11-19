@@ -97,4 +97,24 @@ Southern Cross Protection (Australia, AUD) has a day folder, per-document workbo
 3. **Where each entity's mailbox credentials are kept.** They are Orchestrator assets named `{entity}_{AssetCredentialName}`; Tracto needs them as `${secret:NAME}` on the worker.
 4. **Recipients for ONESIS,** which has none.
 5. **The fetch bot.** `run_Bank_bot.bat` and the code it runs are not in the supplied Python folder; whether it can take the entity as an argument and what its exit code means.
-6. **The International `MasterConfig.xlsx`.** `International_Bot1_SXP` reads its own copy under `E:\Automation\International_CAwithPA\Bot_1\Data\Config\` (sheets `EmailDetails`, `Settings`, `Constants`), with recipient keys per entity and the same five Office 365 keys ([SIS-05](SIS-05-international-bot1.md)). Its content is not supplied.
+6. **The International workbooks.** `MasterConfig_International.xlsx`, `BankMasterInternational.xlsx` and `Validation Station.xlsx` are described below; which of the two International `MasterConfig.xlsx` locations the supplied copy comes from is open ([SIS-05](SIS-05-international-bot1.md)).
+
+## The International workbooks
+
+Southern Cross Protection is the only International entity today. Its configuration is kept apart from the Indian one.
+
+| Workbook | Content |
+|---|---|
+| `MasterConfig_International.xlsx` | `Settings`: the UiPath framework keys, `Entity` = `MSS-Security,Southern-Cross-Protection`, `PriorityEntity_1` = `Southern-Cross-Protection`, trackers under `E:\Automation\Tracker\International\`, `PaymentAdvicesFolderPath` = `E:\Automation\Data\Input\International\Payment Advices` and `PaymentAdvicesExtractionFolderPath` = `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices` (not the tree the loader reads). `EmailDetails`: the sender, recipients, CC, bank-issue and API-down recipients for MSS-Security, Southern-Cross-Protection, Henderson-Security-Services and Henderson-Technologies (MSS-Security has no API-down key). `InboxMonitor`: the International dispatcher's download folder and mail counts for nine International entities. `PDF Extraction`: `EntityNameForCurrentRun` = `Southern-Cross-Protection`. The other sheets are copies of the Indian ones |
+| `BankMasterInternational.xlsx` | The `BankMaster.xlsx` layout: one sheet per entity listing `BANK_ACCOUNT_NAME` (MSS-Security two accounts, Southern-Cross-Protection four) and `EntitySelected` `A2` = `Southern-Cross-Protection` |
+| `Validation Station.xlsx` | One sheet, 5,089 rows: `Customer Name`, `Keyword`, `Entity` (Southern-Cross-Protection 3,348, MSS-Security 1,741), then unlabelled columns: a date (31.10.2022 to 28/5/25) on most rows, and notes such as `Customer name`, `Added Inv and amount`, `No Customer name` |
+
+About `Validation Station.xlsx`:
+
+- **It is a log, not a clean list.** It has 2,218 distinct customer names. 2,828 rows repeat a customer and entity already listed.
+- **The keyword is mostly the name itself.** It is the same as the customer name on 4,682 rows. Where it differs, it is the text as the document shows it, OCR noise included (`B P L I M I T E` for `CSBP LIMITED`).
+- **Some rows have no customer name**, only a keyword.
+
+Tracto imports it once into the customer keyword table, de-duplicated, with a row per keyword and entity. Keyword rows with no customer name are listed for SIS rather than guessed.
+
+The International `MasterConfig.xlsx` holds an application secret, four mailbox passwords and the API password in clear text. They are not copied, and are to be rotated (H3).

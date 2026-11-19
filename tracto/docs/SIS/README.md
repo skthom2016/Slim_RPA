@@ -7,6 +7,7 @@ No code here. Each document ends with an **Open questions** section — those ar
 | Document | The flow | Shape in Tracto |
 |---|---|---|
 | [stories/](stories/README.md) | **Stories and tasks** — 42 stories with acceptance criteria and tasks for building the flows on Tracto, the order of work and the open gaps | The backlog |
+| [diagrams/](diagrams/README.md) | **Flow diagrams** — the draw.io file with the overview, the components and calls, how a flow runs and one page per flow, with a guide per page explaining every box | To read with the diagram |
 | [open-questions.md](open-questions.md) | **Open questions** — every question still open, written so each can be answered on its own, grouped by process and by who answers | To send for answers |
 | [SIS-01](SIS-01-bank-avail-check.md) | **BankAvailCheck** — check each entity's bank statements have arrived, start a fetch bot for the ones missing, mail two reports | Go process, no script |
 | [SIS-02](SIS-02-email-pa-dispatcher.md) | **EmailPADispatcher** — read the entity mailboxes, file every advice by customer and type, raise a work item per file, chase the sender when a file is unusable | Go process, no script |

@@ -36,37 +36,121 @@ The web page is a PHP (Yii) application, `ca_with_pa`, under XAMPP on the same m
 
 The page then shows the run's `bot_run_log` rows as they are written. The four step switches are toggles on the same page. The calls take no sign-in, and `actionInit` builds its SQL from the query string.
 
-### International entities: a batch file
+### International entities: two copies of the code, one database
 
 ```
 @echo off
 C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe -W ignore E:\Automation\International_CAwithPA\Bot_1\ca_international_MSS\bot_run.py
 ```
 
-That is the batch file text given for this process: the same Python install the web page uses, and a separate copy of the code under `E:\Automation\International_CAwithPA\Bot_1\`. `International_Bot1_SXP` runs `run_SXP_bot.bat`. Nothing in the web page or in the supplied Python code prepares a run for an International entity (sets `active_bot_run_id`, `selected_entities` or the download window), and nothing in either writes `Response_Report.xlsx`; the International copy is not supplied, so how it does both is open. The supplied database has no International entity in any setting or in `download_time_config`; Southern Cross Protection Pty Ltd appears in it only as a customer of the TSIS and AMRS entities.
+That is the batch file text given for this process. `International_Bot1_SXP` runs `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat`, which is not supplied. The `run_bot.bat` inside each supplied code folder runs a developer's virtual environment on `D:\Python\ca_international\bot_run.py` and is not the live one.
+
+Two International copies of the code are supplied. They differ in what `bot_run.py` does, and each writes its reports under its own bot folder:
+
+| Copy | Folder its code writes to | What its `bot_run.py` does |
+|---|---|---|
+| Bot 1 (`ca_international_SXP_1` as supplied) | `E:\Automation\International_CAwithPA\Bot_1\ca_international_SXP\` | Loads the advices, downloads from Oracle Fusion, writes the two counters, then receipt creation, matching and posting as switched |
+| Bot 3 (`ca_international_SXP` as supplied) | `E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\` | Loads the advices again, matching, posting, and two reconciliation reports; no download and no receipt creation |
+
+Both differ from the Indian copy in the same ways:
+
+| | Indian copy | International copies |
+|---|---|---|
+| MySQL database | `collection_accounting` | `ca_with_pa_sxp`, on the same machine |
+| `MasterConfig.xlsx` read by Python | `C:\Automation\Data\Config\` | `E:\Automation\International_CAwithPA\Config\` |
+| Entity key | the entity code (`DTSS`, `SIS`, …) | `SXP_Group` or `MSS_Group`, mapped in `bot_run.py` to the folder names `Southern-Cross-Protection` and `MSS-Security` |
+| Bank statement date window | `download_time_config`, set by the web page per run | `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` (the SXP columns are read whatever the entity) |
+| Run preparation | `bot-run/init` from the web page | None in the code. SIS says `active_bot_run_id` is incremented as soon as Python is called; no supplied code does that (both copies only read it, and the reset is commented out), so it happens outside the code, for example in the database. `selected_entities` is not written by any supplied code and stays as set in `ca_with_pa_sxp` |
+| Purge | Advices older than four days at the match step; receipt, TDS and log rows older than four days at posting | At each download, when the outstanding download is on: the bank statement, outstanding, unapplied and receipt-created tables are emptied, and advices older than eight days are deleted. No purge at matching or posting |
+| Advice loader | 22 columns; the first existing advice makes the whole file fail | 14 columns (below); each row is committed on its own, and an advice already present is skipped without stopping the rest |
+
+**The International loader** reads the first sheet of the workbook and needs `ValueDate`, `BeneficiaryName`, `BeneficiaryBankAccountNumber`, `BeneficiaryBankName`, `CustomerName`, `CustomerBank`, `UTR / TransactionReferenceNumber`, `TotalCreditedAmount`, `File name`, `InvoiceNumber`, `InvoiceDate`, `InvoiceAmount`, `Other Deduction` and `NetAmount`. All 14 are in today's 15-column International sheet; `BeneficiaryBankBSBCode` is not read. An invoice line is skipped as a duplicate on the same `InvoiceNumber` and `File name` only if the database has that unique key: the code declares it, but the table is read from the database, not created by this code, so whether the key exists depends on the `ca_with_pa_sxp` schema, which is not supplied. It reads the two day workbooks:
+
+- `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\PDF_JPEG\ML_ExtractedFiles\{dd MMM yyyy}\Southern-Cross-Protection\Extracted payment advices.xlsx`
+- `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\Excel\Extractor_ExtractedFiles\{dd MMM yyyy}\Southern-Cross-Protection\Extracted Payment Advices.xlsx`
+
+That is the same tree as the Indian entities, not the `...\Input\International\...` root named in the International `MasterConfig.xlsx`.
 
 ### What a run does
 
+**Bot 1**, the copy `International_Bot1_SXP` runs:
+
 | Step | Code | Switched by |
 |---|---|---|
-| Load the day's payment advice workbooks into MySQL | `pyment_advice_loader.data_load_from_excel`, from the three trees under `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\` (also run on import and a second time when download is on) | always |
-| Download bank statements, outstanding, unapplied and customer data | `Api.ApiDownloadManager.init_download`; the bank statement, outstanding and unapplied tables are emptied first when the outstanding download is on | `download_module_enabled` |
-| Create a receipt per bank credit, receipt number = UTR | `Api.ReceiptCreation` | `receipt_creation_module_enabled` |
-| Match each advice with a bank credit (UTR, else total within 10), else an unapplied receipt; match each invoice with the outstanding list by invoice number | `CoreProcess.CaWithPa.compare` | `comparison_module_enabled` |
-| Apply the receipt to each invoice and post the TDS adjustment | `CaWithPa.posting` | `posting_module_enabled` |
+| Write `BankStatement_Report.xlsx` from the current bank statement table, before anything else, including the check for an active run | `BankStatementDownload` runs on import | always |
+| Load today's two advice workbooks (the paths above) | `PaymentAdvice.read_payment_advice` | `download_module_enabled` |
+| Empty the bank statement, outstanding, unapplied and receipt-created tables; delete advices older than eight days; download the outstanding list. If it returns no rows the entity stops there and the bank statement is not downloaded | `Api.ApiDownloadManager`, `Api.Outstanding` | `download_module_enabled` and `outstanding_download_enable` |
+| Download the bank statement for the window in `MSS_SXP_BotRun.xlsx`. With no row for today the download is skipped, with only a printed error | `Api.Bankstatement` | `bankstatement_download_enable` |
+| Download unapplied receipts and the customer master | `Api.Unapplied`, `Api.CustomerMaster` | `unapplied_download_enable`, `customer_master_download_enable` |
+| Write the counters into `E:\Automation\International_CAwithPA\Bot_1\Response_Report.xlsx`: `B2` = the number of rows in the bank statement table, `B3` = the number of rows in the outstanding table. Also write up to 500 advices loaded today into `...\Bot_1\PaymentAdvice.xlsx`, over the previous content without clearing it | `Api.CheckNumberofRecords` | `download_module_enabled` |
+| Create receipts; find the customer by invoice and match; post | `ReceiptCreation`, `CaWithPa` | the three step switches |
+| Write `BankStatement_Report.xlsx` again, from the tables after the run | `BankStatementDownload.bankdownload` | always |
 
-The match step first deletes every payment advice older than four days; the posting step deletes receipt, TDS and log rows older than four days. Errors inside a step are logged to `bot_run_log` and the run continues; an unhandled error sets the `bot_run` status to -1. Apart from the -1 exit when no run is active, the program ends normally whether or not the run worked.
+**Bot 3:**
 
-Only one run can be active: there is one `active_bot_run_id`. Two runs at the same time (a person on the web page and a scheduled International run) would log against the same row and change each other's entity and dates.
+| Step | Code | Switched by |
+|---|---|---|
+| Write `...\Bot_3\...\Bank_Statement\BankStatement_Report.xlsx` and `...\Bot_3\...\Final_Report\FinalReport.xlsx` on import, before the check for an active run | `BankStatementDownload`, `FinalReportDownload` | always |
+| Load today's two advice workbooks again (advices already loaded are skipped), find the customer by invoice, match | `PaymentAdvice`, `CaWithPa` | `comparison_module_enabled` |
+| Post | `CaWithPa.posting` | `posting_module_enabled` |
+| Write the bank statement report, `FinalReport.xlsx` (invoice lines of advices loaded since the previous working day and updated today, and a `Receipt Applied Details` sheet) and `FinalReconcilReport.xlsx` (sheets `KPI_Dashboard`, `Customer_Recon`, `Transaction_Details`, `Receipt_Applied`, `Receipt_Not_Created`, `PA_Not_Allocated`, `Invoice_Not_Applied`) | `BankStatementDownload`, `FinalReportDownload`, `FinalReport` | always |
 
-**Who starts it.**
+Matching is the same in both: an advice is matched to a bank credit by UTR, else by total within 10, else to an unapplied receipt; each invoice is matched to the outstanding list by invoice number. Errors inside a step are logged to `bot_run_log` and the run continues; an unhandled error sets the `bot_run` status to -1. Apart from the -1 exit when no run is active, the program ends normally whether or not the run worked.
+
+Which process runs Bot 3, and when, is not in the supplied material; `International_Bot1_SXP` runs only Bot 1.
+
+### What SIS has confirmed
+
+| Point | Answer |
+|---|---|
+| International entities | One today: Southern Cross Protection. Each International entity has its own copy of the code and its own database; the Indian entities share one copy and one database |
+| Database | `ca_with_pa_sxp`, separate from the Indian one, with the same table structure |
+| Trigger | `International_Bot1_SXP` is time-triggered at about 07:55 Australian time, after the International mail monitoring (05:45) and PDF extraction (05:49) |
+| Hand-off folder | Indian and International both read from `...\Statements\ExtractedPaymentAdvices\` |
+| Result of a run | The `bot_run` table holds the status |
+| Running twice | Allowed, but receipt creation and receipt allocation are duplicated when the same data is run again, which is an issue |
+| Indian and International at the same time | Allowed: different databases |
+| Repeated invoice lines | Not stored; removed by invoice number |
+| Recipients | From the `EmailDetails` sheet of the International `MasterConfig.xlsx` |
+| Locked PDFs | International has no password-protected PDFs and no password file. The International sample has 20 password-protected PDFs ([payment-advice-samples.md](payment-advice-samples.md)) |
+
+### What the two counters mean
+
+`B2` and `B3` are counts of whole tables, not of what this run downloaded. They mean "downloaded today" only because the same run empties the tables first. Read with the steps above:
+
+| Situation | `B2` | `B3` | Mail UiPath sends |
+|---|---|---|---|
+| Both downloads worked | rows in the statement | rows in the outstanding list | Success |
+| Outstanding returned nothing (Oracle Fusion or the middleware down) | 0 (tables emptied, statement not fetched) | 0 | "Production API's are down." |
+| No row for today in `MSS_SXP_BotRun.xlsx`, or the statement download failed | 0 | rows | "Bank Statement Report was not downloaded." |
+| `download_module_enabled` is `no` | 0 (never written) | 0 | "Production API's are down.", though nothing was tried |
+| No active run (`active_bot_run_id` -1) | 0 | 0 | "Production API's are down." |
+
+Because `BankStatement_Report.xlsx` is written when the code is imported, deleting it before the run (UiPath step 2) does not stop an old report: the file is recreated at once from the previous run's table, then rewritten at the end.
+
+### Who starts it
 
 | Entities | Started by |
 |---|---|
 | Indian | A person, from the web page (Start Process, then confirm). No UiPath process is involved, and that stays as it is. |
-| International | This UiPath process, `International_Bot1_SXP`, through `run_SXP_bot.bat`. |
+| International, Bot 1 | `International_Bot1_SXP`, through `run_SXP_bot.bat` |
+| International, Bot 3 | Not known |
 
-Because `bot_run.py` begins by loading the advice workbooks, starting it is what consumes the hand-off file flows 3 and 4 write ([collection-accounting-handoff.md](collection-accounting-handoff.md)). It must start after flow 4 has written the day's workbook for the entity. An advice still unmatched four days after it was loaded is deleted by the match step.
+Because `bot_run.py` loads the advice workbooks, starting it is what consumes the hand-off files flows 3 and 4 write ([collection-accounting-handoff.md](collection-accounting-handoff.md)). It starts at 07:55 Australian time, about two hours after the International PDF extraction (05:49). Only one run can use a database at a time: Bot 1 and Bot 3 share `ca_with_pa_sxp`, its single `active_bot_run_id` and its tables, and Bot 1 empties the tables Bot 3 matches against. An Indian run and an International run can overlap. A second run on the same data duplicates receipt creation and allocation, so a successful run is not repeated for the same day.
+
+### The International configuration workbooks
+
+`MasterConfig_International.xlsx`, as supplied (which of the two International `MasterConfig.xlsx` locations it comes from is not stated):
+
+| Sheet | What it holds |
+|---|---|
+| `Settings` | The UiPath framework keys (queue and asset names); `Entity` = `MSS-Security,Southern-Cross-Protection`; `TotalNumberOfEntity` 1 and `PriorityEntity_1` = `Southern-Cross-Protection`; report and tracker paths under `E:\Automation\Tracker\International\`; `PaymentAdvicesFolderPath` = `E:\Automation\Data\Input\International\Payment Advices`; `PaymentAdvicesExtractionFolderPath` = `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices` |
+| `EmailDetails` | Per entity, for `MSS-Security`, `Southern-Cross-Protection`, `Henderson-Security-Services` and `Henderson-Technologies`: `_senderID`, `_password`, `_receiverID`, `_receiverID_CC`, `_bank_issue_receiverID`, and `_api_down_receiverID` for all except `MSS-Security`; then `Application Secret`, `APP ID`, `Tenant ID` |
+| `InboxMonitor` | The International dispatcher's download folder (`E:\Automation\International_CAwithPA\EmailPADispatcher-International\SourceDownload`), the "not processed" reply text, and a mail count for each of nine International entities: MSS-Security, MSS-Strategic-Medical&Rescue, Habitat-Security, Southern-Cross-Protection, Platform4Group, Triton-Security, The-Alarm-Centre, Henderson-Security-Services, Henderson-Technologies |
+| `PDF Extraction` | `EntityNameForCurrentRun` = `Southern-Cross-Protection`, the header template, the PDF log folder |
+| `ExcelExtraction`, `EmailExtraction`, `ProdApiSettings`, `TestApiSettings`, `Constants`, `Assets`, `Sheet1` | Copies of the Indian sheets (Indian entity names, `D:` paths, the Magic xpi URLs and API account), the framework constants, and the nine entities numbered 1 to 9 |
+
+`BankMasterInternational.xlsx` has the same shape as `BankMaster.xlsx`: a sheet per entity listing `BANK_ACCOUNT_NAME` (MSS-Security two accounts, Southern-Cross-Protection four) and `EntitySelected` `A2` = `Southern-Cross-Protection`. That is the layout `BankAvailCheck` uses, so an International bank availability check probably exists; it is not among the supplied packages.
 
 ## What the UiPath process does
 
@@ -110,22 +194,32 @@ Nothing that is specific to this process beyond the B4 loop: it uses the program
 - **Interactive sign-in on an unattended robot.** The Office 365 scope is set to `InteractiveToken` while also given an application secret and a mailbox password.
 - **A test workflow in the production package.** `Test.xaml` loads the production configuration and mails a production `outstanding.xlsx` to a hard-coded mailbox address.
 
+The International code and configuration add:
+
+- **The International `MasterConfig.xlsx`** holds the application secret, four mailbox passwords and the Magic xpi API password in clear text.
+- **Both International code copies** hold the MySQL credentials in `DBClasses\mysql_helper.py`.
+- **Both code folders carry customer documents.** Their `test_data` folders hold customer payment advices, bank statements and outstanding reports, and they ship a bundled virtual environment.
+
 These are listed for rotation in H3.
 
 ## What improves in Tracto
 
-- **A failure is reported.** UiPath stops silently when the batch fails, the workbook is locked or a counter is blank; Tracto sends the failure mail and records the step that failed.
+- **A failure is reported.** UiPath stops silently when the batch fails, the workbook is locked or a counter is blank. Tracto sends the failure mail and records the step that failed.
 - **A timeout.** The batch can no longer hang the robot indefinitely.
-- **The attachments are checked** before the success mail goes out.
-- **One run per entity at a time**, because the run shares MySQL state and `Response_Report.xlsx`.
+- **The attachments are checked** before the success mail goes out, including that `BankStatement_Report.xlsx` was written after the program started, not left over from the previous run.
+- **One run at a time per database, and no second successful run on the same day.** A repeat would duplicate receipt creation and allocation.
 - **No credential** in a workbook, and no test workflow in what is deployed.
 
 ## Open questions
 
-1. The International copy of the service (`ca_international_SXP`) and `run_SXP_bot.bat` are not supplied. The supplied Indian copy never writes `Response_Report.xlsx`. Which code sets `B2` and `B3`, and do they hold a count or a flag?
-2. The batch file text names `ca_international_MSS`, the package reads under `ca_international_SXP`. Is there one copy and one batch file per International entity?
-3. What prepares an International run? For the Indian entities the web page's `bot-run/init` sets `selected_entities`, the download window in `download_time_config`, a new `bot_run` row and `active_bot_run_id`. Neither the web page nor the supplied code does this for an International entity, and `active_bot_run_id` is never reset, so an unprepared run logs against the last Indian run and uses the last Indian entity's settings, unless the International copy has its own database or its own preparation.
-4. Does the International copy load the 15-column International hand-off sheet? The Indian loader needs 22 columns that the International sheet does not have ([known-faults-in-current-output.md](known-faults-in-current-output.md), L2).
-5. When is `International_Bot1_SXP` triggered today, and must it wait for the day's International payment advice workbook?
-7. Does the International copy use the same MySQL database (`collection_accounting`) as the Indian one? The supplied database has no International entity in any setting or download window.
-6. The success mail calls the second attachment the "ATB Report" and the file is `outstanding.xlsx`. Which name do the recipients expect?
+1. Which UiPath process runs Bot 3 (the code under `E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\`), at what time, through which batch file, and who receives `FinalReport.xlsx` and `FinalReconcilReport.xlsx`? Is there a Bot 2? Bot 3 is to move to Tracto as well if it is a UiPath process.
+2. Please share `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat` as it is today. The text given earlier names `ca_international_MSS`, but the Bot 1 code writes under `ca_international_SXP`.
+3. Please share `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`. Who adds the row for each day, and how far ahead? With no row for today, the bank statement is not downloaded and the "bank statement not downloaded" mail goes out.
+4. SIS says `active_bot_run_id` is incremented as soon as Python is called. No code in either copy does that. Is it a database trigger, or something else?
+5. Please share the structure (no data) of `ca_with_pa_sxp`, especially whether `payment_advice_invoice` has a unique key on `InvoiceNumber` and `file_name`, and the values of the `settings` keys other than the passwords: `selected_entities`, `api_download_path`, the four step switches and the four `*_download_enable` switches. Bot 1 and Bot 3 read the same switches, so with all of them on, Bot 1 already matches and posts.
+6. When `download_module_enabled` is `no`, Bot 1 never writes the counters, so the "Production API's are down" mail goes out although nothing was tried. Is the download always on for Bot 1?
+7. `Api\CheckNumberofRecords.py` also writes up to 500 of today's advices into `E:\Automation\International_CAwithPA\Bot_1\PaymentAdvice.xlsx` without clearing the rows already there. Does anyone use that file?
+8. The supplied `MasterConfig_International.xlsx`: is it `E:\Automation\International_CAwithPA\Config\MasterConfig.xlsx` (read by Python) or `E:\Automation\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx` (read by UiPath)? Its `PaymentAdvicesExtractionFolderPath` is `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices`, while the loader reads `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices`.
+9. "Australian time" for the 07:55 trigger: which time zone (for example Sydney, with daylight saving)?
+10. The International sample has 20 password-protected PDFs, but SIS says International has none. Should those 20 be reported to the sender as unreadable?
+11. `BankMasterInternational.xlsx` has the same layout as the workbook `BankAvailCheck` uses. Is there an International bank availability check, and is it to move to Tracto?

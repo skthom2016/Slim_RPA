@@ -80,10 +80,9 @@ B4 depends on flows 2 to 4 only for its timing: it starts after flow 4 has writt
 
 | Gap | Affects | What closes it |
 |---|---|---|
-| The International copy of the Python service (`ca_international_SXP`, and `ca_international_MSS` named in the batch file) and `run_SXP_bot.bat` | B4 | The files; they show which code writes `Response_Report.xlsx` `B2` and `B3` and what the values mean |
-| How an International run is prepared (entity, download window, `bot_run` row, `active_bot_run_id`); the web page's `bot-run/init` does it for the Indian entities, and whether the International copy uses the same database | B4 | The collection accounting owner |
-| When `International_Bot1_SXP` is triggered today, and whether there is one bot per International entity | B4, G2 | The process owner |
-| Which columns the International hand-off needs: the International entities run their own copy of the service, whose loader is not supplied (Option A or B in F3) | F3, I1 | That copy of the loader, or a decision by the collection accounting owner |
+| Bot 3: which process runs the International matching, posting and reconciliation reports, and when | B4, G2 | The process owner |
+| The live `run_SXP_bot.bat`, what increments `active_bot_run_id`, the switch values in `ca_with_pa_sxp`, and `MSS_SXP_BotRun.xlsx` | B4 | The collection accounting owner |
+| The exact time zone of the 07:55 "Australian time" trigger | B4, G2 | The process owner |
 | Whether the International entity belongs in the four flows and the loader at all | F3, I1, I6 | The process owner |
 | Queue as a SQLite table or a sheet | A5, C3 | Re-confirmation; the table is the working default |
 | The threshold for review routing | F4 | Re-extracting the 248 International workbooks that carry UiPath confidences |
@@ -123,13 +122,17 @@ Reading the code while writing the stories turned up places where the analysis d
 | 23 | Adding the International entity to the loader's entity setting also changes what the Oracle Fusion download reads, since the same setting drives it | F3 |
 | 24 | The Python service has no API and no API documentation. It is started as a program, `bot_run.py`, with no arguments; the "API" in the analysis documents is the service's own client for Oracle Fusion through the Magic xpi middleware | B4 |
 | 25 | `bot_run.py` is the whole collection accounting run (load the advice workbooks, download, create receipts, match, post), so starting it is what consumes the hand-off workbook; the Indian runs are started by a person from the web page, the International runs by `International_Bot1_SXP` | B4, I6 |
-| 26 | The supplied Python copy never writes `Response_Report.xlsx`, which is the only success signal `International_Bot1_SXP` reads; `bot_run.py` exits with -1 only when no run is active, and otherwise ends normally whatever happened | B4 |
+| 26 | The Indian Python copy never writes `Response_Report.xlsx`, which is the only success signal `International_Bot1_SXP` reads; the International Bot 1 copy writes it (finding 34). `bot_run.py` exits with -1 only when no run is active, and otherwise ends normally whatever happened | B4 |
 | 27 | `International_Bot1_SXP` signs in to Office 365 with an interactive token while supplying a mailbox password and an application secret from `MasterConfig.xlsx`, and ships a test workflow that mails a production report to a hard-coded address | H3 |
 | 28 | The Indian run is prepared and started by the web page `ca_with_pa`: `bot-run/init` writes the entity, the download window, a `bot_run` row and `active_bot_run_id` to MySQL, then `run-bot.php` runs Python. The reset of `active_bot_run_id` at the end of a run is commented out, so the previous run's id stays active | B4 |
 | 29 | The match step deletes every payment advice loaded more than four days earlier, matched or not, and the posting step deletes receipt, TDS and log rows older than four days. A document delivered again after four days is loaded as new | I3, I6 |
 | 30 | The Python service reads `MasterConfig.xlsx` from `C:\Automation\Data\Config\`, the UiPath processes from `E:\Automation\Data\Config\` | H1 |
 | 31 | The web page's run calls take no sign-in and build SQL from the query string; the database holds API and mailbox passwords in clear text, the MySQL root password is in the Python code, and the bank statement URL with credentials is written to `bot_run_log` | H3 |
 | 32 | A repeated read of a workbook adds nothing to the database: the first advice insert fails on its existing `File name` and the loader does not roll its session back, so every later insert from that file fails too, including advices that are new. The supplied database (9 to 12 Nov) has no repeated invoice line; the analysis documents had said repeated reads insert the lines again | I3 |
+| 33 | The International entities run their own copies of the code (Bot 1 and Bot 3) on their own database, `ca_with_pa_sxp`. Their loader reads 14 columns, all in today's 15-column International sheet, from the same `...\Statements\ExtractedPaymentAdvices\` tree, so the International hand-off loads as it is | F3, I1 |
+| 34 | `Response_Report.xlsx` `B2` and `B3` are the row counts of the whole bank statement and outstanding tables, which Bot 1 empties at the start of each download; they are written only when the download switch is on, so with it off the "API down" mail goes out though nothing was tried | B4 |
+| 35 | The International run needs no preparation: the entity is fixed in the database, the bank statement window comes from `MSS_SXP_BotRun.xlsx`, and SIS says `active_bot_run_id` is incremented when Python is called (no supplied code does it) | B4 |
+| 36 | `BankStatement_Report.xlsx` is rewritten when the Python code is imported, from the previous run's tables, so deleting it before the run does not keep an old report out of the success mail | B4 |
 
 ## Conventions
 

@@ -53,7 +53,7 @@ The story area names the area of work in the effort estimate (A platform capabil
 | # | UiPath step, with the small points | Tracto equivalent | Story area |
 |---|---|---|---|
 | 1 | **Entity driver.** `All queue.xaml` loops `PriorityEntity_1` to `_N`, writes the entity name into cell `B2` of the `PDF Extraction` sheet in `MasterConfig.xlsx` (that sheet is otherwise unused), runs `Main.xaml` once per entity and waits twenty seconds. | The entity passed as a parameter; no shared cell. | G |
-| 2 | **Prepare the run.** Read `MasterConfig.xlsx` and `Validation Station.xlsx` (the keyword list, filtered to the entity and lower-cased). | Configuration and keyword sheets through the sheet engine. | F1 |
+| 2 | **Prepare the run.** Read `MasterConfig.xlsx` and `Validation Station.xlsx` (the keyword list, filtered to the entity and lower-cased; the supplied copy has 5,089 rows for MSS-Security and Southern-Cross-Protection only, see [configuration-workbooks.md](configuration-workbooks.md)). | Configuration and keyword sheets through the sheet engine. | F1 |
 | 3 | **Take the next queue item.** From `{entity}_PDF_JPEG_Queue`. The item gives `FilePath`, `EntityName`, `PAFileName`, `From` and `TimeDate`. | The next work item for the entity. | A5, F |
 | 4 | **Unlock the PDF.** `RemovePDFPassword.xaml` tries about fifty passwords in turn (the file `PasswordsPDF.txt` and two hard-coded arrays) until one opens it. | Unlock with the customer's passwords, held in secure configuration. | E1 |
 | 5 | **Digitize.** UiPath Document OCR (an API key is in the workflow). | The extraction process reads the document, with OCR for scanned pages. | E1, E2 |

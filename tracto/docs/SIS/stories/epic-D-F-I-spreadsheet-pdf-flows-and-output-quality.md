@@ -256,7 +256,7 @@ The loader contract used throughout is in `collection-accounting-handoff.md`. Re
 
 **User story.** As the SIS operations team, I want Southern Cross Protection (AUD) processed with its own field set, folder root and hand-off layout, so that its advices are extracted and written correctly without Indian-tax columns and can be loaded.
 
-**Context.** International has a different extraction model from the Indian one: `beneficiary_bank_bsb_code` instead of an IFSC code, no advice number or date, no UTR, a six-column table (`invoice_number`, `invoice_date`, `invoice_amount`, `other_deduction`, `net_amount`, `merchant_fees`), `merchant_fees` read and never carried over, day-first dates, and 856 documents from 607 payers in the sample ([payment-advice-samples.md](../payment-advice-samples.md) sections 3 and 4). Its tree is `...\Input\International\Payment Advices\{date}\Southern-Cross-Protection\`. Its day workbook `Sheet1` has 15 columns and lacks 8 of the 22 the loader selects (`AdviceNumber`, `AdviceDate`, `BeneficiaryBankIFSCCode`, `GST Tax Amount`, `GST TDS`, `Retention`, `TDS`, `WCT_TDS`), so the load stops with a `KeyError` at the first missing one. The entity is in no list the flows read and has no `BankMaster.xlsx` sheet.
+**Context.** International has a different extraction model from the Indian one: `beneficiary_bank_bsb_code` instead of an IFSC code, no advice number or date, no UTR, a six-column table (`invoice_number`, `invoice_date`, `invoice_amount`, `other_deduction`, `net_amount`, `merchant_fees`), `merchant_fees` read and never carried over, day-first dates, and 856 documents from 607 payers in the sample ([payment-advice-samples.md](../payment-advice-samples.md) sections 3 and 4). Its tree is `...\Input\International\Payment Advices\{date}\Southern-Cross-Protection\`. Its day workbook `Sheet1` has 15 columns. The International entities run their own copy of the collection accounting service ([SIS-05](../SIS-05-international-bot1.md)), whose loader reads 14 of them by name (all but `BeneficiaryBankBSBCode`) from the same `...\Statements\ExtractedPaymentAdvices\` tree as the Indian loader, under the folder `Southern-Cross-Protection`; the Indian loader's 22 columns do not apply. Its bank accounts are in `BankMasterInternational.xlsx`. It is the only International entity today.
 
 **Acceptance criteria.**
 1. Given the entity table has a row for the International entity with the flow-4 flag on, when the flow runs, then it reads `{International root}\{dd MMM yyyy}\Southern-Cross-Protection\PDF_JPEG\` and writes under that day's `Output\PDF_JPEG\` as the Indian entities do under their root; no path of another entity is touched.
@@ -265,9 +265,9 @@ The loader contract used throughout is in `collection-accounting-handoff.md`. Re
 4. Given a BSB or account number, then it is written as text with leading zeros kept (`062000` stays `062000`; `062-000` stays as printed).
 5. Given a date such as `5/11/2026`, then it is read day-first as 5 November 2026 and written as a date.
 6. Given no UTR on the document, then `UTR / TransactionReferenceNumber` is empty and the document is not rejected for it.
-7. Option A (profile adds the eight columns): given `HandoffMode = A`, then the first sheet has the 15 International columns plus the eight missing ones, empty where the document has none (`TDS` and the other Indian tax columns empty, `AdviceNumber` and `AdviceDate` empty), and a contract test finds all 22 loader names.
-8. Option B (the loader changes to the 15 columns): given `HandoffMode = B`, then the first sheet has exactly the 15 columns and the profile validation passes only when SIS records that the loader accepts that layout; with this mode and an unchanged loader the flow refuses to write into the live tree.
-9. Given either option, then the hand-off folder name equals the entity key the loader receives in `selected_entities`, and the key is a profile value.
+7. Given the International profile, then the first sheet of `Extracted payment advices.xlsx` has today's 15 columns by name, and a contract test finds the 14 names the International loader reads (`ValueDate`, `BeneficiaryName`, `BeneficiaryBankAccountNumber`, `BeneficiaryBankName`, `CustomerName`, `CustomerBank`, `UTR / TransactionReferenceNumber`, `TotalCreditedAmount`, `File name`, `InvoiceNumber`, `InvoiceDate`, `InvoiceAmount`, `Other Deduction`, `NetAmount`).
+8. Given the day's workbook, then it is written to `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\PDF_JPEG\ML_ExtractedFiles\{dd MMM yyyy}\Southern-Cross-Protection\`, the date in the entity's time zone, before the 07:55 collection accounting run (B4).
+9. Given the profile, then the hand-off folder name (`Southern-Cross-Protection`) and the loader's entity key (`SXP_Group`) are both profile values, and the folder name is the one the International `bot_run.py` maps the key to.
 10. Given a document the extraction marks as not a payment advice, then it is listed with outcome `not_advice` (I4) and no row is written.
 11. Given the six distinct International sample days, then the extraction output has, per document, the same line count as the sample per-document workbook within an agreed tolerance recorded by E7.
 
@@ -277,18 +277,17 @@ The loader contract used throughout is in `collection-accounting-handoff.md`. Re
 | F3.1 | International field schema and prompt (9 header fields, 6 table fields) in the prompt store, with the "not a payment advice" answer | E3's schema is the Indian ten-field set |
 | F3.2 | Map the reply to the profile: BSB text, merchant fees into Other Deduction, no UTR, day-first |  |
 | F3.3 | Entity folder root, day layout, `NeedValidation` and hand-off root as profile values |  |
-| F3.4 | Hand-off option switch (A or B) with the loader contract test | Rows of the profile are built in I1.3 |
+| F3.4 | The 15-column hand-off layout with the contract test on the 14 loader names | Rows of the profile are built in I1.3 |
 | F3.5 | Entity table row: flags, recipients, entity key, date order |  |
 | F3.6 | Tests on the International sample documents (counts only) |  |
 
-**Test notes.** The 856 documents and 7 day workbooks of the International sample (customer data: use counts and field names only), including the 20 locked PDFs, 4 images, 2 scans and 10 non-advices. Check line counts, text identifiers, date order, and the 15 or 23 column sheet by name.
+**Test notes.** The 856 documents and 7 day workbooks of the International sample (customer data: use counts and field names only), including the 20 locked PDFs, 4 images, 2 scans and 10 non-advices. Check line counts, text identifiers, date order, and the 15-column sheet by name.
 
 **Open items.**
-- Gap to confirm: Option A or Option B. The Python service is not modified, so Option A is the one that needs no change there; Option A still needs `selected_entities` (a database setting) to include the entity, and `ApiDownloadManager.py` and `bot_run.py` also read that setting for Oracle Fusion downloads, so adding the entity there has effects outside the loader.
-- The International entities run their own copy of the collection accounting service (`ca_international_<entity>`, started by `International_Bot1_SXP`, [SIS-05](../SIS-05-international-bot1.md)); its loader, not the supplied Indian one, decides between Option A and Option B. That copy is not supplied.
-- The International hand-off root: the sample shows only the input root `...\Input\International\`; the loader's root is fixed to the Statements tree.
+- Whether the International database refuses a repeated invoice line (`InvoiceNumber` and `file_name`); SIS says repeated lines are removed by invoice number, and Tracto writes each line once either way.
+- The International `MasterConfig.xlsx` names `...\Input\International\Statements\ExtractedPaymentAdvices` as the extraction path; the loader reads `...\Input\Statements\ExtractedPaymentAdvices`, which SIS confirmed. The setting is taken to be unused.
 - Date convention of other senders (the sample shows day-first throughout).
-- The password source for the locked PDFs and whether the list is the Indian one.
+- SIS says International has no password-protected PDFs and no password file; the sample has 20. Whether they are reported to the sender as unreadable.
 
 ---
 

@@ -118,4 +118,4 @@ The loader needs the columns below by exact name and reads them from the first s
 | `GST Tax Amount`, `GST TDS`, `Retention`, `TDS`, `WCT_TDS` | yes | **no** (all five) |
 | `Other Deduction`, `NetAmount` | yes | yes |
 
-Eight of the 22 are missing for International.
+Eight of the 22 are missing for International. That table is the Indian loader. The International entities run their own copy of the service, whose loader reads 14 columns by name: `ValueDate`, `BeneficiaryName`, `BeneficiaryBankAccountNumber`, `BeneficiaryBankName`, `CustomerName`, `CustomerBank`, `UTR / TransactionReferenceNumber`, `TotalCreditedAmount`, `File name`, `InvoiceNumber`, `InvoiceDate`, `InvoiceAmount`, `Other Deduction`, `NetAmount`. All 14 are in today's 15-column International sheet (`BeneficiaryBankBSBCode` is not read), and it reads from the same `...\Statements\ExtractedPaymentAdvices\` tree as the Indian loader, under the folder `Southern-Cross-Protection` ([SIS-05](SIS-05-international-bot1.md)).

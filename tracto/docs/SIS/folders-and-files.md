@@ -40,7 +40,7 @@ E:\Automation\
     ModuleTracker.xlsx                  flow 2: sheet per entity, cell B2 = Success or Fail
     Customers List.xlsx                 flow 2: sheet per entity
     LogTracker.xlsx                     flow 2: sheet "Email Tracker"
-    Validation Station.xlsx             flow 4: keywords per entity
+    Validation Station.xlsx             flow 4: customer keywords per entity (International only in the supplied copy)
 
 D:\Automation\   (in the packages' copy of the configuration; the current MasterConfig.xlsx has the first two on E:\Automation)
   EmailPADispatcher\SourceDownload\     flow 2 staging, plus a subfolder per ZIP while it is unpacked
@@ -89,6 +89,29 @@ C:\xampp\htdocs\prod\run_Bank_bot.bat  flow 1: the fetch bot
 - **Reads** the queue `{entity}_PDF_JPEG_Queue`, `MasterConfig.xlsx` (sheet Settings), `Validation Station.xlsx`, `PasswordsPDF.txt` and `Config\Payment advice header.xlsx`.
 - **Per document:** a per-document results workbook with a sheet per table and a `DocPath` sheet, saved as `{docName}.xlsx` in `...\Output\PDF_JPEG\Extracted Files\`, plus `DocumentProcessing\Output\{docName}.xlsx` and `temp.xlsx` inside the robot's working folder. The processed PDF is moved to `...\Output\ExtractedPDF\`. A failed document is moved to `...\Output\PDF_JPEG\Exception\` and a row is added to `D:\Automation\Tracker\PDF Extractor Logs\{date}.xlsx`.
 - **Once per entity, after the queue is empty:** the per-document workbooks are consolidated into `...\Output\PDF_JPEG\Extracted payment advice.xlsx` (sheets for header, `Table`, `Output`, `Errors` and `Credit Note`). It is then copied to `ExtractedPaymentAdvices\PDF_JPEG\ML_ExtractedFiles\{date}\{entity}\Extracted payment advices.xlsx` (folder created first), cleaned, and left with the advice rows on the first sheet.
+
+## Flow 5: International collection accounting
+
+The International code runs from `E:\Automation\International_CAwithPA\` ([SIS-05](SIS-05-international-bot1.md)):
+
+```
+E:\Automation\International_CAwithPA\
+  Config\
+    MasterConfig.xlsx                   read by the Python code (sheet Settings)
+    MSS_SXP_BotRun.xlsx                 bank statement date window, one row per day
+  Bot_1\
+    run_SXP_bot.bat                     run by International_Bot1_SXP
+    Response_Report.xlsx                B2 = bank statement rows, B3 = outstanding rows
+    PaymentAdvice.xlsx                  up to 500 advices loaded today
+    Data\Config\MasterConfig.xlsx       read by International_Bot1_SXP
+    ca_international_SXP\Bank_Statement\BankStatement_Report.xlsx    attached to the success mail
+  Bot_3\
+    ca_international_SXP\Bank_Statement\BankStatement_Report.xlsx
+    ca_international_SXP\Final_Report\FinalReport.xlsx
+    ca_international_SXP\Final_Report\FinalReconcilReport.xlsx
+```
+
+The International loader reads the same `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\` tree as the Indian one, with the folder `Southern-Cross-Protection`. The outstanding list goes to `{api_download_path}\OutstandingStatements\{dd MMM yyyy}\SXP_Group\outstanding.xlsx`; the mail reads it from `C:\xampp\htdocs\Statements1\OutstandingStatements\`.
 
 ## How the flows hand over
 
