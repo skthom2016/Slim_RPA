@@ -31,16 +31,16 @@ Indian and International entities go through the same flows 1 to 4. What differs
 | **Collection accounting, Indian copy** | The existing Python program `bot_run.py` with its MySQL database `collection_accounting`. It loads the hand-off workbooks, downloads data from Oracle Fusion, creates receipts, matches payments and posts them. Not changed. |
 | **Collection accounting, International Bot 1** | The International copy of the same program, started through the batch file `run_SXP_bot.bat`, with its own database `ca_with_pa_sxp`. Not changed. |
 | Lines "loaded by bot_run.py" | When collection accounting runs, it reads the day's hand-off workbooks. This is why the extraction flows must finish before it starts. |
-| **Bot 3** (dashed red) | A second International copy of the Python code that matches, posts and writes the reconciliation reports. It uses the same database as Bot 1. Who starts it and when is an open question. |
+| **Bot 3** (pink) | A second International copy of the Python code that matches, posts and writes the reconciliation reports. It uses the same database as Bot 1. A person starts it from the same web page, through `run-bot-sxp.php`. This stays as it is, outside Tracto. |
 | **Oracle Fusion** | The finance system. Collection accounting downloads the bank statement and open invoices from it and posts receipts to it, through the middleware Magic xpi. |
 
 ## Flow 1, at the bottom
 
 | Box | What it is |
 |---|---|
-| **Flow 1 · Bank statement availability** | Every weekday morning, before statement processing, it checks that today's bank statement folder exists for each entity. Main job `bankcheck-main`. Detail: [04-flow1-bank-check.md](04-flow1-bank-check.md). |
+| **Flow 1 · Bank statement availability** | Every weekday morning, before statement processing, it checks that today's bank statement folder exists for each entity, Indian and International. Main job `bankcheck-main`. Detail: [04-flow1-bank-check.md](04-flow1-bank-check.md). |
 | **Bank statement folders** | One folder per day and entity under `Statements1\BankStatements\`. If today's folder is there, that entity's statements have arrived. |
-| **Fetch bot** | The existing Python download `run_Bank_bot.bat`. Flow 1 starts it when an entity's folder is missing; it downloads the statements into the folder. |
+| **Fetch bots** | The existing Python downloads: `run_Bank_bot.bat` for the Indian entities, `run_Bank_bot_{entity}.bat` for each International entity. Flow 1 starts the entity's fetch bot when its folder is missing; it downloads the statements into the folder. |
 | **MT940 status mails** | Flow 1's two mails: the list of entities whose statements are available, and a table of the bank accounts still missing. |
 
 ## The note and the legend

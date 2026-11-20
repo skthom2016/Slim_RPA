@@ -38,12 +38,25 @@ The page then shows the run's `bot_run_log` rows as they are written. The four s
 
 ### International entities: two copies of the code, one database
 
+`International_Bot1_SXP` runs `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat`:
+
 ```
 @echo off
-C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe -W ignore E:\Automation\International_CAwithPA\Bot_1\ca_international_MSS\bot_run.py
+echo Bot Started
+CALL "C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe" -W ignore "E:\Automation\International_CAwithPA\Bot_1\ca_international_SXP\bot_run.py"
+echo Bot Finished
+exit /b %errorlevel%
 ```
 
-That is the batch file text given for this process. `International_Bot1_SXP` runs `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat`, which is not supplied. The `run_bot.bat` inside each supplied code folder runs a developer's virtual environment on `D:\Python\ca_international\bot_run.py` and is not the live one.
+It returns Python's exit code. `bot_run.py` exits with -1 only when no run is active; every other outcome, including a failed download or posting, ends with 0. The `run_bot.bat` inside each supplied code folder runs a developer's virtual environment on `D:\Python\ca_international\bot_run.py` and is not the live one.
+
+Bot 3 is not run by a batch file. The web page's `run-bot-sxp.php` runs it the same way `run-bot.php` runs the Indian copy:
+
+```
+C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\bot_run.py
+```
+
+through `shell_exec`, waiting for it and printing its output on the page. Which page or button calls `run-bot-sxp.php`, and whether that page first prepares the run in `ca_with_pa_sxp`, is not in the supplied files.
 
 Two International copies of the code are supplied. They differ in what `bot_run.py` does, and each writes its reports under its own bot folder:
 
@@ -59,8 +72,8 @@ Both differ from the Indian copy in the same ways:
 | MySQL database | `collection_accounting` | `ca_with_pa_sxp`, on the same machine |
 | `MasterConfig.xlsx` read by Python | `C:\Automation\Data\Config\` | `E:\Automation\International_CAwithPA\Config\` |
 | Entity key | the entity code (`DTSS`, `SIS`, …) | `SXP_Group` or `MSS_Group`, mapped in `bot_run.py` to the folder names `Southern-Cross-Protection` and `MSS-Security` |
-| Bank statement date window | `download_time_config`, set by the web page per run | `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` (the SXP columns are read whatever the entity) |
-| Run preparation | `bot-run/init` from the web page | None in the code. SIS says `active_bot_run_id` is incremented as soon as Python is called; no supplied code does that (both copies only read it, and the reset is commented out), so it happens outside the code, for example in the database. `selected_entities` is not written by any supplied code and stays as set in `ca_with_pa_sxp` |
+| Bank statement date window | `download_time_config`, set by the web page per run | `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` (the SXP columns are read whatever the entity). See "The date window workbook" below |
+| Run preparation | `bot-run/init` from the web page | Not known for Bot 3, which the web page starts through `run-bot-sxp.php`. None in the code. SIS says `active_bot_run_id` is incremented as soon as Python is called; no supplied code does that (both copies only read it, and the reset is commented out), so it happens outside the code, for example in the database. `selected_entities` is not written by any supplied code and stays as set in `ca_with_pa_sxp` |
 | Purge | Advices older than four days at the match step; receipt, TDS and log rows older than four days at posting | At each download, when the outstanding download is on: the bank statement, outstanding, unapplied and receipt-created tables are emptied, and advices older than eight days are deleted. No purge at matching or posting |
 | Advice loader | 22 columns; the first existing advice makes the whole file fail | 14 columns (below); each row is committed on its own, and an advice already present is skipped without stopping the rest |
 
@@ -97,7 +110,38 @@ That is the same tree as the Indian entities, not the `...\Input\International\.
 
 Matching is the same in both: an advice is matched to a bank credit by UTR, else by total within 10, else to an unapplied receipt; each invoice is matched to the outstanding list by invoice number. Errors inside a step are logged to `bot_run_log` and the run continues; an unhandled error sets the `bot_run` status to -1. Apart from the -1 exit when no run is active, the program ends normally whether or not the run worked.
 
-Which process runs Bot 3, and when, is not in the supplied material; `International_Bot1_SXP` runs only Bot 1.
+`International_Bot1_SXP` runs only Bot 1. Bot 3 is started by a person from the web page, through `run-bot-sxp.php`.
+
+### The date window workbook
+
+`MSS_SXP_BotRun.xlsx` (`Sheet1`) is a calendar filled in advance, one row per day from 1 November 2025 to 31 December 2026. All five columns are text in `yyyy-MM-dd` form:
+
+| Column | Meaning |
+|---|---|
+| `Current Date` | The run day Bot 1 looks for |
+| `SXP_Group Start Date`, `SXP_Group End Date` | The bank statement window Bot 1 downloads |
+| `MSS_Group Start Date`, `MSS_Group End Date` | The same for MSS-Security; no code reads them |
+
+The windows follow a rule:
+
+| Run day | Window |
+|---|---|
+| Monday | The previous Friday |
+| Tuesday | Saturday to Monday |
+| Wednesday to Friday | The day before |
+| Saturday, Sunday | No window (empty row) |
+| 25 and 26 December 2025, 2 January 2026, Easter Monday 6 April 2026 | No window; the next window reaches back to cover the gap (29 December covers 24 to 28 December) |
+
+One gap is not covered cleanly: 7 April 2026 repeats the window of 3 April (2 April only), and 8 April covers 3 to 7 April. 1 January 2026 and Good Friday 3 April 2026 have a window.
+
+Until 1 December 2025 Monday covered Friday to Sunday and Tuesday only Monday. In December 2025 the MSS columns kept that older pattern on 31 rows while the SXP columns moved to the new one.
+
+Two consequences for flow 5:
+
+- **The calendar ends on 31 December 2026.** From 1 January 2027 there is no row, so Bot 1 skips the bank statement and every run mails "Bank Statement Report was not downloaded" until someone extends the file. Tracto checks the row before starting the run (it already does) and warns when fewer than 30 days are left.
+- **An empty row is a day without a window.** On a weekend or holiday the row exists but is empty, which Bot 1 treats like a missing row. Tracto treats both the same way: the run is not started, and the mail says there is no bank statement window for today.
+
+The International fetch bots of the bank check read the same columns from `Bot_run_Configurations.xlsx` in the same folder ([SIS-01](SIS-01-bank-avail-check.md#the-international-bank-availability-check)).
 
 ### What SIS has confirmed
 
@@ -134,9 +178,9 @@ Because `BankStatement_Report.xlsx` is written when the code is imported, deleti
 |---|---|
 | Indian | A person, from the web page (Start Process, then confirm). No UiPath process is involved, and that stays as it is. |
 | International, Bot 1 | `International_Bot1_SXP`, through `run_SXP_bot.bat` |
-| International, Bot 3 | Not known |
+| International, Bot 3 | A person, from the web page, through `run-bot-sxp.php`. No UiPath process is involved, and that stays as it is. |
 
-Because `bot_run.py` loads the advice workbooks, starting it is what consumes the hand-off files flows 3 and 4 write ([collection-accounting-handoff.md](collection-accounting-handoff.md)). It starts at 07:55 Australian time, about two hours after the International PDF extraction (05:49). Only one run can use a database at a time: Bot 1 and Bot 3 share `ca_with_pa_sxp`, its single `active_bot_run_id` and its tables, and Bot 1 empties the tables Bot 3 matches against. An Indian run and an International run can overlap. A second run on the same data duplicates receipt creation and allocation, so a successful run is not repeated for the same day.
+Because `bot_run.py` loads the advice workbooks, starting it is what consumes the hand-off files flows 3 and 4 write ([collection-accounting-handoff.md](collection-accounting-handoff.md)). It starts at 07:55 Australian time, about two hours after the International PDF extraction (05:49). Only one run can use a database at a time: Bot 1 and Bot 3 share `ca_with_pa_sxp`, its single `active_bot_run_id` and its tables, and Bot 1 empties the tables Bot 3 matches against. Because Bot 3 is started by hand from the web page, flow 5 cannot know whether a Bot 3 run is in progress unless it looks at the `bot_run` table; the people who start Bot 3 have to avoid 07:55. An Indian run and an International run can overlap. A second run on the same data duplicates receipt creation and allocation, so a successful run is not repeated for the same day.
 
 ### The International configuration workbooks
 
@@ -150,7 +194,7 @@ Because `bot_run.py` loads the advice workbooks, starting it is what consumes th
 | `PDF Extraction` | `EntityNameForCurrentRun` = `Southern-Cross-Protection`, the header template, the PDF log folder |
 | `ExcelExtraction`, `EmailExtraction`, `ProdApiSettings`, `TestApiSettings`, `Constants`, `Assets`, `Sheet1` | Copies of the Indian sheets (Indian entity names, `D:` paths, the Magic xpi URLs and API account), the framework constants, and the nine entities numbered 1 to 9 |
 
-`BankMasterInternational.xlsx` has the same shape as `BankMaster.xlsx`: a sheet per entity listing `BANK_ACCOUNT_NAME` (MSS-Security two accounts, Southern-Cross-Protection four) and `EntitySelected` `A2` = `Southern-Cross-Protection`. That is the layout `BankAvailCheck` uses, so an International bank availability check probably exists; it is not among the supplied packages.
+`BankMasterInternational.xlsx` has the same shape as `BankMaster.xlsx`: a sheet per entity listing `BANK_ACCOUNT_NAME` (MSS-Security two accounts, Southern-Cross-Protection four) and `EntitySelected` `A2` = `Southern-Cross-Protection`. It is the workbook of the International bank availability check, `InternationalBankAvailCheck`, described in [SIS-01](SIS-01-bank-avail-check.md#the-international-bank-availability-check).
 
 ## What the UiPath process does
 
@@ -179,7 +223,7 @@ The package carries the REFramework files, but `Main.xaml` invokes only `InitAll
 | 1 | `MasterConfig.xlsx` with paths, recipients and credentials | The entity table and `Settings` hold paths and recipients; no credential is read | B4, H1, H3 |
 | 2 | Delete `BankStatement_Report.xlsx` | A3 `delete` inside a configured root | B4 |
 | 3 | Write 0 into `B2` and `B3` | The A6 cell write, as numbers | B4 |
-| 4 | `Invoke PowerShell` on the batch file, no timeout | A4 runs a named command (the Python executable and the entity's `bot_run.py`) with a timeout, and keeps the exit code and output | B4 |
+| 4 | `Invoke PowerShell` on the batch file, no timeout, exit code ignored | A4 runs a named command (the Python executable and the entity's `bot_run.py`) with a timeout, and keeps the exit code and output. A non-zero code means no run was active in `ca_with_pa_sxp` | B4 |
 | 5 | Read `B2` and `B3`, `Integer.Parse` | Read and parse; a blank or non-numeric cell is a failed run with a mail, not an exception | B4 |
 | 6 | Literal entity name, machine-clock date | Entity from the table, date in the schedule's time zone, group folder (`SXP_Group`) a setting | B4 |
 | 7 | Three mails with the same subject | Four mails (adding "the run failed"), each with its own subject; attachments checked before sending | B4, A2 |
@@ -212,14 +256,14 @@ These are listed for rotation in H3.
 
 ## Open questions
 
-1. Which UiPath process runs Bot 3 (the code under `E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\`), at what time, through which batch file, and who receives `FinalReport.xlsx` and `FinalReconcilReport.xlsx`? Is there a Bot 2? Bot 3 is to move to Tracto as well if it is a UiPath process.
-2. Please share `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat` as it is today. The text given earlier names `ca_international_MSS`, but the Bot 1 code writes under `ca_international_SXP`.
-3. Please share `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`. Who adds the row for each day, and how far ahead? With no row for today, the bank statement is not downloaded and the "bank statement not downloaded" mail goes out.
-4. SIS says `active_bot_run_id` is incremented as soon as Python is called. No code in either copy does that. Is it a database trigger, or something else?
+1. Which page or button calls `run-bot-sxp.php`, and does that page first prepare the Bot 3 run in `ca_with_pa_sxp` (date window, `selected_entities`, a `bot_run` row, `active_bot_run_id`)? When is Bot 3 usually started, and who receives `FinalReport.xlsx` and `FinalReconcilReport.xlsx`? Is there a Bot 2?
+2. `run_SXP_bot.bat` passes on Python's exit code, which is non-zero only when no run is active. Is that the only failure the exit code is meant to signal?
+3. `MSS_SXP_BotRun.xlsx` ends on 31 December 2026. Who extends it, and by when? Which rule and holiday calendar are current, and could the window be computed instead (see "The date window workbook")?
+4. SIS says `active_bot_run_id` is incremented as soon as Python is called. No code in either copy does that. Is it a database trigger, the page that runs Bot 3, or something else?
 5. Please share the structure (no data) of `ca_with_pa_sxp`, especially whether `payment_advice_invoice` has a unique key on `InvoiceNumber` and `file_name`, and the values of the `settings` keys other than the passwords: `selected_entities`, `api_download_path`, the four step switches and the four `*_download_enable` switches. Bot 1 and Bot 3 read the same switches, so with all of them on, Bot 1 already matches and posts.
 6. When `download_module_enabled` is `no`, Bot 1 never writes the counters, so the "Production API's are down" mail goes out although nothing was tried. Is the download always on for Bot 1?
 7. `Api\CheckNumberofRecords.py` also writes up to 500 of today's advices into `E:\Automation\International_CAwithPA\Bot_1\PaymentAdvice.xlsx` without clearing the rows already there. Does anyone use that file?
 8. The supplied `MasterConfig_International.xlsx`: is it `E:\Automation\International_CAwithPA\Config\MasterConfig.xlsx` (read by Python) or `E:\Automation\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx` (read by UiPath)? Its `PaymentAdvicesExtractionFolderPath` is `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices`, while the loader reads `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices`.
 9. "Australian time" for the 07:55 trigger: which time zone (for example Sydney, with daylight saving)?
 10. The International sample has 20 password-protected PDFs, but SIS says International has none. Should those 20 be reported to the sender as unreadable?
-11. `BankMasterInternational.xlsx` has the same layout as the workbook `BankAvailCheck` uses. Is there an International bank availability check, and is it to move to Tracto?
+11. The International bank check adds an item to the Orchestrator queue `Southern-Cross-Protection_BankAvail_Success_Queue` when the statements are available. Does that queue start `International_Bot1_SXP`, or is 07:55 its only trigger?

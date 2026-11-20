@@ -2,7 +2,7 @@
 
 The work to move the UiPath payment-advice processes onto Tracto, as stories with acceptance criteria and tasks. The four flows are in [SIS-01](../SIS-01-bank-avail-check.md) to [SIS-04](../SIS-04-payment-advice-extraction.md); the International collection accounting run (`International_Bot1_SXP`) is in [SIS-05](../SIS-05-international-bot1.md). Each story cites the analysis it comes from in [the SIS documents](../README.md) and says whether the capability already exists in the Tracto code.
 
-**42 stories.** Work is planned and delivered story by story.
+**43 stories.** Work is planned and delivered story by story.
 
 ## The story files
 
@@ -27,6 +27,7 @@ The work to move the UiPath payment-advice processes onto Tracto, as stories wit
 | B2 | Statement check and fetch | To build |
 | B3 | Unavailable accounts and reports | Partly |
 | B4 | Collection accounting run for the International entities | To build |
+| B5 | International entities in the bank check | To build |
 | C1 | Mailbox intake | To build (mailbox), partly (configuration) |
 | C2 | Filing and routing | To build |
 | C3 | Work items, tracker and replies | To build |
@@ -68,7 +69,7 @@ The work to move the UiPath payment-advice processes onto Tracto, as stories wit
 2  Extraction module  E1 intake, E8 profiles, E9 scans, E2 splitting, E3 extraction, E5 assembly, E6 operation
                       (the module team's work; runs in parallel with 1 and 3)
 3  Output core        I1 profiles, I2 normalisation, I3 write once, I5 net amount, I4 outcomes
-4  The flows          D1-D3 spreadsheet advices, C1-C3 dispatcher, B1-B3 bank availability, F1-F2 PDF advices,
+4  The flows          D1-D3 spreadsheet advices, C1-C3 dispatcher, B1-B3 and B5 bank availability, F1-F2 PDF advices,
                       B4 International collection accounting run
 5  Quality            E4 cross-check, E7 accuracy, F3 International profile, F4 review routing, C4 classification
 6  Run and hand over  G2 schedules and monitoring, C5 reporting, I6 parallel run and cutover, H1 templates, H2 documentation
@@ -80,8 +81,9 @@ B4 depends on flows 2 to 4 only for its timing: it starts after flow 4 has writt
 
 | Gap | Affects | What closes it |
 |---|---|---|
-| Bot 3: which process runs the International matching, posting and reconciliation reports, and when | B4, G2 | The process owner |
-| The live `run_SXP_bot.bat`, what increments `active_bot_run_id`, the switch values in `ca_with_pa_sxp`, and `MSS_SXP_BotRun.xlsx` | B4 | The collection accounting owner |
+| Bot 3: which web page calls `run-bot-sxp.php`, whether it prepares the run in `ca_with_pa_sxp`, and who receives its reports | B4 | The collection accounting owner |
+| What increments `active_bot_run_id`, the switch values in `ca_with_pa_sxp`, and who extends `MSS_SXP_BotRun.xlsx` past 31 December 2026 | B4 | The collection accounting owner |
+| The International bank check: retry limit, what reads `<entity>_BankAvail_Success_Queue`, whether MSS-Security is checked, what sets `active_bot_run_id` in the two bank-check databases | B5 | The process owner |
 | The exact time zone of the 07:55 "Australian time" trigger | B4, G2 | The process owner |
 | Whether the International entity belongs in the four flows and the loader at all | F3, I1, I6 | The process owner |
 | Queue as a SQLite table or a sheet | A5, C3 | Re-confirmation; the table is the working default |

@@ -9,6 +9,7 @@ Platform capabilities are referred to by ID: A1 mail reading, A2 mail sending, A
 | B2 | Statement check and fetch |
 | B3 | Unavailable accounts and reports |
 | B4 | Collection accounting run for the International entities |
+| B5 | International entities in the bank check |
 | C1 | Mailbox intake |
 | C2 | Filing and routing |
 | C3 | Work items, tracker and replies |
@@ -157,7 +158,7 @@ Conventions used in every story:
 
 **User story.** As the International collection accounting team, I want Tracto to start the collection accounting run for each International entity, read how it ended and mail the right people, so that a failed run is reported instead of ending silently, and no mailbox password or application secret is kept in a workbook.
 
-**Context.** UiPath does not call the Python service through an API, and the service has no API documentation. It is started by a batch file that runs `python.exe -W ignore ...\bot_run.py`, and `bot_run.py` is the whole collection accounting run: it loads the day's payment advice workbooks into MySQL, downloads bank statements, outstanding and unapplied data from Oracle Fusion, creates receipts, matches and posts, each step switched by a setting in the MySQL `settings` table. It takes no arguments: the entity, the download window and the run it logs against are set in the database beforehand. For the Indian entities a person starts it from the collection accounting web page (`ca_with_pa`), whose `bot-run/init` call prepares the run (entity, dates, `bot_run` row, `active_bot_run_id`) and whose `run-bot.php` then runs Python; that stays as it is. For the International entities a separate UiPath process, `International_Bot1_SXP`, starts it and reports the result ([SIS-05](../SIS-05-international-bot1.md)): it deletes the previous `BankStatement_Report.xlsx`, writes 0 into `Response_Report.xlsx` `B2` (bank statement) and `B3` (outstanding), runs `run_SXP_bot.bat` and waits, reads the two cells back and sends one of three mails. It has no `Try`/`Catch`, so a failed batch or an unreadable cell ends the run with no mail. The International entities run their own copy of the code with their own database (`ca_with_pa_sxp`); Southern Cross Protection is the only one today. The copy this process runs (Bot 1) loads the day's advices, empties and re-downloads the bank statement and outstanding tables, then writes `B2` = rows in the bank statement table and `B3` = rows in the outstanding table, only when its download switch is on. A run needs no preparation: SIS says `active_bot_run_id` is incremented when Python is called, the entity is fixed in the database, and the bank statement window comes from the day's row in `MSS_SXP_BotRun.xlsx`. It runs at about 07:55 Australian time, after the International mail monitoring (05:45) and PDF extraction (05:49). Running it twice on the same data duplicates receipt creation and allocation. A second copy (Bot 3) matches, posts and writes reconciliation reports; what runs it is not known. In Tracto this is a one-step main job (`carun-main`, one `http.post` to `/carun/start`) and a Go service that loops over the International entities flagged for it.
+**Context.** UiPath does not call the Python service through an API, and the service has no API documentation. It is started by a batch file that runs `python.exe -W ignore ...\bot_run.py`, and `bot_run.py` is the whole collection accounting run: it loads the day's payment advice workbooks into MySQL, downloads bank statements, outstanding and unapplied data from Oracle Fusion, creates receipts, matches and posts, each step switched by a setting in the MySQL `settings` table. It takes no arguments: the entity, the download window and the run it logs against are set in the database beforehand. For the Indian entities a person starts it from the collection accounting web page (`ca_with_pa`), whose `bot-run/init` call prepares the run (entity, dates, `bot_run` row, `active_bot_run_id`) and whose `run-bot.php` then runs Python; that stays as it is. For the International entities a separate UiPath process, `International_Bot1_SXP`, starts it and reports the result ([SIS-05](../SIS-05-international-bot1.md)): it deletes the previous `BankStatement_Report.xlsx`, writes 0 into `Response_Report.xlsx` `B2` (bank statement) and `B3` (outstanding), runs `run_SXP_bot.bat` and waits, reads the two cells back and sends one of three mails. It has no `Try`/`Catch`, so a failed batch or an unreadable cell ends the run with no mail. The International entities run their own copy of the code with their own database (`ca_with_pa_sxp`); Southern Cross Protection is the only one today. The copy this process runs (Bot 1) loads the day's advices, empties and re-downloads the bank statement and outstanding tables, then writes `B2` = rows in the bank statement table and `B3` = rows in the outstanding table, only when its download switch is on. A run needs no preparation: SIS says `active_bot_run_id` is incremented when Python is called, the entity is fixed in the database, and the bank statement window comes from the day's row in `MSS_SXP_BotRun.xlsx`. It runs at about 07:55 Australian time, after the International mail monitoring (05:45) and PDF extraction (05:49). Running it twice on the same data duplicates receipt creation and allocation. A second copy (Bot 3) matches, posts and writes reconciliation reports; a person starts it from the web page through `run-bot-sxp.php`. In Tracto this is a one-step main job (`carun-main`, one `http.post` to `/carun/start`) and a Go service that loops over the International entities flagged for it.
 
 **Acceptance criteria.**
 1. Given the entity table with `CaRunEnabled` set for Southern Cross Protection, when `/carun/start` runs, then that entity is processed and gets its own run-record row; an entity not flagged is not touched.
@@ -172,7 +173,8 @@ Conventions used in every story:
 10. Given a run is still going for an International database, when the schedule fires again or the job is submitted again, then the second request is refused (one run at a time per database: it has a single `active_bot_run_id`, and the entity's `Response_Report.xlsx` is shared). An Indian run started from the web page is not affected: it uses another database.
 11. Given the parallel run (I6), then only one of UiPath and Tracto starts `bot_run.py` for an entity on a day; the switch is the entity's `CaRunEnabled` flag, and the runbook (H2) states which side is live.
 12. Given `MasterConfig.xlsx` holds `APP ID`, `Application Secret`, `Tenant ID`, `<entity>_senderID` and `<entity>_password`, then the service reads none of them; mail goes through A2.
-13. Given no preparation is needed, then the service never writes to MySQL. Before criterion 2 it checks that `MSS_SXP_BotRun.xlsx` has a row for today's date: when it has none, the run still starts and the mail of criterion 6 or 8 says that the date window was missing.
+13. Given no preparation is needed, then the service never writes to MySQL. Before criterion 2 it checks that `MSS_SXP_BotRun.xlsx` has a filled row for today's date: when the row is missing or empty (weekends and some holidays), the run is not started and a mail to `<entity>_bank_issue_receiverID` says there is no bank statement window for today.
+16. Given `MSS_SXP_BotRun.xlsx` has fewer than 30 days of rows left after today (the supplied file ends on 31 December 2026), then every run's mail and run record carry a warning with the last date.
 14. Given the entity already had a successful run today, when the job is submitted again, then the request is refused unless it carries `force = true` from an operator, and the refusal says that a repeat duplicates receipt creation and allocation.
 15. Given the schedule, then it fires at 07:55 in the entity's time zone (`Australia/Sydney` unless SIS says otherwise), and only after the day's flow-4 run for the entity has finished: if it has not, the run waits up to a configured limit, then starts and says so in the mail.
 
@@ -188,18 +190,61 @@ Conventions used in every story:
 | B4.7 | One run at a time per database; refusal of an overlapping request and of a second successful run on the same day without `force` | |
 | B4.8 | `carun-main` main job and its schedule (07:55, entity time zone, after flow 4) | With G1 and G2 |
 | B4.9 | Tests with a stub batch file | |
-| B4.10 | Pre-check of today's row in `MSS_SXP_BotRun.xlsx`, reported in the mail | Sheet read through the sheet engine |
+| B4.10 | Pre-check of today's row in `MSS_SXP_BotRun.xlsx`, reported in the mail; warning when fewer than 30 days are left | Sheet read through the sheet engine |
 
 **Test notes.** A stub `.bat` per case that writes `B2` and `B3` (both above 0, `B3` 0, `B2` 0, a blank cell, text in a cell), one that exits 1, one that sleeps past the timeout, and one that writes nothing; a copy of `Response_Report.xlsx`; sample `BankStatement_Report.xlsx` and `outstanding.xlsx`, and the same with one missing; a mail account in a test tenant. Checked: the mail chosen in each case, its recipients and attachments, the row state and stored output, refusal of an overlapping run, and that no secret key is read. The real `bot_run.py` is never run in a test: it changes MySQL and Oracle Fusion.
 
 **Open items.**
-- Bot 3 (`...\Bot_3\ca_international_SXP\`) matches, posts and writes `FinalReport.xlsx` and `FinalReconcilReport.xlsx`; which UiPath process runs it, when, and who receives the reports is not known. If it is a UiPath process it is a further main job of the same shape, after B4.
-- The live `run_SXP_bot.bat`: the text given names `ca_international_MSS`, the Bot 1 code writes under `ca_international_SXP`.
-- What increments `active_bot_run_id` (no supplied code does), and the values of the step and download switches in `ca_with_pa_sxp`: Bot 1 and Bot 3 read the same switches.
+- Bot 3 (`...\Bot_3\ca_international_SXP\`) matches, posts and writes `FinalReport.xlsx` and `FinalReconcilReport.xlsx`. It is started by a person from the web page through `run-bot-sxp.php`, not by UiPath, so it stays outside Tracto. Open: which page calls it, whether that page prepares the run in `ca_with_pa_sxp`, and who receives the reports. A Bot 3 run started near 07:55 would share the database with this run.
+- `run_SXP_bot.bat` runs `...\Bot_1\ca_international_SXP\bot_run.py` and returns Python's exit code (`exit /b %errorlevel%`): non-zero only when no run is active. Criterion 8 treats a non-zero code as a failure.
+- Who extends `MSS_SXP_BotRun.xlsx` past 31 December 2026, and whether the window could be computed from its rule and a holiday list.
+- Whether `International_Bot1_SXP` is also started by the bank check's `Southern-Cross-Protection_BankAvail_Success_Queue` (B5).
+- What increments `active_bot_run_id` (no supplied code does; possibly the page that runs Bot 3), and the values of the step and download switches in `ca_with_pa_sxp`: Bot 1 and Bot 3 read the same switches.
 - With `download_module_enabled` off, Bot 1 never writes the counters and the "API down" mail goes out though nothing was tried.
 - The exact time zone of "Australian time".
 - Whether MSS-Security and the two Henderson entities, which have mail settings in the International `MasterConfig.xlsx`, are to be set up; SIS says Southern Cross Protection is the only International entity today.
 - The success mail calls the second attachment the "ATB Report"; the file is `outstanding.xlsx`. The body text is a setting, so the wording can follow what the recipients know.
+
+---
+
+## B5 — International entities in the bank check
+| Field | Value |
+|---|---|
+| Epic | B: Flow 1, bank statement availability |
+| Type | Story |
+| Depends on | B1, B2, B3, A2, A4 |
+| Capability today | To build, on top of B1 to B3. Nothing International-specific exists in `tracto/`. |
+
+**User story.** As the International collection accounting team, I want the bank check to cover the International entities with their own files, fetch bots and recipients, and to keep trying for a limited time when a statement is late, so that one flow replaces both UiPath checks and a late statement never keeps a robot busy all day.
+
+**Context.** `InternationalBankAvailCheck` is a copy of `BankAvailCheck` for MSS-Security and Southern-Cross-Protection. It uses `BankMasterInternational.xlsx`, the statement root `C:\xampp\htdocs\Statements1\BankStatements`, one fetch bot per entity (`run_Bank_bot_<entity>.bat`, each a download-only copy of the collection accounting code with its own database), mails each entity's result to that entity's recipients, adds an item to `<entity>_BankAvail_Success_Queue` on success, and retries every five minutes with no limit ([SIS-01, "The International bank availability check"](../SIS-01-bank-avail-check.md#the-international-bank-availability-check)).
+
+**Acceptance criteria.**
+1. Given the entity table has rows for MSS-Security and Southern-Cross-Protection with `Flow1Enabled`, each with its own statement root, bank workbook, fetch command name and recipients, when `/bankcheck/start` runs, then each International entity is checked with its own values and the Indian entities are unchanged.
+2. Given an International entity whose folder is missing, when the fetch runs, then the entity name is written into `BankMasterInternational.xlsx` `EntitySelected!A2` and the entity's own named command runs (`bank-fetch-MSS-Security` or `bank-fetch-Southern-Cross-Protection`).
+3. Given an entity row with `RetryMinutes` 5 and `RetryLimit` n, when the statements are still missing after a try, then the entity is held and tried again after five minutes, other entities continue meanwhile, and after n tries the entity is `Unavailable`.
+4. Given an entity becomes `Unavailable` after its last try, then one mail goes to `<entity>_bank_issue_receiverID`, CC `<entity>_receiverID_CC`, listing the missing accounts; no mail is sent on the earlier tries.
+5. Given an International entity is available, then one mail goes to `<entity>_receiverID`, CC `<entity>_receiverID_CC`, and the run record holds the entity's result with the time it became available, readable by flow 5.
+6. Given the check workbook is missing after a fetch, then the entity's try is `Failed` with the message and the retry continues; the run does not stop.
+7. Given an Indian entity row without retry settings, then it is tried once, as today.
+
+**Tasks.**
+| ID | Task | Notes |
+|---|---|---|
+| B5.1 | Per-entity statement root, bank workbook, fetch command and recipients on the entity table | Extends B1.1 |
+| B5.2 | Two named commands in the program runner for the International fetch bots | Uses A4 |
+| B5.3 | Hold and retry per entity, with interval and limit | Extends B2 |
+| B5.4 | Per-entity available and unavailable mails with the missing accounts | Extends B3, uses A2 |
+| B5.5 | Entity result in the run record readable by flow 5 | Replaces the success queue |
+
+**Test notes.** Two International entity rows, a statements root with one entity folder present and one missing, stub fetch commands (one that creates the folder on the second try, one that never does), a copy of `BankMasterInternational.xlsx` and a check workbook with one `N` account. Checked: the cell write per entity, the retry timing and limit, one mail per outcome, and the result flow 5 reads.
+
+**Open items.**
+- The retry limit, and whether the "not available" mail goes once or on every try.
+- What reads `<entity>_BankAvail_Success_Queue` today; if it starts `International_Bot1_SXP`, flow 5 should wait for this result.
+- Whether MSS-Security is to be checked; the MSS fetch bot reads Southern Cross Protection's date window.
+- What sets `active_bot_run_id` in `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`; without it the fetch bots do nothing.
+- Whether the International statements stay under `C:\xampp\htdocs\Statements1\`.
 
 ---
 

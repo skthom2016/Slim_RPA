@@ -5,13 +5,14 @@ Every question still open for moving the UiPath payment-advice processes to Trac
 | Package | What it does |
 |---|---|
 | `BankAvailCheck` | Checks each entity's bank statement folder for the day, runs a fetch bot for missing ones, mails which accounts have no statement |
+| `InternationalBankAvailCheck` | The same check for the International entities (MSS-Security and Southern-Cross-Protection), retrying every five minutes until the statements are there |
 | `EmailPADispatcher` | Reads the entity mailboxes and files each payment advice attachment into dated folders |
 | `India.Excel.Extraction` | Validates and cleans spreadsheet payment advices into the standard table |
 | `Payment.Advice.Extraction` | Reads PDF and image payment advices into the standard table |
 | `International_Bot1_SXP` | Runs the collection accounting batch for Southern Cross Protection and mails the result |
-| Bot 3 (International) | Python code that matches, posts and writes the International reconciliation reports; the UiPath process that runs it is not known |
+| Bot 3 (International) | Python code that matches, posts and writes the International reconciliation reports; started from the web page through `run-bot-sxp.php`, not by a UiPath process |
 
-"The collection accounting service" is the Python code in the `collectionaccounting` folder (`bot_run.py`, `pyment_advice_loader.py`, the `Api` and `CoreProcess` folders) with its MySQL database. The International entities run their own copies of that code (Bot 1 and Bot 3) with their own database, `ca_with_pa_sxp`.
+"The collection accounting service" is the Python code in the `collectionaccounting` folder (`bot_run.py`, `pyment_advice_loader.py`, the `Api` and `CoreProcess` folders) with its MySQL database. The International entities run their own copies of that code (Bot 1 and Bot 3) with their own database, `ca_with_pa_sxp`, and two more download-only copies as the International fetch bots, one per entity, each with its own database.
 
 ## Blocking questions
 
@@ -19,23 +20,23 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 | # | Topic | Questions |
 |---|---|---|
-| 1 | Bot 3: which process runs it, when, who receives its reports, and whether it moves to Tracto | 1 |
-| 2 | International bank availability check: does it exist, and does it move to Tracto | 13 |
+| 1 | Bot 3: which page starts it, whether that page prepares the run in `ca_with_pa_sxp`, and who receives its reports | 1, 4 |
+| 2 | International bank availability check: which entities, how long to keep retrying, and what reads its success queue | 13, 106, 107 |
 | 3 | Entities each process must cover | 12, 81 |
 | 4 | Whether Tracto runs on the UiPath robot's machine, with access to its folders and batch files | 89 |
 | 5 | Mailboxes, mail server, and `Mail.Read` / `Mail.Send` for the app registration | 31, 34 |
 | 6 | Test databases and a test Oracle Fusion / Magic xpi endpoint | 95 |
-| 7 | `run_Bank_bot.bat`, the live `run_SXP_bot.bat` and `MSS_SXP_BotRun.xlsx` | 2, 3, 19 |
+| 7 | `run_Bank_bot.bat` (the Indian fetch bot), and who extends `MSS_SXP_BotRun.xlsx` past 31 December 2026 | 3, 19 |
 | 8 | The PDF password list and its owner | 63 |
 | 9 | Which side is live per flow during the parallel run, and what decides the switch | 93, 94 |
 | 10 | Which spreadsheets `India.Excel.Extraction` processes (`XLS\` folder or `PA_` copies) | 37 |
 
 ## 1. Collection accounting service and `International_Bot1_SXP`
 
-1. Which UiPath process runs Bot 3 (the Python code under `E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\`, which matches, posts and writes `FinalReport.xlsx` and `FinalReconcilReport.xlsx`), at what time, and through which batch file? Who receives those two reports? Is there also a Bot 2?
-2. Please share `E:\Automation\International_CAwithPA\Bot_1\run_SXP_bot.bat` as it is today. The text given earlier runs `...\Bot_1\ca_international_MSS\bot_run.py`, but the Bot 1 code writes its files under `...\Bot_1\ca_international_SXP\`.
-3. Please share `E:\Automation\International_CAwithPA\Config\MSS_SXP_BotRun.xlsx`. The International bank statement download takes its start and end dates from the row whose `Current Date` is today. Who adds the row for each day, and how far ahead? When there is no row for today the bank statement is not downloaded and the "Bank Statement Report was not downloaded" mail goes out.
-4. You said `active_bot_run_id` is incremented as soon as Python is called. Neither International copy of the code does that: they only read it, and the reset to -1 at the end is commented out. What increments it: a trigger in the database, or something else?
+1. Bot 3 (`E:\Automation\International_CAwithPA\Bot_3\ca_international_SXP\bot_run.py`, which matches, posts and writes `FinalReport.xlsx` and `FinalReconcilReport.xlsx`) is run by the web page's `run-bot-sxp.php` with `shell_exec`, the same way `run-bot.php` runs the Indian copy. Which page or button calls `run-bot-sxp.php`? Does that page first prepare the run in `ca_with_pa_sxp` (the date window, `selected_entities`, a new `bot_run` row and `active_bot_run_id`), as `bot-run/init` does for the Indian entities? At what time of day is it usually started, after `International_Bot1_SXP` at 07:55? Who receives the two reports? Is there a Bot 2? Bot 3 stays a person's click outside Tracto, like the Indian run, unless it is to be scheduled.
+2. `run_SXP_bot.bat` runs `...\Bot_1\ca_international_SXP\bot_run.py` and returns Python's exit code (`exit /b %errorlevel%`). `bot_run.py` returns a non-zero code only when no run is active; a failed download, receipt creation or posting still ends with 0. Is the absence of an active run the only failure the exit code is meant to signal?
+3. `MSS_SXP_BotRun.xlsx` is a calendar filled in advance from 1 November 2025 to 31 December 2026, one row per day, dates stored as text. Who extends it for 2027, and by when? From 1 January 2027 there is no row, so the bank statement is not downloaded and the "Bank Statement Report was not downloaded" mail goes out every day. The windows follow a rule: on Monday the previous Friday, on Tuesday Saturday to Monday, on other working days the day before; an empty row on weekends and on 25 and 26 December, 2 January and Easter Monday, while 1 January and Good Friday have one. 7 April 2026 repeats the window of 3 April (2 April only). Until 1 December 2025 Monday covered Friday to Sunday, and in December 2025 the MSS columns still did. Which rule is current, and which holiday calendar decides the empty days? Could Tracto compute the window from that rule and a holiday list instead of a hand-kept calendar?
+4. You said `active_bot_run_id` is incremented as soon as Python is called. Neither International copy of the code does that: they only read it, and the reset to -1 at the end is commented out. What increments it: a trigger in the database, the page that runs Bot 3 (question 1), or something else? If it is that page, Bot 1 at 07:55 logs against the run Bot 3 last created.
 5. Please share the structure (no data) of the International database `ca_with_pa_sxp`. In particular, does `payment_advice_invoice` have a unique key on `InvoiceNumber` and `file_name`? The International code skips a repeated invoice line only if the database refuses it.
 6. What are the values in `ca_with_pa_sxp`'s `settings` table, apart from the passwords, for `selected_entities`, `api_download_path`, `download_module_enabled`, `receipt_creation_module_enabled`, `comparison_module_enabled`, `posting_module_enabled`, `outstanding_download_enable`, `bankstatement_download_enable`, `unapplied_download_enable` and `customer_master_download_enable`? Bot 1 and Bot 3 read the same switches, so if matching and posting are on, Bot 1 already matches and posts before Bot 3 runs.
 7. Bot 1 writes the counters into `Response_Report.xlsx` only when `download_module_enabled` is `yes`. When it is `no`, both cells stay 0 and the "Production API's are down" mail goes out although nothing was tried. Is the download always on for Bot 1?
@@ -44,7 +45,7 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 10. Is the `MasterConfig_International.xlsx` you shared the file the Python code reads (`E:\Automation\International_CAwithPA\Config\MasterConfig.xlsx`) or the one `International_Bot1_SXP` reads (`E:\Automation\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx`)? Its `PaymentAdvicesExtractionFolderPath` is `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices`, while the loader reads `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices`, which you confirmed. Is that setting unused?
 11. The 07:55 trigger is in "Australian time". Which time zone exactly (for example Sydney, with daylight saving)? The mail monitoring at 05:45 and the PDF extraction at 05:49 use the same zone?
 12. The International `MasterConfig.xlsx` has mail settings for MSS-Security, Henderson-Security-Services and Henderson-Technologies, and mail counts for nine International entities. You said Southern Cross Protection is the only International entity today. Should Tracto set up only Southern Cross Protection?
-13. `BankMasterInternational.xlsx` has the same layout as `BankMaster.xlsx`, which `BankAvailCheck` uses (a sheet of bank accounts per entity and an `EntitySelected` cell set to `Southern-Cross-Protection`). Is there an International bank availability check, and is it to move to Tracto too?
+13. The International bank availability check (`InternationalBankAvailCheck`) checks the entities in the `Entity` key of the International `MasterConfig.xlsx`: MSS-Security and Southern-Cross-Protection, each with its own fetch bot and batch file. Is it to move to Tracto as part of flow 1? Should Tracto check both entities, or only Southern-Cross-Protection?
 14. The reset of `active_bot_run_id` to -1 at the end of `bot_run.py` is commented out in the Indian copy as well, so the last run's id stays active until the web page sets a new one. Is that deliberate?
 15. In the Indian copy the match step deletes every payment advice loaded more than four days earlier, matched or not, and the posting step deletes receipt, TDS and log rows older than four days. Is four days deliberate, and how does anyone follow up an advice that was never matched? (The International copy instead deletes advices older than eight days at each download.)
 16. `Southern Cross Protection Pty Ltd` appears in the Indian database only as a customer of the TSIS and AMRS entities. Is it the same company as the International entity?
@@ -53,13 +54,13 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 ## 2. `BankAvailCheck`
 
-19. `BankAvailCheck` writes the entity name into `E:\Automation\Data\Config\BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then runs `C:\xampp\htdocs\prod\run_Bank_bot.bat`. Please share `run_Bank_bot.bat`. Does it run `download.py` (the download step only)? `download.py` downloads for the entities in `settings.selected_entities` with the dates in `download_time_config`, and nothing in the Python code reads cell `A2`. What reads that cell, and what sets the entity and dates for the fetch?
+19. `BankAvailCheck` writes the entity name into `E:\Automation\Data\Config\BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then runs `C:\xampp\htdocs\prod\run_Bank_bot.bat`. The International fetch bots are copies of the collection accounting code that run only the download: they read the entity from cell `A2` of `BankMasterInternational.xlsx`, ask Oracle Fusion which accounts have a statement, write `{entity}_check\bank_statements_check.xlsx`, and download the statement only when every account has one. Is `run_Bank_bot.bat` the same kind of copy for the Indian entities? Please share it, the code folder it runs, and where that copy takes its date window from.
 20. Can that fetch bot take the entity name as a command-line argument instead of reading cell `A2`? If not, entities must be fetched one at a time.
-21. When the fetch bot ends with exit code 0, does that mean the statements were downloaded, or only that the script finished?
+21. When the fetch bot ends with exit code 0, does that mean the statements were downloaded, or only that the script finished? The International fetch bots end with 0 and mark their run successful even after an error.
 22. How long may one entity's fetch take before it should be treated as failed?
 23. Is it safe to run the fetch twice for the same entity on the same day? The Python download deletes and recreates the entity's date folder before it downloads.
 24. The Python download writes the statement to `C:\Automation\Data\Input\Statements1\BankStatements\{dd MMM yyyy}\{entity}\` with today's date from its machine clock, whatever the download window in `download_time_config` is. `BankAvailCheck` checks the same folder for today. Is the statement for a day always downloaded on that same day, or can it arrive later under a later date folder?
-25. Which process writes `{entity}_check\bank_statements_check.xlsx` inside the day's statement folder, and when? No file in the Python folder we have writes it.
+25. For the International entities the fetch bot writes `{entity}_check\bank_statements_check.xlsx` (one row per bank account with `AVAILABLE` `Y` or `N`) on every run. Is the Indian check workbook written the same way, by `run_Bank_bot.bat`?
 26. The unavailable-accounts table is headed "Bank Account Number" but holds the value of `BANK_ACCOUNT_NAME`. Which one does the operations team want to see?
 27. Today every unavailable-accounts mail goes to the DTSS recipients, whichever entity is missing statements. Should each entity's mail go to that entity's own recipients? Should the DTSS recipients stay in copy?
 28. ONESIS has no recipient key in `MasterConfig.xlsx`. Who should receive its mails?
@@ -162,7 +163,17 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 104. How many documents can the service take at once, and how long does one take? About 150 to 250 a day must finish within the working day.
 105. Where will the service run, and who may reach it?
 
-## 10. Decisions for the Tracto team
+## 10. `InternationalBankAvailCheck`
+
+106. When an entity's statements are missing, the International check waits five minutes and tries again, with no limit: each try runs the fetch bot again and mails the bank-issue recipients again. How long should Tracto keep trying (a number of tries, or until a time of day)? Should the "not available" mail go out on every try, or once when Tracto stops trying?
+107. When an entity's statements are available, the check adds an empty item to the Orchestrator queue `{entity}_BankAvail_Success_Queue`. What reads that queue? Does it start `International_Bot1_SXP`, or anything else? In Tracto the same signal would be the entity's result in the bank check run.
+108. Both International fetch bots read the `SXP_Group` columns of `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`, so MSS-Security is fetched for Southern Cross Protection's window. Is that intended? Is `Bot_run_Configurations.xlsx` the same file as `MSS_SXP_BotRun.xlsx` (same columns), or a second copy kept in step by hand?
+109. The two fetch bots use their own databases, `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`, and stop at once when `active_bot_run_id` there is -1 or empty. What sets it in those two databases?
+110. The fetch bot mails the bank statement lines it cannot identify, with `Unidentified.xlsx` attached, and writes that file into the Indian code folder `C:\xampp\htdocs\prod\collectionaccounting\`. Who receives that mail? Is the shared file location intended, given that the Indian and International bots can write it at the same time?
+111. The International check's "not available" mail says only "{entity} bank statement is not available, kindly check." The table of missing accounts is built but not sent. Should Tracto send the list of missing accounts, as the Indian check does?
+112. The International check reads its statements from `C:\xampp\htdocs\Statements1\BankStatements\`, the Indian one from `C:\Automation\Data\Input\Statements1\BankStatements\`. Do the International statements stay under the web server folder?
+
+## 11. Decisions for the Tracto team
 
 - Queue for work items: a SQLite table (the working default) or a sheet.
 - Which Go module hosts each start endpoint and the work-item store.

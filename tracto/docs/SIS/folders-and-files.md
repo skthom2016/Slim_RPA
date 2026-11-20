@@ -98,7 +98,14 @@ The International code runs from `E:\Automation\International_CAwithPA\` ([SIS-0
 E:\Automation\International_CAwithPA\
   Config\
     MasterConfig.xlsx                   read by the Python code (sheet Settings)
-    MSS_SXP_BotRun.xlsx                 bank statement date window, one row per day
+    MSS_SXP_BotRun.xlsx                 bank statement date window, one row per day, filled to 31 Dec 2026
+    Bot_run_Configurations.xlsx         the same columns, read by the International fetch bots
+    BankMasterInternational.xlsx        bank accounts per entity; EntitySelected!A2 = entity to fetch
+  InternationalBankCheck\
+    run_Bank_bot_MSS-Security.bat                 run by InternationalBankAvailCheck
+    run_Bank_bot_Southern-Cross-Protection.bat    run by InternationalBankAvailCheck
+    collectionaccountingBankCheck_MSS\            fetch bot code, database ca_with_pa_mss_bankcheck
+    collectionaccountingBankCheck_SXP\            fetch bot code, database ca_with_pa_sxp_bankcheck
   Bot_1\
     run_SXP_bot.bat                     run by International_Bot1_SXP
     Response_Report.xlsx                B2 = bank statement rows, B3 = outstanding rows
@@ -110,6 +117,8 @@ E:\Automation\International_CAwithPA\
     ca_international_SXP\Final_Report\FinalReport.xlsx
     ca_international_SXP\Final_Report\FinalReconcilReport.xlsx
 ```
+
+The International bank check looks for statements under `C:\xampp\htdocs\Statements1\BankStatements\{dd MMM yyyy}\{entity}\` (with `bank_statements_downloaded.xlsx`), and the fetch bot writes the account check to `...\{dd MMM yyyy}\{entity}_check\bank_statements_check.xlsx` ([SIS-01](SIS-01-bank-avail-check.md#the-international-bank-availability-check)). Bot 3 is started from the web page through `C:\xampp\htdocs\...\run-bot-sxp.php`.
 
 The International loader reads the same `E:\Automation\Data\Input\Statements\ExtractedPaymentAdvices\` tree as the Indian one, with the folder `Southern-Cross-Protection`. The outstanding list goes to `{api_download_path}\OutstandingStatements\{dd MMM yyyy}\SXP_Group\outstanding.xlsx`; the mail reads it from `C:\xampp\htdocs\Statements1\OutstandingStatements\`.
 

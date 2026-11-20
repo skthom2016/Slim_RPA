@@ -33,10 +33,10 @@ Tracto does not change this program. It only starts it and reads its result.
 | **Desktop runtime runs carun-main** (purple) | One call to the Go API to start the run for SXP; the job ends at once. | Desktop runtime |
 | **Already succeeded today on this database?** (diamond) | Running twice on the same day creates receipts twice, so a second run is refused. | Go API (its own run records) |
 | → yes: **Refuse (unless forced); record why** (red) | Nothing is started. A person can override with the force flag on Run now. | Go API |
-| **Row for today in MSS_SXP_BotRun.xlsx?** (diamond) | This workbook gives the bank statement date range, one row per day. Without today's row the program would skip the bank statement. | Go API, through the **Sheet API** |
+| **Filled row for today in MSS_SXP_BotRun.xlsx?** (diamond) | This workbook gives the bank statement date range, one row per day, filled in advance up to 31 December 2026. Weekends and some holidays have an empty row. Without a filled row for today the program would skip the bank statement. When fewer than 30 days of rows are left, the Go API adds a warning to the run's mail. | Go API, through the **Sheet API** |
 | → no: **Mail: no bank statement window for today** (orange) | The run is not started and the recipients are told why. | Go API, through the **Go mail API** |
 | → yes: **Delete the old report; write 0 into B2 and B3** | Clears the previous day's report and resets the two counts, so an old result can never be mistaken for today's. | Go API, through the **Go file API** (delete) and **Sheet API** (write) |
-| **Run run_SXP_bot.bat with a timeout** | Starts the Python program described above and waits for it. Its exit code and output are kept. If it runs too long it is stopped. | Go API, through the **Go program runner** |
+| **Run run_SXP_bot.bat with a timeout** | Starts the Python program described above and waits for it. Its exit code and output are kept; a non-zero code means no run was active in the database. If it runs too long it is stopped. | Go API, through the **Go program runner** |
 | **Read B2 and B3** | The two counts the program wrote. | Go API, through the **Sheet API** (`Response_Report.xlsx`) |
 | **Finished in time, numbers readable, report newer than the start?** (diamond) | Checks the run really finished and really wrote today's result. | Go API |
 | → no: **Mail: the run failed** (orange) | Sent with the reason (timed out, cells empty, report old). | Go API, through the **Go mail API** |
@@ -52,4 +52,6 @@ Tracto does not change this program. It only starts it and reads its result.
 
 - Only one run can use the database at a time, and a second successful run on the same day is refused.
 - The Python code is not changed.
-- **Open:** Bot 3 (the other International copy that matches, posts and writes the reconciliation reports): who starts it and when. The live `run_SXP_bot.bat` and what sets the active run number in the database. The exact time zone of 07:55.
+- Bot 3, the other International copy that matches, posts and writes the reconciliation reports, is started by a person from the web page (`run-bot-sxp.php`) and uses the same database, so it should not be started around 07:55.
+- `MSS_SXP_BotRun.xlsx` is filled up to 31 December 2026; the Go API warns when fewer than 30 days are left.
+- **Open:** who extends `MSS_SXP_BotRun.xlsx`, and what sets the active run number in the database. The exact time zone of 07:55. Whether the run should wait for flow 1's result for Southern-Cross-Protection instead of a fixed time.

@@ -10,6 +10,8 @@ How the UiPath process `BankAvailCheck` 1.0.4 is rebuilt on Tracto: what exists 
 
 **What it becomes in Tracto.** A schedule starts a one-step main job, which calls a Go process and ends. Go does the whole loop: folder checks, the spreadsheet reads, the comparison, the HTML table and the two mails. The fetch bot is a console script, so Go starts it directly and waits for it — **there is no script and no worker anywhere in this flow.**
 
+The International entities have their own copy of the process, which retries every five minutes until the statements are there ([below](#the-international-bank-availability-check)). In Tracto both are the same flow, with the differences held per entity.
+
 **The short version of what is missing:** a way to ask whether a folder exists, a way to send mail, and a way to treat a list of entities as items. All three are shared with the other flows. Open questions are at the end of this document.
 
 ## What the UiPath process does
@@ -32,6 +34,75 @@ Both mails go through an Office 365 Scope that reaches Microsoft Graph with `APP
 There is no `Try`/`Catch` anywhere in `Main.xaml`. A missing check workbook, a failed PowerShell call or a Graph authentication failure ends the run with an unhandled exception, part-way through the entity list and before either mail is sent.
 
 Although the project carries the REFramework folders, `Main.xaml` does not use them: there is no transaction queue, no retry and no `SetTransactionStatus`. It is one sequence with nested loops and conditions.
+
+## The International bank availability check
+
+The International entities have their own copy of the process, `InternationalBankAvailCheck` 1.0.1 (folder `Bank Availability Check\BankAvailCheck`), with one fetch bot per entity. It does the same check with different files and one addition: it keeps trying until the statements are there.
+
+### What the UiPath process does
+
+1. **Read the configuration.** `E:\Automation\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx`, sheets `Settings`, `Constants` and `EmailDetails`, the same workbook `International_Bot1_SXP` reads. The entity list is the `Entity` key: `MSS-Security,Southern-Cross-Protection`.
+2. **Prepare.** Today as `dd MMM yyyy` from the machine clock; the statement root `C:\xampp\htdocs\Statements1\BankStatements`.
+3. **For each entity**, check the folder `<root>\<today>\<entity>`. Then, until the entity's result is known:
+   - **The folder exists:** the entity is available.
+   - **It does not:** write the entity into `E:\Automation\International_CAwithPA\Config\BankMasterInternational.xlsx`, sheet `EntitySelected`, cell `A2`; run `E:\Automation\International_CAwithPA\InternationalBankCheck\run_Bank_bot_<entity>.bat` (an error is caught and logged); check the folder again.
+     - **It exists now:** available.
+     - **It still does not:** read `<root>\<today>\<entity>_check\bank_statements_check.xlsx` (`A1:E200`) and the entity's sheet of `BankMasterInternational.xlsx` (`A1:A40`), join them on `BANK_ACCOUNT_NAME`, and at the first row with `AVAILABLE = "N"` mark the entity unavailable.
+4. **Mail the entity's result** through an Office 365 scope (Microsoft Graph), subject `MT940 statement status`, plain text:
+
+| Result | To | CC | Body | Then |
+|---|---|---|---|---|
+| Available | `<entity>_receiverID` | `<entity>_receiverID_CC` | "{entity} bank statement is available." | Add an empty item to the Orchestrator queue `<entity>_BankAvail_Success_Queue` |
+| Unavailable | `<entity>_bank_issue_receiverID` | `<entity>_receiverID_CC` | "{entity}bank statement is not available, kindly check." | Wait five minutes and go back to step 3 for the same entity |
+
+The loop has no limit: an entity whose statement never arrives keeps the process running, running the fetch bot and mailing the bank-issue recipients every five minutes, and the next entity is never checked.
+
+### The International fetch bots
+
+`run_Bank_bot_MSS-Security.bat` and `run_Bank_bot_Southern-Cross-Protection.bat` each run one line:
+
+```
+C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe -W ignore E:\Automation\International_CAwithPA\InternationalBankCheck\collectionaccountingBankCheck_<MSS|SXP>\bot_run.py
+```
+
+Each folder is a copy of the collection accounting code (the same Bitbucket repository as the other copies) whose `bot_run.py` runs only the download. The two copies differ in two places: the Oracle Fusion entity name written into the code (`MSS Security Pty Limited` or `Southern Cross Protection Pty Limited`) and the database (`ca_with_pa_mss_bankcheck` or `ca_with_pa_sxp_bankcheck`). A run:
+
+1. Stops at once if `active_bot_run_id` in its database is -1 or empty.
+2. Reads the entity from `BankMasterInternational.xlsx`, `EntitySelected` `A2`, and the date window from `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` for both copies. That is the layout of `MSS_SXP_BotRun.xlsx` ([SIS-05, "The date window workbook"](SIS-05-international-bot1.md#the-date-window-workbook)).
+3. Empties its `bankstatement` table.
+4. **Check.** Asks the Magic xpi middleware (report `ENTITYMTREPORT`) which bank accounts have an MT940 statement for the window, and writes the answer to `<root>\<today>\<entity>_check\bank_statements_check.xlsx`, one row per account with `AVAILABLE` `Y` or `N`. The `_check` folder is deleted and recreated first.
+5. **Compare.** Joins that file with the entity's sheet of `BankMasterInternational.xlsx` on `BANK_ACCOUNT_NAME`. Only if every listed account is `Y`:
+6. **Download.** Fetches the statement (report `BANKSTATEMENTRPA`) into `<root>\<today>\<entity>\bank_statements_downloaded.xlsx`; the folder is deleted and recreated first. That folder is what the UiPath process checks for. Statement lines whose customer cannot be identified are written to `C:\xampp\htdocs\prod\collectionaccounting\Unidentified.xlsx` and mailed by SMTP to `<entity>_receiver_emailID` from the database settings.
+7. Marks its `bot_run` row successful.
+
+Every error is printed and swallowed: the program ends with exit code 0 and status 1 whatever happened, so the folder check after it is the only real result. The Indian `run_Bank_bot.bat` is not supplied; it is probably the same kind of copy, reading `BankMaster.xlsx` cell `A2`.
+
+### How it differs from the Indian check
+
+| | Indian (`BankAvailCheck`) | International (`InternationalBankAvailCheck`) |
+|---|---|---|
+| Entities | `entities` key of `E:\Automation\Data\Config\MasterConfig.xlsx` | `Entity` key of `...\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx`: MSS-Security, Southern-Cross-Protection |
+| Statement root | `C:\Automation\Data\Input\Statements1\BankStatements` | `C:\xampp\htdocs\Statements1\BankStatements` |
+| Bank workbook | `E:\Automation\Data\Config\BankMaster.xlsx` | `E:\Automation\International_CAwithPA\Config\BankMasterInternational.xlsx` |
+| Fetch bot | `C:\xampp\htdocs\prod\run_Bank_bot.bat`, one for all entities | `run_Bank_bot_<entity>.bat`, one per entity, each with its own code copy and database |
+| Fetch failure | Ends the run | Caught and logged |
+| Statements still missing | Listed once, run continues | Retried every five minutes, no limit |
+| Mails | One summary of available entities, one HTML table of missing accounts, to the DTSS list | One mail per entity per try, to that entity's recipients; the missing accounts are not listed (the HTML table is built but not sent) |
+| After success | Nothing | An item in `<entity>_BankAvail_Success_Queue` |
+
+### Faults in the International process
+
+- **Endless retry.** No limit on the five-minute loop, and the second entity waits behind the first.
+- **One status for all entities.** The variable that holds the result is set to -1 once, before the entity loop, and not reset per entity. If the folder is still missing but no listed account is `N` in the check workbook (for example the account names do not match, or every account is `Y` and the download failed), the entity gets the previous entity's result: "available" mail and success queue item, or no mail at all for the first entity.
+- **A missing check workbook ends the run.** The read is not inside a `Try`/`Catch`, so when the fetch bot could not write the file, the run stops with an unhandled error.
+- **The account list is never sent.** The HTML table of missing accounts is built, then the mail sends a fixed sentence. The table also keeps growing across tries, because its body is never cleared.
+- **The MSS fetch bot uses Southern Cross Protection's window.** Both copies read the `SXP_Group` columns.
+- **A shared file in another program's folder.** Both copies write `Unidentified.xlsx` into the Indian code folder.
+- **The run always looks successful.** Exit code 0 and `bot_run` status 1 even after an error.
+
+### In Tracto
+
+The International check is the same flow 1, not a second flow. Each entity row of the entity table carries what differs: the statement root, the bank workbook, the fetch program to run, the recipients, and a retry setting (Indian: no retry; International: every five minutes, up to a limit to be agreed). The Go program runner gets one named program per fetch bot. A try that leaves the statements missing holds the entity and tries again after the interval, without blocking the other entities, and the "not available" mail with the list of missing accounts goes out once, when the tries run out. The success queue item becomes the entity's result in the bank check run, which flow 5 can read if it is to wait for the statement.
 
 ## UiPath steps and their Tracto equivalent
 
@@ -200,6 +271,8 @@ Only the `Settings` sheet of `MasterConfig.xlsx` is used and only that is read; 
 
 **The Office 365 credentials live in a shared configuration workbook.** `MasterConfig.xlsx` holds `APP ID`, `Application Secret`, `Tenant ID`, `senderID` and `password`, and `Main.xaml` reads all five and hands them to the Office 365 Scope. An Azure AD client secret in an Excel file on a file share is readable by everyone who can open the file, and the project's log masking only covers keys matching `*password*`, so the other four are not even excluded from the logs.
 
+The International package reads the same keys from the International `MasterConfig.xlsx`, with `InteractiveToken` sign-in. Its two fetch bot folders hold the MySQL credentials in `DBClasses\mysql_helper.py`, and the fetch bot reads an SMTP password from its database settings.
+
 The secret should be rotated and moved out of the workbook independently of any Tracto work. On Tracto the same mail goes out on the service's own Microsoft sign-in through `internal/msauth`, so there is no secret to store and nothing to mask.
 
 ## Build order
@@ -217,6 +290,8 @@ The first two are worth building before the remaining three SIS flows are design
 | Question | Decision |
 |---|---|
 | Does the fetch bot need a desktop session? | No. `run_Bank_bot.bat` is a console script, so Go starts it directly and reads its exit code. This flow has no child job and no worker. |
+| Is the International check a separate flow? | No. It is flow 1 with International entity rows: their own statement root, bank workbook, fetch program, recipients and retry setting. |
+| Does the fetch bot's exit code say whether statements came? | No. The International bots end with 0 whatever happened, so the folder check after the run is the result. |
 
 ## Open questions
 
@@ -232,6 +307,14 @@ These need answers before the Tracto flow can be built. They are not blockers fo
 6. **What should the report column be?** It is headed "Bank Account Number" but carries an account *name*. Which one the operations team actually wants decides what we extract.
 7. **Should the summary mail go out when nothing is available?** It is sent unconditionally today, including the empty case.
 8. **Where will the configuration live?** `MasterConfig.xlsx` is shared with the other processes and sits on `E:`, while the statements are on `C:`. For Tracto we need to know who owns that file, whether we may add keys to it, and whether it stays an `.xlsx` on a share or moves to SharePoint or Google Sheets — all three are readable, but the choice affects locking and concurrent access.
+
+### International check
+
+9. **How long should Tracto keep trying** when an International entity's statements are missing: a number of tries, or until a time of day? Should the "not available" mail go out once at the end, with the missing accounts listed?
+10. **What reads `<entity>_BankAvail_Success_Queue`?** If it starts `International_Bot1_SXP`, flow 5 should wait for flow 1's result for the entity instead of a fixed 07:55.
+11. **Both entities, or only Southern-Cross-Protection?** The International `Entity` key lists MSS-Security too.
+12. **The MSS fetch bot reads Southern Cross Protection's window** (`SXP_Group` columns). Intended? And is `Bot_run_Configurations.xlsx` the same file as `MSS_SXP_BotRun.xlsx`?
+13. **What sets `active_bot_run_id`** in `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`? Without it the fetch bot does nothing.
 
 ### Not in Tracto yet
 
