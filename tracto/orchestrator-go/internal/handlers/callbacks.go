@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,7 +56,7 @@ func (h *CallbackHandler) Receive(w http.ResponseWriter, r *http.Request) {
 
 	// Dedup by EventId
 	var existingId string
-	err := h.db.QueryRow(`SELECT Id FROM CallbackRecords WHERE EventId=?`, req.EventId).Scan(&existingId)
+	err := h.db.QueryRow(`SELECT Id FROM CallbackRecords WHERE EventId=$1`, req.EventId).Scan(&existingId)
 	if err == nil {
 		// Already received — idempotent
 		respond(w, http.StatusOK, map[string]string{"callbackId": existingId, "status": "duplicate"})
@@ -67,14 +66,17 @@ func (h *CallbackHandler) Receive(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	cbID := uuid.NewString()
 	payloadStr := string(req.Payload)
+	if payloadStr == "" {
+		payloadStr = "null"
+	}
 	_, err = h.db.Exec(`
 		INSERT INTO CallbackRecords(Id,EventId,CorrelationId,KeyId,ReceivedAt,PayloadJson,Processed)
-		VALUES(?,?,?,?,?,?,0)`,
+		VALUES($1,$2,$3,$4,$5,$6,FALSE)`,
 		cbID, req.EventId, req.CorrelationId, req.KeyId, now, payloadStr)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			// Race — idempotent
-			h.db.QueryRow(`SELECT Id FROM CallbackRecords WHERE EventId=?`, req.EventId).Scan(&existingId)
+			h.db.QueryRow(`SELECT Id FROM CallbackRecords WHERE EventId=$1`, req.EventId).Scan(&existingId)
 			respond(w, http.StatusOK, map[string]string{"callbackId": existingId, "status": "duplicate"})
 			return
 		}

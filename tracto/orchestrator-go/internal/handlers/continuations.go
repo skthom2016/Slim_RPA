@@ -44,7 +44,7 @@ func (h *ContinuationHandler) Create(w http.ResponseWriter, r *http.Request) {
 	mappingID := uuid.NewString()
 	_, err := h.db.Exec(`
 		INSERT INTO ContinuationMappings(MappingId,TriggerRunId,TriggerState,TargetArtifactId,TargetArtifactVersion,InputTemplate,CreatedAt,Version)
-		VALUES(?,?,?,?,?,?,?,1)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,1)`,
 		mappingID, req.TriggerRunId, req.TriggerState, req.TargetArtifactId, req.TargetArtifactVersion, req.InputTemplate, now)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
@@ -92,7 +92,11 @@ func (h *ContinuationHandler) List(w http.ResponseWriter, r *http.Request) {
 // DELETE /admin/continuations/{mappingId}
 func (h *ContinuationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	mappingID := chi.URLParam(r, "mappingId")
-	res, _ := h.db.Exec(`DELETE FROM ContinuationMappings WHERE MappingId=?`, mappingID)
+	res, err := h.db.Exec(`DELETE FROM ContinuationMappings WHERE MappingId=$1`, mappingID)
+	if err != nil {
+		dbErr(w, err)
+		return
+	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "mapping not found")
 		return

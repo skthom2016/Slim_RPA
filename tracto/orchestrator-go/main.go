@@ -5,27 +5,45 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
-
 	"tracto/orchestrator/internal/db"
-	"tracto/orchestrator/internal/handlers"
-	"tracto/orchestrator/internal/middleware"
-	"tracto/orchestrator/internal/scheduler"
+	"tracto/orchestrator/internal/envfile"
+	"tracto/orchestrator/internal/server"
 	"tracto/orchestrator/internal/services"
 )
 
+// loadEnv reads the .env file next to the executable, then the one in the working directory.
+// ORCHESTRATOR_ENV_FILE names a different file. Real environment variables take precedence.
+func loadEnv(logger *slog.Logger) {
+	paths := []string{filepath.Join(filepath.Dir(os.Args[0]), ".env"), ".env"}
+	if p := os.Getenv("ORCHESTRATOR_ENV_FILE"); p != "" {
+		paths = []string{p}
+	}
+	for _, p := range paths {
+		found, err := envfile.Load(p)
+		if err != nil {
+			logger.Error("could not read settings file", "path", p, "err", err)
+			os.Exit(1)
+		}
+		if found {
+			logger.Info("settings loaded", "path", p)
+		}
+	}
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	loadEnv(logger)
 
 	// ── Config from environment ───────────────────────────────────────────────
-	dbPath := envOr("ORCHESTRATOR_DB_PATH", "orchestrator.db")
+	databaseURL := os.Getenv("DATABASE_URL")
 	port := envOr("ORCHESTRATOR_PORT", "5080")
 	tractoMode := strings.ToLower(envOr("TRACTO_MODE", "isolated"))
 	jwtSecret := os.Getenv("ORCHESTRATOR_JWT_SECRET")
@@ -46,115 +64,33 @@ func main() {
 	}
 
 	// ── Database ──────────────────────────────────────────────────────────────
-	database, err := db.Open(dbPath)
+	if databaseURL == "" {
+		logger.Error("DATABASE_URL is not set: it names the PostgreSQL database, for example postgres://tracto:<password>@localhost:5432/tracto")
+		os.Exit(1)
+	}
+	database, err := db.Open(context.Background(), databaseURL, os.Getenv("ORCHESTRATOR_SCHEMA"))
 	if err != nil {
 		logger.Error("failed to open database", "err", err)
 		os.Exit(1)
 	}
 	defer database.Close()
-	logger.Info("database ready", "path", dbPath)
+	logger.Info("database ready", "target", describe(databaseURL))
 
 	// ── Startup: restart recovery ─────────────────────────────────────────────
 	services.RestartRecovery(database, logger)
 
-	// ── Router ────────────────────────────────────────────────────────────────
-	r := chi.NewRouter()
-	r.Use(chimw.Recoverer)
-	r.Use(middleware.AuditLogging(database, logger))
-	r.Use(middleware.JWTAuth(jwtSecret, database, logger))
-	r.Use(middleware.AdminIPAllowlist(adminCIDR, database, logger))
-
-	// Health
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"Healthy"}`))
+	// ── Router and background services ────────────────────────────────────────
+	router := server.NewRouter(database, logger, server.Config{
+		JWTSecret: jwtSecret, AdminCIDR: adminCIDR, HmacKeys: hmacKeys,
 	})
-
-	// Workers
-	wh := handlers.NewWorkerHandler(database)
-	r.Post("/workers/register", wh.Register)
-	r.Post("/workers/{workerId}/offline", wh.MarkOffline)
-
-	// Jobs
-	jh := handlers.NewJobHandler(database)
-	r.Post("/jobs", jh.CreateJob)
-	r.Get("/jobs", jh.ListJobs)
-	r.Post("/jobs/pull", jh.PullJob)
-	r.Get("/jobs/{runId}", jh.GetJob)
-
-	// Lease & heartbeat
-	lh := handlers.NewLeaseHandler(database)
-	r.Post("/jobs/{runId}/lease/accept", lh.AcceptLease)
-	r.Post("/jobs/{runId}/heartbeat", lh.Heartbeat)
-
-	// Result
-	rsh := handlers.NewResultHandler(database)
-	r.Post("/jobs/{runId}/result", rsh.CommitResult)
-
-	// Reconcile
-	rch := handlers.NewReconcileHandler(database)
-	r.Post("/jobs/{runId}/reconcile", rch.Reconcile)
-
-	// Cancel
-	ch := handlers.NewCancelHandler(database)
-	r.Post("/jobs/{runId}/cancel", ch.Cancel)
-
-	// Artifacts
-	ah := handlers.NewArtifactHandler(database)
-	r.Get("/artifacts", ah.List)
-	r.Put("/artifacts/{id}/versions/{version}", ah.Publish)
-	r.Get("/artifacts/{id}/versions/{version}", ah.Get)
-	r.Delete("/artifacts/{id}/versions/{version}", ah.Delete)
-
-	// Callbacks
-	cbh := handlers.NewCallbackHandler(database, hmacKeys)
-	r.Post("/callbacks", cbh.Receive)
-
-	// Admin
-	adh := handlers.NewAdminHandler(database)
-	r.Get("/admin/runs", adh.ListUnknownRuns)
-	r.Post("/admin/runs/{runId}/resolve", adh.ResolveRun)
-	r.Get("/admin/security-events", adh.SecurityEvents)
-	r.Get("/workers", wh.List)
-
-	// Admin: telemetry
-	th := handlers.NewTelemetryHandler(database)
-	r.Get("/admin/telemetry", th.List)
-	r.Get("/admin/telemetry/{runId}", th.GetByRun)
-
-	// Run logs: what a runtime warned or failed about while it ran a job
-	lgh := handlers.NewLogHandler(database)
-	r.Post("/jobs/{runId}/logs", lgh.Append)
-	r.Get("/admin/logs", lgh.List)
-	r.Get("/admin/logs/{runId}", lgh.GetByRun)
-
-	// Admin: schedules
-	sh := handlers.NewScheduleHandler(database)
-	r.Post("/admin/schedules", sh.Create)
-	r.Get("/admin/schedules", sh.List)
-	r.Get("/admin/schedules/completed", sh.Completed)
-	r.Patch("/admin/schedules/{scheduleId}", sh.Update)
-	r.Delete("/admin/schedules/{scheduleId}", sh.Delete)
-
-	// Admin: continuation mappings
-	cnh := handlers.NewContinuationHandler(database)
-	r.Post("/admin/continuations", cnh.Create)
-	r.Get("/admin/continuations", cnh.List)
-	r.Delete("/admin/continuations/{mappingId}", cnh.Delete)
-
-	// ── Background services ───────────────────────────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	go services.LeaseExpiryMonitor(ctx, database, logger)
-	go services.DeadlineMonitor(ctx, database, logger)
-	go scheduler.New(database, logger).Run(ctx)
+	server.StartBackground(ctx, database, logger)
 
 	// ── Server ────────────────────────────────────────────────────────────────
-	server := &http.Server{
+	srv := &http.Server{
 		Addr:         addr,
-		Handler:      r,
+		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -162,7 +98,7 @@ func main() {
 
 	go func() {
 		logger.Info("Tracto Orchestrator (Go) starting", "addr", addr, "mode", tractoMode)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", "err", err)
 			os.Exit(1)
 		}
@@ -176,8 +112,17 @@ func main() {
 	cancel()
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
-	server.Shutdown(shutCtx)
+	srv.Shutdown(shutCtx)
 	logger.Info("shutdown complete")
+}
+
+// describe names a database URL without its credentials, for the log.
+func describe(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "(unreadable DATABASE_URL)"
+	}
+	return u.Host + u.Path
 }
 
 func envOr(key, def string) string {

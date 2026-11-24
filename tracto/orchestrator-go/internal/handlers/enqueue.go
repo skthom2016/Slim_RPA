@@ -32,9 +32,9 @@ func enqueueRun(db *sql.DB, spec runSpec) (runID, state string, segments int, er
 
 // ArtifactPublished reports whether a script version exists and is not deleted.
 func ArtifactPublished(db *sql.DB, artifactID, version string) (bool, error) {
-	var isDeleted int
+	var isDeleted bool
 	err := db.QueryRow(
-		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
+		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version).Scan(&isDeleted)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
@@ -42,7 +42,7 @@ func ArtifactPublished(db *sql.DB, artifactID, version string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return isDeleted == 0, nil
+	return !isDeleted, nil
 }
 
 // ScheduledRun is one run the scheduler queues on a schedule's behalf.
@@ -80,7 +80,7 @@ func EnqueueScheduled(db *sql.DB, r ScheduledRun) (string, error) {
 // RunIsActive reports whether a run exists and has not reached a terminal state.
 func RunIsActive(db *sql.DB, runID string) (bool, error) {
 	var state string
-	err := db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, runID).Scan(&state)
+	err := db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, runID).Scan(&state)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}

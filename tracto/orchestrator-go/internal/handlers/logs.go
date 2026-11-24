@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -67,7 +68,7 @@ func (h *LogHandler) Append(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var exists int
-	h.db.QueryRow(`SELECT COUNT(*) FROM RunRecords WHERE Id=?`, runID).Scan(&exists)
+	h.db.QueryRow(`SELECT COUNT(*) FROM RunRecords WHERE Id=$1`, runID).Scan(&exists)
 	if exists == 0 {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -98,11 +99,15 @@ func (h *LogHandler) Append(w http.ResponseWriter, r *http.Request) {
 		}
 		occurred := now
 		if e.OccurredAt != nil && *e.OccurredAt != "" {
-			occurred = *e.OccurredAt
+			// A time the runtime sent that is not a valid timestamp is replaced by the receive
+			// time instead of failing the whole batch.
+			if _, perr := time.Parse(time.RFC3339Nano, *e.OccurredAt); perr == nil {
+				occurred = *e.OccurredAt
+			}
 		}
 		_, err := tx.Exec(`
 			INSERT INTO RunLogs(Id,RunId,AttemptId,WorkerId,Runtime,Level,StepId,Message,OccurredAt,ReceivedAt)
-			VALUES(?,?,?,?,?,?,?,?,?,?)`,
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 			uuid.NewString(), runID, nullStr(req.AttemptId), nullStr(req.WorkerId),
 			nullStr(req.Runtime), level, nullStr(e.StepId), msg, occurred, now)
 		if err != nil {
@@ -172,11 +177,11 @@ func (h *LogHandler) GetByRun(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT Id,RunId,AttemptId,WorkerId,Runtime,Level,StepId,Message,OccurredAt
 		FROM RunLogs
-		WHERE (RunId=? OR RunId IN (SELECT Id FROM RunRecords WHERE ParentRunId=?))`
+		WHERE (RunId=$1 OR RunId IN (SELECT Id FROM RunRecords WHERE ParentRunId=$2))`
 	args := []any{runID, runID}
 
 	if lvl := r.URL.Query().Get("level"); lvl != "" {
-		query += ` AND Level=?`
+		query += ` AND Level=` + argN(args)
 		args = append(args, lvl)
 	}
 	query += ` ORDER BY OccurredAt ASC`
@@ -213,10 +218,10 @@ func (h *LogHandler) List(w http.ResponseWriter, r *http.Request) {
 		FROM RunLogs`
 	args := []any{}
 	if lvl := r.URL.Query().Get("level"); lvl != "" {
-		query += ` WHERE Level=?`
+		query += ` WHERE Level=` + argN(args)
 		args = append(args, lvl)
 	}
-	query += ` ORDER BY OccurredAt DESC LIMIT ?`
+	query += ` ORDER BY OccurredAt DESC LIMIT ` + argN(args)
 	args = append(args, limit)
 
 	rows, err := h.db.Query(query, args...)

@@ -48,9 +48,9 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check artifact exists and is not deleted
-	var isDeleted int
+	var isDeleted bool
 	err := h.db.QueryRow(
-		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
+		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		req.ScriptArtifactId, req.ScriptVersion,
 	).Scan(&isDeleted)
 	if err == sql.ErrNoRows {
@@ -62,7 +62,7 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
-	if isDeleted != 0 {
+	if isDeleted {
 		errResp(w, http.StatusUnprocessableEntity, "ARTIFACT_NOT_FOUND",
 			"artifact is deleted")
 		return
@@ -83,13 +83,13 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		window := time.Now().UTC().Add(-5 * time.Minute).Format(time.RFC3339Nano)
 		var existingRunId string
 		err := h.db.QueryRow(
-			`SELECT Id FROM RunRecords WHERE EventId=? AND CreatedAt>=?`,
+			`SELECT Id FROM RunRecords WHERE EventId=$1 AND CreatedAt>=$2`,
 			*req.EventId, window,
 		).Scan(&existingRunId)
 		if err == nil {
 			// Duplicate — return idempotent response
 			var state string
-			h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, existingRunId).Scan(&state)
+			h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, existingRunId).Scan(&state)
 			respond(w, http.StatusOK, map[string]string{
 				"runId": existingRunId,
 				"state": strings.ToUpper(state),
@@ -129,7 +129,7 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 func scriptRuntimeType(db *sql.DB, artifactID, version string) string {
 	var payload []byte
 	if err := db.QueryRow(
-		`SELECT Payload FROM ArtifactContents WHERE ArtifactId=? AND Version=?`,
+		`SELECT Payload FROM ArtifactContents WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version).Scan(&payload); err != nil {
 		return ""
 	}
@@ -163,7 +163,7 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 
 	// Worker must be AVAILABLE
 	var wState string
-	err := h.db.QueryRow(`SELECT State FROM WorkerRecords WHERE WorkerId=?`, req.WorkerId).Scan(&wState)
+	err := h.db.QueryRow(`SELECT State FROM WorkerRecords WHERE WorkerId=$1`, req.WorkerId).Scan(&wState)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusBadRequest, "WORKER_NOT_FOUND", "worker not registered")
 		return
@@ -177,7 +177,7 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	// This handles the case where result submission timed out and the lease was never cleaned up.
 	h.db.Exec(`
 		UPDATE LeaseRecords SET State='Expired'
-		WHERE WorkerId=? AND State<>'Expired'
+		WHERE WorkerId=$1 AND State<>'Expired'
 		AND RunId IN (
 			SELECT Id FROM RunRecords
 			WHERE State IN ('Succeeded','Failed','Cancelled','TimedOut','Unknown','HandedOff')
@@ -185,22 +185,37 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 
 	// Worker must not hold an active lease
 	var leaseCount int
-	h.db.QueryRow(`SELECT COUNT(*) FROM LeaseRecords WHERE WorkerId=? AND State<>'Expired'`, req.WorkerId).Scan(&leaseCount)
+	h.db.QueryRow(`SELECT COUNT(*) FROM LeaseRecords WHERE WorkerId=$1 AND State<>'Expired'`, req.WorkerId).Scan(&leaseCount)
 	if leaseCount > 0 {
 		respond(w, http.StatusOK, map[string]string{"result": "QueueFull"})
 		return
 	}
 
-	// Find the oldest QUEUED run matching this worker's runtime
+	// Find the oldest QUEUED run matching this worker's runtime. The row is locked until the
+	// lease is written, and a run another worker has locked is skipped, so two workers pulling at
+	// the same moment take two different runs (or one gets NoPendingJob), never the same one.
+	tx, err := h.db.Begin()
+	if err != nil {
+		dbErr(w, err)
+		return
+	}
+	defer tx.Rollback()
+	//
+	// A run stays Queued from the moment it is offered until its worker accepts it, so a run that
+	// holds an offer which has not yet run out is skipped too: without that, a second worker
+	// pulling a moment after the first would be offered the same run.
 	query := `SELECT Id,AttemptId,ScriptArtifactId,ScriptVersion,InputRefsJson,SecretRefsJson,InteractiveSessionId
 	          FROM RunRecords
-	          WHERE State='Queued' AND (RuntimeType='' OR RuntimeType=?)
-	          ORDER BY CreatedAt ASC LIMIT 1`
+	          WHERE State='Queued' AND (RuntimeType='' OR RuntimeType=$1)
+	            AND NOT EXISTS (SELECT 1 FROM LeaseRecords l
+	                            WHERE l.RunId=RunRecords.Id AND l.State='Offered' AND l.ExpiresAt > $2)
+	          ORDER BY CreatedAt ASC LIMIT 1
+	          FOR UPDATE SKIP LOCKED`
 	var runID, attemptID, artifactID, artifactVersion string
 	var inputJSON, secretJSON sql.NullString
 	var interactiveSessionId sql.NullString
 
-	err = h.db.QueryRow(query, req.RuntimeType).Scan(
+	err = tx.QueryRow(query, req.RuntimeType, time.Now().UTC()).Scan(
 		&runID, &attemptID, &artifactID, &artifactVersion,
 		&inputJSON, &secretJSON, &interactiveSessionId,
 	)
@@ -223,7 +238,7 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch artifact hash
 	var artifactHash string
-	h.db.QueryRow(`SELECT ContentHash FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
+	h.db.QueryRow(`SELECT ContentHash FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, artifactVersion).Scan(&artifactHash)
 
 	params := loadParams(h.db, runID)
@@ -233,34 +248,29 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	leaseID := uuid.NewString()
 	newAttemptID := uuid.NewString()
 
-	tx, err := h.db.Begin()
-	if err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-	defer tx.Rollback()
+	x := newTx(tx)
 
 	// Insert lease record (Offered)
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO LeaseRecords(LeaseId,RunId,AttemptId,WorkerId,ArtifactId,ArtifactVersion,ArtifactHash,
 		    OfferedAt,ExpiresAt,State,InteractiveSessionId)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		leaseID, runID, newAttemptID, req.WorkerId, artifactID, artifactVersion, artifactHash,
 		now, expiresAt, "Offered", interactiveSessionId,
 	)
 
 	// Update run: adopt new AttemptId as fence, record worker
-	tx.Exec(`UPDATE RunRecords SET AttemptId=?, WorkerId=?, UpdatedAt=? WHERE Id=?`,
+	x.exec(`UPDATE RunRecords SET AttemptId=$1, WorkerId=$2, UpdatedAt=$3 WHERE Id=$4`,
 		newAttemptID, req.WorkerId, now, runID)
 
 	// Journal: LEASE_OFFERED
 	jID := uuid.NewString()
 	p, _ := json.Marshal(map[string]string{"leaseId": leaseID, "workerId": req.WorkerId})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, runID, newAttemptID, "LEASE_OFFERED", now, string(p))
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
 		return
 	}
 
@@ -294,7 +304,7 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	var parentID sql.NullString
 	var segmentIndex sql.NullInt64
 	err := h.db.QueryRow(`SELECT State,RuntimeType,ScriptArtifactId,ScriptVersion,ParentRunId,SegmentIndex
-	    FROM RunRecords WHERE Id=?`, runID).
+	    FROM RunRecords WHERE Id=$1`, runID).
 		Scan(&state, &runtimeType, &artifactID, &version, &parentID, &segmentIndex)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
@@ -361,13 +371,13 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	          FROM RunRecords WHERE 1=1`
 	var args []any
 	if stateFilter != "" {
-		query += ` AND UPPER(State)=UPPER(?)`
+		query += ` AND UPPER(State)=UPPER(` + argN(args) + `)`
 		args = append(args, stateFilter)
 	}
 	if !includeSegments {
 		query += ` AND ParentRunId IS NULL`
 	}
-	query += ` ORDER BY CreatedAt DESC LIMIT ?`
+	query += ` ORDER BY CreatedAt DESC LIMIT ` + argN(args)
 	args = append(args, limit)
 
 	rows, err := h.db.Query(query, args...)
@@ -381,15 +391,14 @@ func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var j jobRow
 		var workerID, updatedAt, parentID sql.NullString
-		var needsAttention int
 		if err := rows.Scan(
 			&j.RunId, &j.State, &j.ScriptArtifactId, &j.ScriptVersion,
-			&j.TriggerType, &j.RuntimeType, &workerID, &j.CreatedAt, &updatedAt, &needsAttention, &parentID,
+			&j.TriggerType, &j.RuntimeType, &workerID, &j.CreatedAt, &updatedAt, &j.NeedsAttention, &parentID,
 		); err != nil {
-			continue
+			dbErr(w, err)
+			return
 		}
 		j.State = strings.ToUpper(j.State)
-		j.NeedsAttention = needsAttention != 0
 		if workerID.Valid {
 			j.WorkerId = &workerID.String
 		}

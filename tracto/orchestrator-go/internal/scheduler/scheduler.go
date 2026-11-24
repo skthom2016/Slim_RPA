@@ -74,9 +74,9 @@ func (s *Scheduler) Tick(now time.Time) {
 	rows, err := s.DB.Query(`
 		SELECT ScheduleId, CronExpression, COALESCE(TimeZone,'UTC'), ArtifactId, Version,
 		       COALESCE(ParamsJson,'{}'), COALESCE(OverlapPolicy,'skip'), NextRunAt, LastRunId,
-		       COALESCE(GraceSeconds,?)
+		       COALESCE(GraceSeconds,$1)
 		FROM ScheduleRecords
-		WHERE Enabled=1 AND (NextRunAt IS NULL OR NextRunAt<=?)
+		WHERE Enabled AND (NextRunAt IS NULL OR NextRunAt<=$2)
 		ORDER BY NextRunAt ASC, ScheduleId ASC`,
 		cronspec.DefaultGraceSeconds, cronspec.Format(now))
 	if err != nil {
@@ -181,7 +181,7 @@ func (s *Scheduler) fire(d due, now time.Time) {
 		return
 	}
 	if _, err := s.DB.Exec(
-		`UPDATE ScheduleRecords SET LastFireAt=?, LastRunId=?, LastStatus='Queued', LastError=NULL WHERE ScheduleId=?`,
+		`UPDATE ScheduleRecords SET LastFireAt=$1, LastRunId=$2, LastStatus='Queued', LastError=NULL WHERE ScheduleId=$3`,
 		cronspec.Format(latest), runID, d.id); err != nil {
 		s.Logger.Error("scheduler: could not record the run", "schedule", d.id, "err", err)
 	}
@@ -194,11 +194,11 @@ func (s *Scheduler) claim(id string, old sql.NullString, next time.Time) bool {
 	var err error
 	if old.Valid {
 		res, err = s.DB.Exec(
-			`UPDATE ScheduleRecords SET NextRunAt=? WHERE ScheduleId=? AND Enabled=1 AND NextRunAt=?`,
+			`UPDATE ScheduleRecords SET NextRunAt=$1 WHERE ScheduleId=$2 AND Enabled AND NextRunAt=$3`,
 			cronspec.Format(next), id, old.String)
 	} else {
 		res, err = s.DB.Exec(
-			`UPDATE ScheduleRecords SET NextRunAt=? WHERE ScheduleId=? AND Enabled=1 AND NextRunAt IS NULL`,
+			`UPDATE ScheduleRecords SET NextRunAt=$1 WHERE ScheduleId=$2 AND Enabled AND NextRunAt IS NULL`,
 			cronspec.Format(next), id)
 	}
 	if err != nil {
@@ -211,7 +211,7 @@ func (s *Scheduler) claim(id string, old sql.NullString, next time.Time) bool {
 
 func (s *Scheduler) record(id string, fire time.Time, status, msg string) {
 	if _, err := s.DB.Exec(
-		`UPDATE ScheduleRecords SET LastFireAt=?, LastStatus=?, LastError=? WHERE ScheduleId=?`,
+		`UPDATE ScheduleRecords SET LastFireAt=$1, LastStatus=$2, LastError=$3 WHERE ScheduleId=$4`,
 		cronspec.Format(fire), status, msg, id); err != nil {
 		s.Logger.Error("scheduler: could not record status", "schedule", id, "err", err)
 	}
@@ -221,7 +221,7 @@ func (s *Scheduler) record(id string, fire time.Time, status, msg string) {
 func (s *Scheduler) disable(id, why string) {
 	s.Logger.Error("schedule disabled", "schedule", id, "why", why)
 	if _, err := s.DB.Exec(
-		`UPDATE ScheduleRecords SET Enabled=0, NextRunAt=NULL, LastStatus='Disabled', LastError=? WHERE ScheduleId=?`,
+		`UPDATE ScheduleRecords SET Enabled=FALSE, NextRunAt=NULL, LastStatus='Disabled', LastError=$1 WHERE ScheduleId=$2`,
 		why, id); err != nil {
 		s.Logger.Error("scheduler: could not disable", "schedule", id, "err", err)
 	}

@@ -16,7 +16,7 @@ func (h *TelemetryHandler) GetByRun(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 	rows, err := h.db.Query(
 		`SELECT Id,RunId,WorkerId,AttemptId,EventType,OccurredAt,Metadata
-		 FROM TelemetryEvents WHERE RunId=? ORDER BY OccurredAt ASC`, runID)
+		 FROM TelemetryEvents WHERE RunId=$1 ORDER BY OccurredAt ASC`, runID)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
@@ -62,7 +62,7 @@ func (h *TelemetryHandler) List(w http.ResponseWriter, r *http.Request) {
 	if eventType != "" {
 		rows, err = h.db.Query(
 			`SELECT Id,RunId,WorkerId,AttemptId,EventType,OccurredAt,Metadata
-			 FROM TelemetryEvents WHERE EventType=? ORDER BY OccurredAt DESC LIMIT 200`, eventType)
+			 FROM TelemetryEvents WHERE EventType=$1 ORDER BY OccurredAt DESC LIMIT 200`, eventType)
 	} else {
 		rows, err = h.db.Query(
 			`SELECT Id,RunId,WorkerId,AttemptId,EventType,OccurredAt,Metadata

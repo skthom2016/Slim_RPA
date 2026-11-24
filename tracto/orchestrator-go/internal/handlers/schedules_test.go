@@ -6,26 +6,21 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 
-	"tracto/orchestrator/internal/db"
+	"tracto/orchestrator/internal/db/dbtest"
 )
 
 func testRouter(t *testing.T) (http.Handler, *sql.DB) {
 	t.Helper()
-	d, err := db.Open(filepath.Join(t.TempDir(), "orch.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { d.Close() })
+	d := dbtest.Open(t)
 	if _, err := d.Exec(`INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt) VALUES('report','1.0.0','1','h','2026-01-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
 	payload := `{"schemaVersion":"1","script":{"id":"report","version":"1.0.0","targetRuntime":"desktop","steps":[]}}`
-	if _, err := d.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES('report','1.0.0',?)`, []byte(payload)); err != nil {
+	if _, err := d.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES('report','1.0.0',$1)`, []byte(payload)); err != nil {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
@@ -128,7 +123,7 @@ func TestUpdateSchedule_EnablingWorksOutTheNextRunFromNowAndDisablingClearsIt(t 
 	}
 
 	// A schedule whose expression is broken in the database can still be switched off.
-	if _, err := d.Exec(`UPDATE ScheduleRecords SET CronExpression='broken', Enabled=1 WHERE ScheduleId=?`, id); err != nil {
+	if _, err := d.Exec(`UPDATE ScheduleRecords SET CronExpression='broken', Enabled=TRUE WHERE ScheduleId=$1`, id); err != nil {
 		t.Fatal(err)
 	}
 	if code, got = call(t, h, "PATCH", "/admin/schedules/"+id, map[string]any{"enabled": false}); code != http.StatusOK {
@@ -181,7 +176,7 @@ func TestCreateJob_StillQueuesAScript(t *testing.T) {
 		t.Fatalf("got %d %v", code, got)
 	}
 	var state, trigger string
-	if err := d.QueryRow(`SELECT State,TriggerType FROM RunRecords WHERE Id=?`, got["runId"]).Scan(&state, &trigger); err != nil {
+	if err := d.QueryRow(`SELECT State,TriggerType FROM RunRecords WHERE Id=$1`, got["runId"]).Scan(&state, &trigger); err != nil {
 		t.Fatal(err)
 	}
 	if state != "Queued" || trigger != "Manual" {
@@ -217,7 +212,7 @@ func addSchedule(t *testing.T, h http.Handler, cron string) string {
 
 func setNext(t *testing.T, d *sql.DB, id, next string) {
 	t.Helper()
-	if _, err := d.Exec(`UPDATE ScheduleRecords SET NextRunAt=? WHERE ScheduleId=?`, next, id); err != nil {
+	if _, err := d.Exec(`UPDATE ScheduleRecords SET NextRunAt=$1 WHERE ScheduleId=$2`, next, id); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -238,7 +233,7 @@ func upcoming(t *testing.T, h http.Handler) []map[string]any {
 func insertScheduledRun(t *testing.T, d *sql.DB, id, state, eventID, parent, trigger, updated string) {
 	t.Helper()
 	if _, err := d.Exec(`INSERT INTO RunRecords(Id,AttemptId,CreatedAt,UpdatedAt,State,TriggerType,ScriptArtifactId,ScriptVersion,EventId,ParentRunId)
-		VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		id, "attempt-"+id, "2026-12-01T00:00:00Z", updated, state, trigger, "report", "1.0.0", eventID, parent); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +277,7 @@ func TestListUpcoming_ShowsARunThatHasNotFinished(t *testing.T) {
 	h, d := testRouter(t)
 	id := addSchedule(t, h, "*/5 * * * *")
 	insertScheduledRun(t, d, "run-1", "Queued", id+":2026-12-01T10:00:00Z", "", "Schedule", "2026-12-01T10:00:00Z")
-	if _, err := d.Exec(`UPDATE ScheduleRecords SET LastRunId='run-1',LastStatus='Queued' WHERE ScheduleId=?`, id); err != nil {
+	if _, err := d.Exec(`UPDATE ScheduleRecords SET LastRunId='run-1',LastStatus='Queued' WHERE ScheduleId=$1`, id); err != nil {
 		t.Fatal(err)
 	}
 	if got := upcoming(t, h)[0]["activeRunState"]; got != "QUEUED" {

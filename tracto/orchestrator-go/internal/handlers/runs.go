@@ -56,7 +56,7 @@ func insertRun(db *sql.DB, s runSpec) (string, error) {
 		segmentIndex = sql.NullInt64{Int64: int64(*s.SegmentIndex), Valid: true}
 	}
 
-	// Read before the transaction opens: the database allows a single connection.
+	// The script's runtime decides which workers may take the run.
 	runtimeType := scriptRuntimeType(db, s.ArtifactId, s.Version)
 
 	tx, err := db.Begin()
@@ -70,7 +70,7 @@ func insertRun(db *sql.DB, s runSpec) (string, error) {
 		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,
 		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention,RuntimeType,
 		    ParamsJson,ParentRunId,SegmentIndex)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,FALSE,$16,$17,$18,$19)`,
 		runID, s.ArtifactId, "Created", attemptID, now, correlationID,
 		s.ArtifactId, s.Version, schemaVersion,
 		string(inputJSON), string(secretJSON),
@@ -81,14 +81,16 @@ func insertRun(db *sql.DB, s runSpec) (string, error) {
 		return "", err
 	}
 
-	if _, err = tx.Exec(`UPDATE RunRecords SET State='Queued', UpdatedAt=? WHERE Id=?`, now, runID); err != nil {
+	if _, err = tx.Exec(`UPDATE RunRecords SET State='Queued', UpdatedAt=$1 WHERE Id=$2`, now, runID); err != nil {
 		return "", err
 	}
 
 	for _, evType := range []string{"RUN_CREATED", "RUN_QUEUED"} {
 		p, _ := json.Marshal(map[string]string{"runId": runID, "triggerType": triggerType})
-		tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
-			uuid.NewString(), runID, attemptID, evType, now, string(p))
+		if _, err := tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
+			uuid.NewString(), runID, attemptID, evType, now, string(p)); err != nil {
+			return "", err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -108,7 +110,7 @@ func nonNilStrings(v []string) []string {
 func loadParams(db *sql.DB, runID string) map[string]string {
 	params := map[string]string{}
 	var raw sql.NullString
-	if err := db.QueryRow(`SELECT ParamsJson FROM RunRecords WHERE Id=?`, runID).Scan(&raw); err == nil && raw.Valid && raw.String != "" {
+	if err := db.QueryRow(`SELECT ParamsJson FROM RunRecords WHERE Id=$1`, runID).Scan(&raw); err == nil && raw.Valid && raw.String != "" {
 		json.Unmarshal([]byte(raw.String), &params)
 	}
 	return params
@@ -117,7 +119,7 @@ func loadParams(db *sql.DB, runID string) map[string]string {
 // loadOutputs returns the outputs a run reported, or collected from its segments (never nil).
 func loadOutputs(db *sql.DB, runID string) map[string]string {
 	outputs := map[string]string{}
-	rows, err := db.Query(`SELECT Name,Value FROM RunOutputs WHERE RunId=? ORDER BY Name`, runID)
+	rows, err := db.Query(`SELECT Name,Value FROM RunOutputs WHERE RunId=$1 ORDER BY Name`, runID)
 	if err != nil {
 		return outputs
 	}

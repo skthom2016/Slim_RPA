@@ -18,7 +18,7 @@ func NewAdminHandler(db *sql.DB) *AdminHandler { return &AdminHandler{db: db} }
 func (h *AdminHandler) ListUnknownRuns(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Query(
 		`SELECT Id,State,NeedsAttention,UnknownReason,CreatedAt,WorkerId
-		 FROM RunRecords WHERE NeedsAttention=1 ORDER BY CreatedAt DESC LIMIT 100`)
+		 FROM RunRecords WHERE NeedsAttention ORDER BY CreatedAt DESC LIMIT 100`)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
@@ -36,10 +36,11 @@ func (h *AdminHandler) ListUnknownRuns(w http.ResponseWriter, r *http.Request) {
 	var items []item
 	for rows.Next() {
 		var it item
-		var na int
 		var ur, wid sql.NullString
-		rows.Scan(&it.RunId, &it.State, &na, &ur, &it.CreatedAt, &wid)
-		it.NeedsAttention = na != 0
+		if err := rows.Scan(&it.RunId, &it.State, &it.NeedsAttention, &ur, &it.CreatedAt, &wid); err != nil {
+			dbErr(w, err)
+			return
+		}
 		it.State = strings.ToUpper(it.State)
 		if ur.Valid {
 			it.UnknownReason = &ur.String
@@ -75,7 +76,7 @@ func (h *AdminHandler) ResolveRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var runState string
-	err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, runID).Scan(&runState)
+	err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, runID).Scan(&runState)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -89,17 +90,30 @@ func (h *AdminHandler) ResolveRun(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	dbResolution := canonicalState(req.Resolution)
 
-	tx, _ := h.db.Begin()
+	tx, err := h.db.Begin()
+	if err != nil {
+		dbErr(w, err)
+		return
+	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
-	tx.Exec(`UPDATE RunRecords SET State=?,NeedsAttention=0,UnknownReason=NULL,UpdatedAt=? WHERE Id=?`,
-		dbResolution, now, runID)
+	// Only a run that is still Unknown is resolved: two people resolving at once, or a result
+	// arriving meanwhile, must not both write.
+	if x.execRows(`UPDATE RunRecords SET State=$1,NeedsAttention=FALSE,UnknownReason=NULL,UpdatedAt=$2 WHERE Id=$3 AND State='Unknown'`,
+		dbResolution, now, runID) == 0 && x.err == nil {
+		errResp(w, http.StatusConflict, "INVALID_STATE", "AdminResolve requires run to be in Unknown state")
+		return
+	}
 
 	resID := uuid.NewString()
-	tx.Exec(`INSERT INTO ResolutionRecords(Id,RunId,Resolution,ResolvedBy,ResolvedAt,Notes) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO ResolutionRecords(Id,RunId,Resolution,ResolvedBy,ResolvedAt,Notes) VALUES($1,$2,$3,$4,$5,$6)`,
 		resID, runID, dbResolution, req.ResolvedBy, now, req.Notes)
 
-	tx.Commit()
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
+		return
+	}
 	respond(w, http.StatusOK, map[string]string{"runId": runID, "resolution": strings.ToUpper(dbResolution)})
 }
 

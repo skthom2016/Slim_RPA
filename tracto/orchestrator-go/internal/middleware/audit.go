@@ -104,7 +104,7 @@ func writeSecurityEvent(db *sql.DB, eventType, sourceIP, details string) {
 	id := uuid.NewString()
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	db.Exec(
-		`INSERT INTO SecurityEvents(Id,EventType,SourceIp,OccurredAt,Details) VALUES(?,?,?,?,?)`,
+		`INSERT INTO SecurityEvents(Id,EventType,SourceIp,OccurredAt,Details) VALUES($1,$2,$3,$4,$5)`,
 		id, eventType, sourceIP, now, details,
 	)
 }

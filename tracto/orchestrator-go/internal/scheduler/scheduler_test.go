@@ -4,22 +4,16 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"tracto/orchestrator/internal/cronspec"
-	"tracto/orchestrator/internal/db"
+	"tracto/orchestrator/internal/db/dbtest"
 )
 
 func openDB(t *testing.T) *sql.DB {
 	t.Helper()
-	d, err := db.Open(filepath.Join(t.TempDir(), "orch.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { d.Close() })
-	return d
+	return dbtest.Open(t)
 }
 
 func newScheduler(d *sql.DB) *Scheduler {
@@ -28,12 +22,12 @@ func newScheduler(d *sql.DB) *Scheduler {
 
 func publish(t *testing.T, d *sql.DB, id, version string) {
 	t.Helper()
-	if _, err := d.Exec(`INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt) VALUES(?,?,?,?,?)`,
+	if _, err := d.Exec(`INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt) VALUES($1,$2,$3,$4,$5)`,
 		id, version, "1", "h", "2026-01-01T00:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
 	payload := `{"schemaVersion":"1","script":{"id":"` + id + `","version":"` + version + `","targetRuntime":"desktop","steps":[]}}`
-	if _, err := d.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`, id, version, []byte(payload)); err != nil {
+	if _, err := d.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES($1,$2,$3)`, id, version, []byte(payload)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -63,7 +57,7 @@ func addSchedule(t *testing.T, d *sql.DB, s sched) {
 		next = s.next
 	}
 	if _, err := d.Exec(`INSERT INTO ScheduleRecords(ScheduleId,CronExpression,TimeZone,ArtifactId,Version,ParamsJson,Enabled,
-		OverlapPolicy,GraceSeconds,NextRunAt,CreatedAt) VALUES(?,?,?,?,?,'{"who":"sched"}',1,?,?,?,'2026-01-01T00:00:00Z')`,
+		OverlapPolicy,GraceSeconds,NextRunAt,CreatedAt) VALUES($1,$2,$3,$4,$5,'{"who":"sched"}',TRUE,$6,$7,$8,'2026-01-01T00:00:00Z')`,
 		s.id, s.expr, s.zone, s.artifact, s.version, s.overlap, s.grace, next); err != nil {
 		t.Fatal(err)
 	}
@@ -107,8 +101,9 @@ type state struct {
 func stateOf(t *testing.T, d *sql.DB, id string) state {
 	t.Helper()
 	var s state
-	err := d.QueryRow(`SELECT COALESCE(NextRunAt,''),COALESCE(LastFireAt,''),COALESCE(LastRunId,''),
-		COALESCE(LastStatus,''),COALESCE(LastError,'') FROM ScheduleRecords WHERE ScheduleId=?`, id).
+	const utc = `'YYYY-MM-DD"T"HH24:MI:SS"Z"'`
+	err := d.QueryRow(`SELECT COALESCE(to_char(NextRunAt AT TIME ZONE 'UTC',` + utc + `),''),COALESCE(to_char(LastFireAt AT TIME ZONE 'UTC',` + utc + `),''),COALESCE(LastRunId,''),
+		COALESCE(LastStatus,''),COALESCE(LastError,'') FROM ScheduleRecords WHERE ScheduleId=$1`, id).
 		Scan(&s.next, &s.lastFire, &s.lastRun, &s.status, &s.errText)
 	if err != nil {
 		t.Fatal(err)
@@ -264,12 +259,12 @@ func TestTick_AScheduleThatCanNeverFireIsDisabledWithAReason(t *testing.T) {
 	newScheduler(d).Tick(at(t, "2026-11-12T09:00:10Z"))
 
 	for _, id := range []string{"s1", "s2"} {
-		var enabled int
-		if err := d.QueryRow(`SELECT Enabled FROM ScheduleRecords WHERE ScheduleId=?`, id).Scan(&enabled); err != nil {
+		var enabled bool
+		if err := d.QueryRow(`SELECT Enabled FROM ScheduleRecords WHERE ScheduleId=$1`, id).Scan(&enabled); err != nil {
 			t.Fatal(err)
 		}
-		if st := stateOf(t, d, id); enabled != 0 || st.status != "Disabled" || st.errText == "" {
-			t.Errorf("%s: enabled=%d state=%+v", id, enabled, st)
+		if st := stateOf(t, d, id); enabled || st.status != "Disabled" || st.errText == "" {
+			t.Errorf("%s: enabled=%v state=%+v", id, enabled, st)
 		}
 	}
 	if n := len(runs(t, d)); n != 0 {
@@ -311,7 +306,7 @@ func TestTick_ADisabledScheduleNeverFires(t *testing.T) {
 	d := openDB(t)
 	publish(t, d, "report", "1.0.0")
 	addSchedule(t, d, sched{id: "s1", expr: "0 9 * * *", artifact: "report", next: "2026-11-12T09:00:00Z"})
-	if _, err := d.Exec(`UPDATE ScheduleRecords SET Enabled=0`); err != nil {
+	if _, err := d.Exec(`UPDATE ScheduleRecords SET Enabled=FALSE`); err != nil {
 		t.Fatal(err)
 	}
 	newScheduler(d).Tick(at(t, "2026-11-12T09:00:10Z"))

@@ -22,7 +22,7 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT ArtifactId, Version, SchemaVersion, ContentHash, StoredAt, IsDeleted, SignatureValid, Name
 	          FROM ArtifactRecords WHERE 1=1`
 	if !includeDeleted {
-		query += ` AND IsDeleted=0`
+		query += ` AND NOT IsDeleted`
 	}
 	if !includeSegments {
 		query += ` AND ParentArtifactId IS NULL`
@@ -50,17 +50,15 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	artifacts := []artifactRow{}
 	for rows.Next() {
 		var a artifactRow
-		var isDeleted, sigValid int
 		var name sql.NullString
 		if err := rows.Scan(
 			&a.ArtifactId, &a.Version, &a.SchemaVersion, &a.ContentHash,
-			&a.StoredAt, &isDeleted, &sigValid, &name,
+			&a.StoredAt, &a.IsDeleted, &a.SignatureValid, &name,
 		); err != nil {
-			continue
+			dbErr(w, err)
+			return
 		}
 		a.Name = name.String
-		a.IsDeleted = isDeleted != 0
-		a.SignatureValid = sigValid != 0
 		artifacts = append(artifacts, a)
 	}
 
@@ -149,7 +147,7 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	// Check if version already exists
 	var existing string
 	err = h.db.QueryRow(
-		`SELECT ContentHash FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
+		`SELECT ContentHash FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version,
 	).Scan(&existing)
 	if err == nil {
@@ -162,17 +160,24 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		for i := range segmentCount {
 			segID := segmentArtifactID(artifactID, i)
 			var n int
-			h.db.QueryRow(`SELECT COUNT(*) FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`, segID, version).Scan(&n)
+			h.db.QueryRow(`SELECT COUNT(*) FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`, segID, version).Scan(&n)
 			if n > 0 {
 				continue
 			}
 			segRaw := segmentPayload(segmented, i)
 			segHash := sha256.Sum256(segRaw)
-			h.db.Exec(`
+			if _, err := h.db.Exec(`
 				INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId,Name)
-				VALUES(?,?,?,?,?,0,0,?,?)`,
-				segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID, scriptName)
-			h.db.Exec(`INSERT OR REPLACE INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`, segID, version, segRaw)
+				VALUES($1,$2,$3,$4,$5,FALSE,FALSE,$6,$7)`,
+				segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID, scriptName); err != nil {
+				dbErr(w, err)
+				return
+			}
+			if _, err := h.db.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES($1,$2,$3)
+				ON CONFLICT (ArtifactId,Version) DO UPDATE SET Payload=EXCLUDED.Payload`, segID, version, segRaw); err != nil {
+				dbErr(w, err)
+				return
+			}
 		}
 		respond(w, http.StatusCreated, map[string]any{
 			"artifactId": artifactID, "version": version, "contentHash": contentHash, "segments": segmentCount,
@@ -186,32 +191,37 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,SelectorContent,Name)
-		VALUES(?,?,?,?,?,0,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,FALSE,$6,$7,$8)`,
 		artifactID, version, req.SchemaVersion, contentHash, now,
 		req.Signature != nil && *req.Signature != "",
 		req.SelectorContent, scriptName,
 	)
-	tx.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`,
+	x.exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES($1,$2,$3)`,
 		artifactID, version, raw)
 
 	for i := range segmentCount {
 		segID := segmentArtifactID(artifactID, i)
 		segRaw := segmentPayload(segmented, i)
 		segHash := sha256.Sum256(segRaw)
-		tx.Exec(`DELETE FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`, segID, version)
-		tx.Exec(`DELETE FROM ArtifactContents WHERE ArtifactId=? AND Version=?`, segID, version)
-		tx.Exec(`
+		x.exec(`DELETE FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`, segID, version)
+		x.exec(`DELETE FROM ArtifactContents WHERE ArtifactId=$1 AND Version=$2`, segID, version)
+		x.exec(`
 			INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,ParentArtifactId,Name)
-			VALUES(?,?,?,?,?,0,0,?,?)`,
+			VALUES($1,$2,$3,$4,$5,FALSE,FALSE,$6,$7)`,
 			segID, version, req.SchemaVersion, hex.EncodeToString(segHash[:]), now, artifactID, scriptName)
-		tx.Exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES(?,?,?)`, segID, version, segRaw)
+		x.exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES($1,$2,$3)`, segID, version, segRaw)
 	}
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		if isUniqueViolation(err) { // the same version was published by another request at the same moment
+			errResp(w, http.StatusConflict, "VERSION_CONFLICT", "version was published concurrently; retry")
+			return
+		}
+		dbErr(w, err)
 		return
 	}
 
@@ -232,7 +242,7 @@ func (h *ArtifactHandler) Get(w http.ResponseWriter, r *http.Request) {
 		`SELECT ar.ContentHash, ac.Payload
 		 FROM ArtifactRecords ar
 		 JOIN ArtifactContents ac ON ar.ArtifactId=ac.ArtifactId AND ar.Version=ac.Version
-		 WHERE ar.ArtifactId=? AND ar.Version=? AND ar.IsDeleted=0`,
+		 WHERE ar.ArtifactId=$1 AND ar.Version=$2 AND NOT ar.IsDeleted`,
 		artifactID, version,
 	).Scan(&contentHash, &payload)
 	if err == sql.ErrNoRows {
@@ -257,10 +267,10 @@ func (h *ArtifactHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	version := chi.URLParam(r, "version")
 
 	// Check artifact exists
-	var isDeleted int
+	var isDeleted bool
 	var parentArtifact sql.NullString
 	err := h.db.QueryRow(
-		`SELECT IsDeleted,ParentArtifactId FROM ArtifactRecords WHERE ArtifactId=? AND Version=?`,
+		`SELECT IsDeleted,ParentArtifactId FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version,
 	).Scan(&isDeleted, &parentArtifact)
 	if err == sql.ErrNoRows {
@@ -272,7 +282,7 @@ func (h *ArtifactHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			"this artifact is a segment of "+parentArtifact.String+"; delete that artifact instead")
 		return
 	}
-	if isDeleted != 0 {
+	if isDeleted {
 		// Already deleted — idempotent 204
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -283,9 +293,9 @@ func (h *ArtifactHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.db.QueryRow(
 		`SELECT COUNT(*) FROM RunRecords r
 		 JOIN ArtifactRecords a ON a.ArtifactId=r.ScriptArtifactId AND a.Version=r.ScriptVersion
-		 WHERE (a.ArtifactId=? OR a.ParentArtifactId=?) AND a.Version=?
+		 WHERE (a.ArtifactId=$1 OR a.ParentArtifactId=$1) AND a.Version=$2
 		   AND r.State NOT IN ('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')`,
-		artifactID, artifactID, version,
+		artifactID, version,
 	).Scan(&activeCount)
 	if activeCount > 0 {
 		errResp(w, http.StatusConflict, "ARTIFACT_IN_USE",
@@ -293,7 +303,10 @@ func (h *ArtifactHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.db.Exec(`UPDATE ArtifactRecords SET IsDeleted=1 WHERE (ArtifactId=? OR ParentArtifactId=?) AND Version=?`,
-		artifactID, artifactID, version)
+	if _, err := h.db.Exec(`UPDATE ArtifactRecords SET IsDeleted=TRUE WHERE (ArtifactId=$1 OR ParentArtifactId=$1) AND Version=$2`,
+		artifactID, version); err != nil {
+		dbErr(w, err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }

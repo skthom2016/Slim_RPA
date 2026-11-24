@@ -40,7 +40,7 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 
 	// If leaseId provided (Desktop Runtime), resolve attemptId from lease
 	if req.LeaseId != "" && req.AttemptId == "" {
-		err := h.db.QueryRow(`SELECT AttemptId FROM LeaseRecords WHERE LeaseId=?`, req.LeaseId).Scan(&req.AttemptId)
+		err := h.db.QueryRow(`SELECT AttemptId FROM LeaseRecords WHERE LeaseId=$1`, req.LeaseId).Scan(&req.AttemptId)
 		if err == sql.ErrNoRows {
 			errResp(w, http.StatusNotFound, "NOT_FOUND", "lease not found")
 			return
@@ -48,7 +48,7 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var runAttemptID, runState string
-	err := h.db.QueryRow(`SELECT AttemptId,State FROM RunRecords WHERE Id=?`, runID).Scan(&runAttemptID, &runState)
+	err := h.db.QueryRow(`SELECT AttemptId,State FROM RunRecords WHERE Id=$1`, runID).Scan(&runAttemptID, &runState)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -65,9 +65,9 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch workerID BEFORE opening the write transaction (avoids SQLite deadlock)
+	// The worker the run was on
 	var workerID sql.NullString
-	h.db.QueryRow(`SELECT WorkerId FROM RunRecords WHERE Id=?`, runID).Scan(&workerID)
+	h.db.QueryRow(`SELECT WorkerId FROM RunRecords WHERE Id=$1`, runID).Scan(&workerID)
 
 	// Check for RUN_SUCCEEDED with matching AttemptId in supplied journal
 	isConfirmedSucceeded := false
@@ -85,6 +85,7 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
 	var finalState string
 	var evType string
@@ -92,19 +93,19 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	if isConfirmedSucceeded {
 		finalState = "Succeeded"
 		evType = "RUN_RECONCILED_SUCCEEDED"
-		tx.Exec(`UPDATE RunRecords SET State='Succeeded',UpdatedAt=? WHERE Id=?`, now, runID)
+		x.exec(`UPDATE RunRecords SET State='Succeeded',UpdatedAt=$1 WHERE Id=$2`, now, runID)
 	} else {
 		finalState = "Unknown"
 		evType = "RUN_RECONCILED_UNKNOWN"
-		tx.Exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=1,UnknownReason=?,UpdatedAt=? WHERE Id=?`,
+		x.exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=TRUE,UnknownReason=$1,UpdatedAt=$2 WHERE Id=$3`,
 			"Reconciliation: uncertain journal", now, runID)
 	}
 
 	// Release worker slot + expire lease (same as CommitResult)
 	if workerID.Valid && workerID.String != "" {
-		tx.Exec(`UPDATE WorkerRecords SET State='Available' WHERE WorkerId=?`, workerID.String)
+		x.exec(`UPDATE WorkerRecords SET State='Available' WHERE WorkerId=$1`, workerID.String)
 	}
-	tx.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND State<>'Expired'`, runID)
+	x.exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=$1 AND State<>'Expired'`, runID)
 
 	// FinalResultRecord
 	frID := uuid.NewString()
@@ -112,16 +113,11 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	if !isConfirmedSucceeded {
 		unknownReason = sql.NullString{String: "Reconciliation: uncertain journal", Valid: true}
 	}
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO FinalResultRecords(Id,RunId,AttemptId,TerminalState,NeedsAttention,UnknownReason,EvidenceRefsJson,CompletedAt)
-		VALUES(?,?,?,?,?,?,'[]',?)`,
+		VALUES($1,$2,$3,$4,$5,$6,'[]',$7)`,
 		frID, runID, req.AttemptId, finalState,
-		func() int {
-			if !isConfirmedSucceeded {
-				return 1
-			}
-			return 0
-		}(),
+		!isConfirmedSucceeded,
 		unknownReason, now,
 	)
 
@@ -132,16 +128,16 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 		"outcome":      finalState,
 		"journalCount": len(req.JournalEntries),
 	})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, runID, req.AttemptId, evType, now, string(p))
 
 	// Telemetry
 	telID := uuid.NewString()
-	tx.Exec(`INSERT INTO TelemetryEvents(Id,RunId,AttemptId,EventType,OccurredAt) VALUES(?,?,?,?,?)`,
+	x.exec(`INSERT INTO TelemetryEvents(Id,RunId,AttemptId,EventType,OccurredAt) VALUES($1,$2,$3,$4,$5)`,
 		telID, runID, req.AttemptId, "RUN_"+strings.ToUpper(finalState), now)
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
 		return
 	}
 

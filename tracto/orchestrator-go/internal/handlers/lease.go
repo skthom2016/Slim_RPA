@@ -30,7 +30,7 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 	var runState, runAttemptID, scriptArtifactId, scriptVersion string
 	var inputJSON, secretJSON sql.NullString
 	err := h.db.QueryRow(
-		`SELECT State,AttemptId,ScriptArtifactId,ScriptVersion,InputRefsJson,SecretRefsJson FROM RunRecords WHERE Id=?`,
+		`SELECT State,AttemptId,ScriptArtifactId,ScriptVersion,InputRefsJson,SecretRefsJson FROM RunRecords WHERE Id=$1`,
 		runID,
 	).Scan(&runState, &runAttemptID, &scriptArtifactId, &scriptVersion, &inputJSON, &secretJSON)
 	if err == sql.ErrNoRows {
@@ -51,7 +51,7 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 	// Load lease
 	var leaseState, expiresAt, artifactHash, artifactID, artifactVersion, leaseWorkerID string
 	err = h.db.QueryRow(
-		`SELECT State,ExpiresAt,ArtifactHash,ArtifactId,ArtifactVersion,WorkerId FROM LeaseRecords WHERE RunId=? AND AttemptId=? AND State<>'Expired' LIMIT 1`,
+		`SELECT State,ExpiresAt,ArtifactHash,ArtifactId,ArtifactVersion,WorkerId FROM LeaseRecords WHERE RunId=$1 AND AttemptId=$2 AND State<>'Expired' LIMIT 1`,
 		runID, req.AttemptId,
 	).Scan(&leaseState, &expiresAt, &artifactHash, &artifactID, &artifactVersion, &leaseWorkerID)
 	if err == sql.ErrNoRows {
@@ -89,19 +89,19 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 	if now.After(exp) {
 		// Expired — check if run was ever RUNNING
 		var runningCount int
-		h.db.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=? AND EventType='RUN_RUNNING'`, runID).Scan(&runningCount)
+		h.db.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=$1 AND EventType='RUN_RUNNING'`, runID).Scan(&runningCount)
 		newAttemptID := uuid.NewString()
 		nowStr := now.Format(time.RFC3339Nano)
 		if runningCount > 0 {
 			// Requeue with new fence
-			h.db.Exec(`UPDATE RunRecords SET State='Queued',AttemptId=?,WorkerId=NULL,UpdatedAt=? WHERE Id=?`,
+			h.db.Exec(`UPDATE RunRecords SET State='Queued',AttemptId=$1,WorkerId=NULL,UpdatedAt=$2 WHERE Id=$3`,
 				newAttemptID, nowStr, runID)
 		} else {
 			// Mark Unknown
-			h.db.Exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=1,UnknownReason=?,UpdatedAt=? WHERE Id=?`,
+			h.db.Exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=TRUE,UnknownReason=$1,UpdatedAt=$2 WHERE Id=$3`,
 				"Lease expired before accept; run state unknown", nowStr, runID)
 		}
-		h.db.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND AttemptId=?`, runID, req.AttemptId)
+		h.db.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=$1 AND AttemptId=$2`, runID, req.AttemptId)
 		errResp(w, http.StatusConflict, "LEASE_EXPIRED", "lease expired")
 		return
 	}
@@ -113,25 +113,30 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
-	// Lease: Offered → Accepted
-	tx.Exec(`UPDATE LeaseRecords SET State='Accepted',AcceptedAt=?,LastHeartbeatAt=? WHERE RunId=? AND AttemptId=?`,
-		nowStr, nowStr, runID, req.AttemptId)
+	// Lease: Offered → Accepted. Only a lease still Offered moves, so a cancel or an expiry that
+	// got there first is not overwritten.
+	if x.execRows(`UPDATE LeaseRecords SET State='Accepted',AcceptedAt=$1,LastHeartbeatAt=$2 WHERE RunId=$3 AND AttemptId=$4 AND State='Offered'`,
+		nowStr, nowStr, runID, req.AttemptId) == 0 && x.err == nil {
+		errResp(w, http.StatusConflict, "LEASE_EXPIRED", "lease is no longer offered")
+		return
+	}
 
 	// Run: Queued → Leased → Running (both transitions in one shot)
-	tx.Exec(`UPDATE RunRecords SET State='Running',UpdatedAt=? WHERE Id=?`, nowStr, runID)
+	x.exec(`UPDATE RunRecords SET State='Running',UpdatedAt=$1 WHERE Id=$2`, nowStr, runID)
 
 	// Worker: Available → Running
-	tx.Exec(`UPDATE WorkerRecords SET State='Running' WHERE WorkerId=?`, req.WorkerId)
+	x.exec(`UPDATE WorkerRecords SET State='Running' WHERE WorkerId=$1`, req.WorkerId)
 
 	// Journal: RUN_RUNNING
 	jID := uuid.NewString()
 	p, _ := json.Marshal(map[string]string{"workerId": req.WorkerId, "leaseId": "accepted"})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, runID, req.AttemptId, "RUN_RUNNING", nowStr, string(p))
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
 		return
 	}
 
@@ -165,7 +170,7 @@ func (h *LeaseHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 
 	// Load run
 	var runAttemptID, runState string
-	err := h.db.QueryRow(`SELECT AttemptId,State FROM RunRecords WHERE Id=?`, runID).Scan(&runAttemptID, &runState)
+	err := h.db.QueryRow(`SELECT AttemptId,State FROM RunRecords WHERE Id=$1`, runID).Scan(&runAttemptID, &runState)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
 		return
@@ -178,9 +183,9 @@ func (h *LeaseHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	// Load active lease
 	var leaseState, leaseWorkerID string
 	var lastSeqNo int64
-	var cancellationRequested int
+	var cancellationRequested bool
 	err = h.db.QueryRow(
-		`SELECT State,WorkerId,LastSeqNo,CancellationRequested FROM LeaseRecords WHERE RunId=? AND AttemptId=? AND State<>'Expired' LIMIT 1`,
+		`SELECT State,WorkerId,LastSeqNo,CancellationRequested FROM LeaseRecords WHERE RunId=$1 AND AttemptId=$2 AND State<>'Expired' LIMIT 1`,
 		runID, req.AttemptId,
 	).Scan(&leaseState, &leaseWorkerID, &lastSeqNo, &cancellationRequested)
 	if err == sql.ErrNoRows {
@@ -203,10 +208,10 @@ func (h *LeaseHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	h.db.Exec(`UPDATE LeaseRecords SET LastHeartbeatAt=?,LastSeqNo=? WHERE RunId=? AND AttemptId=?`,
+	h.db.Exec(`UPDATE LeaseRecords SET LastHeartbeatAt=$1,LastSeqNo=$2 WHERE RunId=$3 AND AttemptId=$4`,
 		now, req.SeqNo, runID, req.AttemptId)
 
 	respond(w, http.StatusOK, map[string]bool{
-		"cancellationRequested": cancellationRequested != 0,
+		"cancellationRequested": cancellationRequested,
 	})
 }

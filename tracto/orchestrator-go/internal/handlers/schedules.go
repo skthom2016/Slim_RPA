@@ -50,14 +50,14 @@ type rowScanner interface{ Scan(dest ...any) error }
 func scanSchedule(r rowScanner) (scheduleView, error) {
 	var v scheduleView
 	var paramsJSON string
-	var enabled int
+	var enabled bool
 	var next, lastFire, lastRun, lastStatus, lastErr sql.NullString
 	if err := r.Scan(&v.ScheduleId, &v.CronExpression, &v.TimeZone, &v.ArtifactId, &v.Version,
 		&paramsJSON, &enabled, &v.OverlapPolicy, &v.GraceSeconds,
 		&next, &lastFire, &lastRun, &lastStatus, &lastErr, &v.CreatedAt); err != nil {
 		return v, err
 	}
-	v.Enabled = enabled != 0
+	v.Enabled = enabled
 	v.Params = map[string]string{}
 	_ = json.Unmarshal([]byte(paramsJSON), &v.Params)
 	str := func(n sql.NullString) *string {
@@ -81,7 +81,7 @@ func scanSchedule(r rowScanner) (scheduleView, error) {
 }
 
 func (h *ScheduleHandler) get(id string) (scheduleView, error) {
-	return scanSchedule(h.db.QueryRow(`SELECT `+scheduleColumns+` FROM ScheduleRecords WHERE ScheduleId=?`, id))
+	return scanSchedule(h.db.QueryRow(`SELECT `+scheduleColumns+` FROM ScheduleRecords WHERE ScheduleId=$1`, id))
 }
 
 // validateSchedule checks the fields a schedule needs to fire and returns its next fire time
@@ -142,12 +142,12 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			"artifact "+req.ArtifactId+"/"+req.Version+" is not published")
 		return
 	}
-	enabled := 1
+	enabled := true
 	if req.Enabled != nil && !*req.Enabled {
-		enabled = 0
+		enabled = false
 	}
 	var nextRun any
-	if enabled == 1 {
+	if enabled {
 		nextRun = cronspec.Format(next)
 	}
 	params := req.Params
@@ -159,7 +159,7 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	_, err = h.db.Exec(`
 		INSERT INTO ScheduleRecords(ScheduleId,CronExpression,TimeZone,ArtifactId,Version,ParamsJson,
 			Enabled,OverlapPolicy,GraceSeconds,NextRunAt,CreatedAt)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		id, req.CronExpression, req.TimeZone, req.ArtifactId, req.Version, string(paramsJSON),
 		enabled, req.OverlapPolicy, grace, nextRun, now.Format(time.RFC3339Nano))
 	if err != nil {
@@ -222,7 +222,7 @@ func (h *ScheduleHandler) fillActiveRuns(items []scheduleView) {
 			continue
 		}
 		var state string
-		if err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, *items[i].LastRunId).Scan(&state); err != nil {
+		if err := h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, *items[i].LastRunId).Scan(&state); err != nil {
 			continue
 		}
 		if !isTerminalState(state) {
@@ -273,12 +273,12 @@ func (h *ScheduleHandler) Completed(w http.ResponseWriter, r *http.Request) {
 		offset = n
 	}
 
-	const scheduleIDExpr = `substr(r.EventId, 1, instr(r.EventId, ':') - 1)`
+	const scheduleIDExpr = `split_part(r.EventId, ':', 1)`
 	where := `r.TriggerType='Schedule' AND (r.ParentRunId IS NULL OR r.ParentRunId='')
 		AND lower(r.State) IN ('succeeded','failed','handedoff','cancelled','timedout','unknown')`
 	args := []any{}
 	if id := q.Get("scheduleId"); id != "" {
-		where += ` AND ` + scheduleIDExpr + `=?`
+		where += ` AND ` + scheduleIDExpr + `=` + argN(args)
 		args = append(args, id)
 	}
 
@@ -296,7 +296,7 @@ func (h *ScheduleHandler) Completed(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN ScheduleRecords s ON s.ScheduleId = `+scheduleIDExpr+`
 		WHERE `+where+`
 		ORDER BY COALESCE(r.UpdatedAt, r.CreatedAt) DESC, r.CreatedAt DESC
-		LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+		LIMIT `+argN(args)+` OFFSET $`+strconv.Itoa(len(args)+2), append(args, limit, offset)...)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
@@ -417,19 +417,19 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	paramsJSON, _ := json.Marshal(cur.Params)
 	var res sql.Result
 	if !cur.Enabled {
-		res, err = h.db.Exec(`UPDATE ScheduleRecords SET CronExpression=?,TimeZone=?,Version=?,ParamsJson=?,
-			Enabled=0,OverlapPolicy=?,GraceSeconds=?,NextRunAt=NULL,UpdatedAt=? WHERE ScheduleId=?`,
+		res, err = h.db.Exec(`UPDATE ScheduleRecords SET CronExpression=$1,TimeZone=$2,Version=$3,ParamsJson=$4,
+			Enabled=FALSE,OverlapPolicy=$5,GraceSeconds=$6,NextRunAt=NULL,UpdatedAt=$7 WHERE ScheduleId=$8`,
 			cur.CronExpression, cur.TimeZone, cur.Version, string(paramsJSON),
 			cur.OverlapPolicy, cur.GraceSeconds, now.Format(time.RFC3339Nano), id)
 	} else if restart {
-		res, err = h.db.Exec(`UPDATE ScheduleRecords SET CronExpression=?,TimeZone=?,Version=?,ParamsJson=?,
-			Enabled=1,OverlapPolicy=?,GraceSeconds=?,NextRunAt=?,LastStatus=NULL,LastError=NULL,UpdatedAt=?
-			WHERE ScheduleId=?`,
+		res, err = h.db.Exec(`UPDATE ScheduleRecords SET CronExpression=$1,TimeZone=$2,Version=$3,ParamsJson=$4,
+			Enabled=TRUE,OverlapPolicy=$5,GraceSeconds=$6,NextRunAt=$7,LastStatus=NULL,LastError=NULL,UpdatedAt=$8
+			WHERE ScheduleId=$9`,
 			cur.CronExpression, cur.TimeZone, cur.Version, string(paramsJSON),
 			cur.OverlapPolicy, cur.GraceSeconds, cronspec.Format(next), now.Format(time.RFC3339Nano), id)
 	} else {
-		res, err = h.db.Exec(`UPDATE ScheduleRecords SET Version=?,ParamsJson=?,OverlapPolicy=?,GraceSeconds=?,
-			UpdatedAt=? WHERE ScheduleId=?`,
+		res, err = h.db.Exec(`UPDATE ScheduleRecords SET Version=$1,ParamsJson=$2,OverlapPolicy=$3,GraceSeconds=$4,
+			UpdatedAt=$5 WHERE ScheduleId=$6`,
 			cur.Version, string(paramsJSON), cur.OverlapPolicy, cur.GraceSeconds,
 			now.Format(time.RFC3339Nano), id)
 	}
@@ -452,7 +452,7 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /admin/schedules/{scheduleId}
 func (h *ScheduleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	schedID := chi.URLParam(r, "scheduleId")
-	res, _ := h.db.Exec(`DELETE FROM ScheduleRecords WHERE ScheduleId=?`, schedID)
+	res, _ := h.db.Exec(`DELETE FROM ScheduleRecords WHERE ScheduleId=$1`, schedID)
 	if n, _ := res.RowsAffected(); n == 0 {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "schedule not found")
 		return

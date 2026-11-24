@@ -1,103 +1,211 @@
+// Package db opens the orchestrator's PostgreSQL database and applies its schema.
+//
+// All orchestrator tables live in one schema (orchestrator). A connection is bound to it through
+// search_path, so queries name tables without a prefix. The schema is built from the numbered SQL
+// files in migrations/, embedded in the binary and recorded in the schema's schema_migrations
+// table, so a start-up applies only what is missing.
 package db
 
 import (
+	"context"
 	"database/sql"
+	"embed"
 	"fmt"
+	"io/fs"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
-	_ "modernc.org/sqlite"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// Open opens (or creates) the SQLite database at path and applies the full schema.
-func Open(path string) (*sql.DB, error) {
-	dsn := fmt.Sprintf("file:%s?_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL", path)
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
-	}
-	db.SetMaxOpenConns(1) // SQLite WAL: single writer is safest
-	db.SetMaxIdleConns(1)
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
-	if _, err = db.Exec(Schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("apply schema: %w", err)
+// Schema is the PostgreSQL schema that holds the orchestrator tables.
+const Schema = "orchestrator"
+
+var identRE = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// Migrations returns the embedded migration files; they are in the "migrations" directory.
+func Migrations() fs.FS { return migrationsFS }
+
+// Open connects to url, creates the schema when it is missing, applies the migrations and returns
+// the pool. schema is Schema when empty.
+func Open(ctx context.Context, url, schema string) (*sql.DB, error) {
+	// The orchestrator keeps and reports every time in UTC (the API's timestamps end in Z). The
+	// driver returns times in the process's local zone, so the local zone is UTC.
+	time.Local = time.UTC
+
+	if schema == "" {
+		schema = Schema
 	}
-	if err = addColumns(db); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrate schema: %w", err)
+	db, err := OpenPool(ctx, url, schema)
+	if err != nil {
+		return nil, err
 	}
-	if err = addIndexes(db); err != nil {
+	if err := Migrate(ctx, db, migrationsFS, "migrations"); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("create indexes: %w", err)
+		return nil, err
 	}
 	return db, nil
 }
 
-// Indexes that cover columns added after a table shipped, so they are created once the columns
-// exist. They keep the schedule list and the completed-runs list quick as runs accumulate.
-func addIndexes(db *sql.DB) error {
-	for _, stmt := range []string{
-		`CREATE INDEX IF NOT EXISTS IX_ScheduleRecords_Next ON ScheduleRecords(Enabled, NextRunAt)`,
-		`CREATE INDEX IF NOT EXISTS IX_RunRecords_Trigger ON RunRecords(TriggerType, UpdatedAt)`,
-	} {
-		if _, err := db.Exec(stmt); err != nil {
-			return err
-		}
+// OpenPool connects with search_path set to schema (created when missing) and does not apply
+// migrations.
+func OpenPool(ctx context.Context, url, schema string) (*sql.DB, error) {
+	if url == "" {
+		return nil, fmt.Errorf("DATABASE_URL is not set")
 	}
-	return nil
+	if !identRE.MatchString(schema) {
+		return nil, fmt.Errorf("invalid schema name %q", schema)
+	}
+	cfg, err := pgx.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("DATABASE_URL: %w", redactURL(err, url))
+	}
+
+	// The schema has to exist before a connection can create tables in it.
+	boot := stdlib.OpenDB(*cfg)
+	_, err = boot.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema)
+	boot.Close()
+	if err != nil {
+		return nil, fmt.Errorf("create schema %s: %w", schema, redactURL(err, url))
+	}
+
+	if cfg.RuntimeParams == nil {
+		cfg.RuntimeParams = map[string]string{}
+	}
+	cfg.RuntimeParams["search_path"] = schema
+	db := stdlib.OpenDB(*cfg)
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("connect to database: %w", redactURL(err, url))
+	}
+	return db, nil
 }
 
-// Columns added after a table's CREATE statement shipped. CREATE TABLE IF NOT EXISTS does
-// not alter existing tables, so each is added here when missing.
-var addedColumns = []struct{ Table, Column, Type string }{
-	{"RunRecords", "ParamsJson", "TEXT"},
-	{"RunRecords", "ParentRunId", "TEXT"},
-	{"RunRecords", "SegmentIndex", "INTEGER"},
-	{"ArtifactRecords", "ParentArtifactId", "TEXT"},
-	{"ArtifactRecords", "Name", "TEXT"},
-	{"ScheduleRecords", "ParamsJson", "TEXT"},
-	{"ScheduleRecords", "TimeZone", "TEXT"},
-	{"ScheduleRecords", "NextRunAt", "TEXT"},
-	{"ScheduleRecords", "LastFireAt", "TEXT"},
-	{"ScheduleRecords", "LastRunId", "TEXT"},
-	{"ScheduleRecords", "LastStatus", "TEXT"},
-	{"ScheduleRecords", "LastError", "TEXT"},
-	{"ScheduleRecords", "OverlapPolicy", "TEXT"},
-	{"ScheduleRecords", "GraceSeconds", "INTEGER"},
-}
+// Migrate applies the files in dir of fsys (named NNN_name.sql) that are not yet recorded in the
+// current schema's schema_migrations table, each in its own transaction. A lock keeps two
+// processes from applying the same migration at once.
+func Migrate(ctx context.Context, db *sql.DB, fsys fs.FS, dir string) error {
+	if err := ensureMigrationsTable(ctx, db); err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		return err
+	}
+	type mig struct {
+		version int
+		name    string
+	}
+	var migs []mig
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		num, _, _ := strings.Cut(e.Name(), "_")
+		v, err := strconv.Atoi(num)
+		if err != nil {
+			return fmt.Errorf("migration %s: name must start with a number", e.Name())
+		}
+		migs = append(migs, mig{v, e.Name()})
+	}
+	sort.Slice(migs, func(i, j int) bool { return migs[i].version < migs[j].version })
 
-func addColumns(db *sql.DB) error {
-	for _, c := range addedColumns {
-		exists, err := hasColumn(db, c.Table, c.Column)
+	for _, m := range migs {
+		body, err := fs.ReadFile(fsys, dir+"/"+m.name)
 		if err != nil {
 			return err
 		}
-		if exists {
-			continue
-		}
-		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", c.Table, c.Column, c.Type)); err != nil {
-			return fmt.Errorf("add %s.%s: %w", c.Table, c.Column, err)
+		if err := applyOne(ctx, db, m.version, string(body)); err != nil {
+			return fmt.Errorf("migration %s: %w", m.name, err)
 		}
 	}
 	return nil
 }
 
-func hasColumn(db *sql.DB, table, column string) (bool, error) {
-	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+// One migration at a time per schema, across processes. Released at commit or rollback.
+const lockSQL = `SELECT pg_advisory_xact_lock(hashtext('tracto-migrate:' || current_schema()))`
+
+// ensureMigrationsTable creates schema_migrations under the migration lock: CREATE TABLE IF NOT
+// EXISTS is not safe when two processes run it at the same moment.
+func ensureMigrationsTable(ctx context.Context, db *sql.DB) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, err
+		return err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var cid int
-		var name, ctype string
-		var notnull, pk int
-		var dflt sql.NullString
-		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
-			return false, err
-		}
-		if name == column {
-			return true, nil
-		}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, lockSQL); err != nil {
+		return err
 	}
-	return false, rows.Err()
+	if _, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version    INTEGER     PRIMARY KEY,
+		applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func applyOne(ctx context.Context, db *sql.DB, version int, body string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, lockSQL); err != nil {
+		return err
+	}
+	var done bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&done); err != nil {
+		return err
+	}
+	if done {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, body); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// redactURL removes the password from an error that quotes the connection string.
+func redactURL(err error, url string) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if pw := passwordOf(url); pw != "" {
+		msg = strings.ReplaceAll(msg, pw, "****")
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+func passwordOf(url string) string {
+	rest, ok := strings.CutPrefix(url, "postgres://")
+	if !ok {
+		rest, ok = strings.CutPrefix(url, "postgresql://")
+	}
+	if !ok {
+		return ""
+	}
+	userinfo, _, ok := strings.Cut(rest, "@")
+	if !ok {
+		return ""
+	}
+	_, pw, ok := strings.Cut(userinfo, ":")
+	if !ok {
+		return ""
+	}
+	return pw
 }

@@ -188,7 +188,7 @@ func segmentPayload(s *segmentedScript, index int) []byte {
 // loadSegmentedScript returns the stored artifact's segments, or nil for a plain script.
 func loadSegmentedScript(db *sql.DB, artifactID, version string) *segmentedScript {
 	var payload []byte
-	if err := db.QueryRow(`SELECT Payload FROM ArtifactContents WHERE ArtifactId=? AND Version=?`,
+	if err := db.QueryRow(`SELECT Payload FROM ArtifactContents WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version).Scan(&payload); err != nil {
 		return nil
 	}
@@ -227,7 +227,7 @@ func startSegmentedRun(db *sql.DB, s *segmentedScript, req runSpec) (string, err
 		INSERT INTO RunRecords(Id,WorkflowId,State,AttemptId,CreatedAt,UpdatedAt,CorrelationId,
 		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,
 		    Deadline,EventId,TriggerType,BusinessJobId,NeedsAttention,RuntimeType,ParamsJson)
-		VALUES(?,?,'Running',?,?,?,?,?,?,'1',?,?,?,?,?,?,0,?,?)`,
+		VALUES($1,$2,'Running',$3,$4,$5,$6,$7,$8,'1',$9,$10,$11,$12,$13,$14,FALSE,$15,$16)`,
 		runID, s.Id, attemptID, now, now, uuid.NewString(),
 		s.Id, s.Version, string(inputJSON), string(secretJSON),
 		nullStr(req.Deadline), nullStr(req.EventId), triggerType, nullStr(req.BusinessJobId),
@@ -237,8 +237,10 @@ func startSegmentedRun(db *sql.DB, s *segmentedScript, req runSpec) (string, err
 	}
 	for _, ev := range []string{"RUN_CREATED", "RUN_RUNNING"} {
 		p, _ := json.Marshal(map[string]any{"runId": runID, "triggerType": triggerType, "segments": len(s.Segments)})
-		tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
-			uuid.NewString(), runID, attemptID, ev, now, string(p))
+		if _, err := tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
+			uuid.NewString(), runID, attemptID, ev, now, string(p)); err != nil {
+			return "", err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return "", err
@@ -256,13 +258,13 @@ func startSegmentedRun(db *sql.DB, s *segmentedScript, req runSpec) (string, err
 // the parent stopped running in the meantime (a cancel or timeout that raced this call).
 func queueSegment(db *sql.DB, parentID string, s *segmentedScript, index int, params map[string]string) error {
 	var existing int
-	db.QueryRow(`SELECT COUNT(*) FROM RunRecords WHERE ParentRunId=? AND SegmentIndex=?`, parentID, index).Scan(&existing)
+	db.QueryRow(`SELECT COUNT(*) FROM RunRecords WHERE ParentRunId=$1 AND SegmentIndex=$2`, parentID, index).Scan(&existing)
 	if existing > 0 {
 		return nil
 	}
 
 	var inputJSON, secretJSON sql.NullString
-	db.QueryRow(`SELECT InputRefsJson,SecretRefsJson FROM RunRecords WHERE Id=?`, parentID).Scan(&inputJSON, &secretJSON)
+	db.QueryRow(`SELECT InputRefsJson,SecretRefsJson FROM RunRecords WHERE Id=$1`, parentID).Scan(&inputJSON, &secretJSON)
 	var inputRefs, secretRefs []string
 	if inputJSON.Valid {
 		json.Unmarshal([]byte(inputJSON.String), &inputRefs)
@@ -290,11 +292,11 @@ func queueSegment(db *sql.DB, parentID string, s *segmentedScript, index int, pa
 	})
 
 	var parentState string
-	db.QueryRow(`SELECT State FROM RunRecords WHERE Id=?`, parentID).Scan(&parentState)
+	db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, parentID).Scan(&parentState)
 	if !strings.EqualFold(parentState, "Running") {
 		now := nowStr()
-		db.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=? WHERE Id=? AND State='Queued'`, now, childID)
-		db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+		db.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=$1 WHERE Id=$2 AND State='Queued'`, now, childID)
+		db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 			uuid.NewString(), childID, "", "RUN_CANCELLED", now, `{"reason":"parent run is not running"}`)
 	}
 	return nil
@@ -304,7 +306,7 @@ func queueSegment(db *sql.DB, parentID string, s *segmentedScript, index int, pa
 // was still running; the parent closes as Cancelled when that segment's result arrives.
 func cancelRequested(db *sql.DB, parentID string) bool {
 	var n int
-	db.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=? AND EventType='RUN_CANCEL_REQUESTED'`, parentID).Scan(&n)
+	db.QueryRow(`SELECT COUNT(*) FROM JournalEntries WHERE RunId=$1 AND EventType='RUN_CANCEL_REQUESTED'`, parentID).Scan(&n)
 	return n > 0
 }
 
@@ -313,14 +315,14 @@ func cancelRequested(db *sql.DB, parentID string) bool {
 func advanceSegments(db *sql.DB, runID, terminalState string) {
 	var parentID sql.NullString
 	var index sql.NullInt64
-	if err := db.QueryRow(`SELECT ParentRunId,SegmentIndex FROM RunRecords WHERE Id=?`, runID).
+	if err := db.QueryRow(`SELECT ParentRunId,SegmentIndex FROM RunRecords WHERE Id=$1`, runID).
 		Scan(&parentID, &index); err != nil || !parentID.Valid || parentID.String == "" {
 		return
 	}
 
 	var parentState, artifactID, version string
 	var paramsJSON sql.NullString
-	if err := db.QueryRow(`SELECT State,ScriptArtifactId,ScriptVersion,ParamsJson FROM RunRecords WHERE Id=?`,
+	if err := db.QueryRow(`SELECT State,ScriptArtifactId,ScriptVersion,ParamsJson FROM RunRecords WHERE Id=$1`,
 		parentID.String).Scan(&parentState, &artifactID, &version, &paramsJSON); err != nil {
 		return
 	}
@@ -355,8 +357,7 @@ func advanceSegments(db *sql.DB, runID, terminalState string) {
 
 	now := nowStr()
 	for name, value := range loadOutputs(db, runID) {
-		db.Exec(`INSERT OR REPLACE INTO RunOutputs(RunId,Name,Value,CreatedAt) VALUES(?,?,?,?)`,
-			parentID.String, name, value, now)
+		db.Exec(upsertRunOutput, parentID.String, name, value, now)
 	}
 	journalParent(db, parentID.String, "SEGMENT_SUCCEEDED",
 		map[string]any{"segment": idx + 1, "name": s.Segments[idx].Name, "runId": runID})
@@ -382,39 +383,42 @@ func advanceSegments(db *sql.DB, runID, terminalState string) {
 // finishParent moves a parent run to a terminal state and records the result.
 func finishParent(db *sql.DB, parentID, state, message string) {
 	now := nowStr()
-	needsAttention := 0
-	if strings.EqualFold(state, "Unknown") {
-		needsAttention = 1
-	}
+	needsAttention := strings.EqualFold(state, "Unknown")
 	var attemptID string
-	db.QueryRow(`SELECT AttemptId FROM RunRecords WHERE Id=?`, parentID).Scan(&attemptID)
+	db.QueryRow(`SELECT AttemptId FROM RunRecords WHERE Id=$1`, parentID).Scan(&attemptID)
 
 	tx, err := db.Begin()
 	if err != nil {
 		return
 	}
 	defer tx.Rollback()
-	tx.Exec(`UPDATE RunRecords SET State=?,NeedsAttention=?,UpdatedAt=? WHERE Id=?`, state, needsAttention, now, parentID)
+	x := newTx(tx)
+	x.exec(`UPDATE RunRecords SET State=$1,NeedsAttention=$2,UpdatedAt=$3 WHERE Id=$4`, state, needsAttention, now, parentID)
 	var errCategory, errMessage sql.NullString
 	if !strings.EqualFold(state, "Succeeded") {
 		errCategory = sql.NullString{String: "SEGMENT_" + strings.ToUpper(state), Valid: true}
 		errMessage = sql.NullString{String: message, Valid: true}
 	}
-	tx.Exec(`INSERT OR REPLACE INTO FinalResultRecords(Id,RunId,AttemptId,TerminalState,NeedsAttention,
+	// One final result per run: a second close of the same parent replaces the first.
+	x.exec(`INSERT INTO FinalResultRecords(Id,RunId,AttemptId,TerminalState,NeedsAttention,
 	            ErrorCategory,ErrorMessage,EvidenceRefsJson,CompletedAt)
-	         VALUES(?,?,?,?,?,?,?,'[]',?)`,
+	         VALUES($1,$2,$3,$4,$5,$6,$7,'[]',$8)
+	         ON CONFLICT (RunId) DO UPDATE SET Id=EXCLUDED.Id, AttemptId=EXCLUDED.AttemptId,
+	            TerminalState=EXCLUDED.TerminalState, NeedsAttention=EXCLUDED.NeedsAttention,
+	            UnknownReason=NULL, ErrorCategory=EXCLUDED.ErrorCategory, ErrorMessage=EXCLUDED.ErrorMessage,
+	            BusinessOutcome=NULL, EvidenceRefsJson='[]', BusinessJobId=NULL, CompletedAt=EXCLUDED.CompletedAt`,
 		uuid.NewString(), parentID, attemptID, state, needsAttention, errCategory, errMessage, now)
 	p, _ := json.Marshal(map[string]any{"terminalState": state, "message": message})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		uuid.NewString(), parentID, attemptID, "RUN_"+strings.ToUpper(state), now, string(p))
-	tx.Commit()
+	_ = x.commit() // a failed close leaves the parent Running; the deadline monitor will end it
 }
 
 func journalParent(db *sql.DB, parentID, eventType string, payload map[string]any) {
 	var attemptID string
-	db.QueryRow(`SELECT AttemptId FROM RunRecords WHERE Id=?`, parentID).Scan(&attemptID)
+	db.QueryRow(`SELECT AttemptId FROM RunRecords WHERE Id=$1`, parentID).Scan(&attemptID)
 	p, _ := json.Marshal(payload)
-	db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		uuid.NewString(), parentID, attemptID, eventType, nowStr(), string(p))
 }
 
@@ -438,7 +442,7 @@ func segmentStatuses(db *sql.DB, parentID, artifactID, version string) []segment
 	for i, seg := range s.Segments {
 		list[i] = segmentStatus{Index: i, Name: seg.Name, Runtime: seg.Runtime, State: "PENDING", Outputs: map[string]string{}}
 	}
-	rows, err := db.Query(`SELECT Id,SegmentIndex,State FROM RunRecords WHERE ParentRunId=? ORDER BY CreatedAt`, parentID)
+	rows, err := db.Query(`SELECT Id,SegmentIndex,State FROM RunRecords WHERE ParentRunId=$1 ORDER BY CreatedAt`, parentID)
 	if err != nil {
 		return list
 	}
@@ -469,7 +473,7 @@ func segmentStatuses(db *sql.DB, parentID, artifactID, version string) []segment
 
 // activeSegmentRun returns the parent's non-terminal child run, if any.
 func activeSegmentRun(db *sql.DB, parentID string) (runID, state, attemptID string, ok bool) {
-	err := db.QueryRow(`SELECT Id,State,AttemptId FROM RunRecords WHERE ParentRunId=?
+	err := db.QueryRow(`SELECT Id,State,AttemptId FROM RunRecords WHERE ParentRunId=$1
 	    AND State NOT IN ('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')
 	    ORDER BY CreatedAt DESC LIMIT 1`, parentID).Scan(&runID, &state, &attemptID)
 	return runID, state, attemptID, err == nil

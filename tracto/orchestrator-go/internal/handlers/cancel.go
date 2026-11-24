@@ -30,7 +30,7 @@ func (h *CancelHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var runState, runAttemptID, runtimeType string
-	err := h.db.QueryRow(`SELECT State,AttemptId,RuntimeType FROM RunRecords WHERE Id=?`, runID).
+	err := h.db.QueryRow(`SELECT State,AttemptId,RuntimeType FROM RunRecords WHERE Id=$1`, runID).
 		Scan(&runState, &runAttemptID, &runtimeType)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
@@ -57,18 +57,18 @@ func (h *CancelHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	if runtimeType == segmentedRuntime {
 		childID, childState, childAttempt, ok := activeSegmentRun(h.db, runID)
 		if ok && strings.EqualFold(childState, "Running") {
-			h.db.Exec(`UPDATE LeaseRecords SET CancellationRequested=1 WHERE RunId=? AND State='Accepted'`, childID)
-			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+			h.db.Exec(`UPDATE LeaseRecords SET CancellationRequested=TRUE WHERE RunId=$1 AND State='Accepted'`, childID)
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 				uuid.NewString(), childID, childAttempt, "RUN_CANCEL_REQUESTED", now, string(p))
-			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 				uuid.NewString(), runID, runAttemptID, "RUN_CANCEL_REQUESTED", now, string(p))
 			respond(w, http.StatusOK, map[string]string{"runId": runID})
 			return
 		}
 		if ok {
-			h.db.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=? WHERE Id=?`, now, childID)
-			h.db.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND State<>'Expired'`, childID)
-			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+			h.db.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=$1 WHERE Id=$2`, now, childID)
+			h.db.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=$1 AND State<>'Expired'`, childID)
+			h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 				uuid.NewString(), childID, childAttempt, "RUN_CANCELLED", now, string(p))
 		}
 		finishParent(h.db, runID, "Cancelled", "cancelled by "+*req.RequestedBy)
@@ -82,27 +82,32 @@ func (h *CancelHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
 	if strings.EqualFold(runState, "Running") {
 		// Signal cancellation via lease
-		tx.Exec(`UPDATE LeaseRecords SET CancellationRequested=1 WHERE RunId=? AND State='Accepted'`, runID)
+		x.exec(`UPDATE LeaseRecords SET CancellationRequested=TRUE WHERE RunId=$1 AND State='Accepted'`, runID)
 		jID := uuid.NewString()
-		tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+		x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 			jID, runID, runAttemptID, "RUN_CANCEL_REQUESTED", now, string(p))
 	} else {
-		// QUEUED or LEASED → immediately cancel
-		tx.Exec(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=? WHERE Id=?`, now, runID)
-		tx.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND State<>'Expired'`, runID)
+		// QUEUED or LEASED → immediately cancel. The update names the states it may leave, so a
+		// run a worker has just started, or one that has just finished, is not overwritten.
+		if x.execRows(`UPDATE RunRecords SET State='Cancelled',UpdatedAt=$1 WHERE Id=$2 AND State IN ('Queued','Leased','Created')`, now, runID) == 0 && x.err == nil {
+			errResp(w, http.StatusConflict, "STATE_CHANGED", "run '"+runID+"' changed state while it was being cancelled; try again")
+			return
+		}
+		x.exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=$1 AND State<>'Expired'`, runID)
 		jID := uuid.NewString()
-		tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+		x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 			jID, runID, runAttemptID, "RUN_CANCELLED", now, string(p))
 		telID := uuid.NewString()
-		tx.Exec(`INSERT INTO TelemetryEvents(Id,RunId,AttemptId,EventType,OccurredAt) VALUES(?,?,?,?,?)`,
+		x.exec(`INSERT INTO TelemetryEvents(Id,RunId,AttemptId,EventType,OccurredAt) VALUES($1,$2,$3,$4,$5)`,
 			telID, runID, runAttemptID, "RUN_CANCELLED", now)
 	}
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
 		return
 	}
 

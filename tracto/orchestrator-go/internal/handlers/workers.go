@@ -60,18 +60,18 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
 	var existing string
-	err := h.db.QueryRow(`SELECT WorkerId FROM WorkerRecords WHERE WorkerId=?`, req.WorkerID).Scan(&existing)
+	err := h.db.QueryRow(`SELECT WorkerId FROM WorkerRecords WHERE WorkerId=$1`, req.WorkerID).Scan(&existing)
 	if err == sql.ErrNoRows {
 		_, err = h.db.Exec(`
 			INSERT INTO WorkerRecords(WorkerId,RuntimeType,State,RegisteredAt,LastHeartbeatAt,LastRegisteredAt,AbsenceThresholdSeconds,IsOnline,CapabilitiesJson)
-			VALUES(?,?,?,?,?,?,?,1,?)`,
+			VALUES($1,$2,$3,$4,$5,$6,$7,TRUE,$8)`,
 			req.WorkerID, req.RuntimeType, "Available", now, now, now, req.AbsenceThresholdSeconds, capsJSON)
 	} else {
 		_, err = h.db.Exec(`
 			UPDATE WorkerRecords
-			SET AbsenceThresholdSeconds=?, CapabilitiesJson=?, LastRegisteredAt=?, IsOnline=1,
+			SET AbsenceThresholdSeconds=$1, CapabilitiesJson=$2, LastRegisteredAt=$3, IsOnline=TRUE,
 			    State=CASE WHEN State='Offline' THEN 'Available' ELSE State END
-			WHERE WorkerId=?`,
+			WHERE WorkerId=$4`,
 			req.AbsenceThresholdSeconds, capsJSON, now, req.WorkerID)
 	}
 	if err != nil {
@@ -87,7 +87,7 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		"runtimeType": req.RuntimeType,
 		"actionCount": len(req.ActionNames),
 	})
-	h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	h.db.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, sentinelRunId, nil, "WORKER_REGISTERED", now, string(payload))
 
 	respond(w, http.StatusOK, map[string]string{"workerId": req.WorkerID})
@@ -102,7 +102,7 @@ func (h *WorkerHandler) MarkOffline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	res, err := h.db.Exec(`UPDATE WorkerRecords SET State='Offline', IsOnline=0 WHERE WorkerId=?`, workerID)
+	res, err := h.db.Exec(`UPDATE WorkerRecords SET State='Offline', IsOnline=FALSE WHERE WorkerId=$1`, workerID)
 	if err != nil {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
@@ -147,9 +147,10 @@ func (h *WorkerHandler) List(w http.ResponseWriter, r *http.Request) {
 	var items []item
 	for rows.Next() {
 		var it item
-		var online int
-		rows.Scan(&it.WorkerID, &it.RuntimeType, &it.State, &online, &it.LastHeartbeat, &it.RegisteredAt)
-		it.IsOnline = online != 0
+		if err := rows.Scan(&it.WorkerID, &it.RuntimeType, &it.State, &it.IsOnline, &it.LastHeartbeat, &it.RegisteredAt); err != nil {
+			dbErr(w, err)
+			return
+		}
 		it.State = strings.ToUpper(it.State)
 		items = append(items, it)
 	}

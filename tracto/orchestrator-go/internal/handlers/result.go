@@ -82,7 +82,7 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 
 	var runAttemptID, runState string
 	var workerId sql.NullString
-	err := h.db.QueryRow(`SELECT AttemptId,State,WorkerId FROM RunRecords WHERE Id=?`, runID).
+	err := h.db.QueryRow(`SELECT AttemptId,State,WorkerId FROM RunRecords WHERE Id=$1`, runID).
 		Scan(&runAttemptID, &runState, &workerId)
 	if err == sql.ErrNoRows {
 		errResp(w, http.StatusNotFound, "NOT_FOUND", "run not found")
@@ -111,10 +111,7 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 
 	// Map Go terminalState to canonical DB value
 	dbState := canonicalState(req.TerminalState)
-	needsAttention := 0
-	if stateKey == "unknown" {
-		needsAttention = 1
-	}
+	needsAttention := stateKey == "unknown"
 
 	tx, err := h.db.Begin()
 	if err != nil {
@@ -122,17 +119,28 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
-	// Update run state
-	tx.Exec(`UPDATE RunRecords SET State=?,NeedsAttention=?,UnknownReason=?,UpdatedAt=? WHERE Id=?`,
-		dbState, needsAttention, req.UnknownReason, now, runID)
+	// Update run state. The run must still be live: a second result, a cancel or a timeout that
+	// got here first has already closed it, and the answer is then the idempotent one.
+	if x.execRows(`UPDATE RunRecords SET State=$1,NeedsAttention=$2,UnknownReason=$3,UpdatedAt=$4 WHERE Id=$5 AND State NOT IN ('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')`,
+		dbState, needsAttention, req.UnknownReason, now, runID) == 0 && x.err == nil {
+		var cur string
+		h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, runID).Scan(&cur)
+		respond(w, http.StatusOK, map[string]any{
+			"runId": runID, "attemptId": req.AttemptId,
+			"terminalState": strings.ToUpper(cur),
+			"slotReleased":  false,
+		})
+		return
+	}
 
 	// Insert FinalResultRecord
 	frID := uuid.NewString()
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO FinalResultRecords(Id,RunId,AttemptId,TerminalState,NeedsAttention,UnknownReason,
 		    ErrorCategory,BusinessOutcome,EvidenceRefsJson,BusinessJobId,CompletedAt)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		frID, runID, req.AttemptId, dbState, needsAttention,
 		req.UnknownReason, req.ErrorCategory, req.BusinessOutcome,
 		string(evidenceJSON), req.BusinessJobId, now,
@@ -140,21 +148,19 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 
 	// Store the run's outputs for later segments and for GET /jobs/{runId}
 	for name, value := range req.Outputs {
-		tx.Exec(`INSERT OR REPLACE INTO RunOutputs(RunId,Name,Value,CreatedAt) VALUES(?,?,?,?)`,
-			runID, name, value, now)
+		x.exec(upsertRunOutput, runID, name, value, now)
 	}
 
 	// Release worker slot
 	slotReleased := false
 	if workerId.Valid && workerId.String != "" {
-		res, _ := tx.Exec(`UPDATE WorkerRecords SET State='Available' WHERE WorkerId=?`, workerId.String)
-		if n, _ := res.RowsAffected(); n > 0 {
+		if x.execRows(`UPDATE WorkerRecords SET State='Available' WHERE WorkerId=$1`, workerId.String) > 0 {
 			slotReleased = true
 		}
 	}
 
 	// Expire active lease
-	tx.Exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=? AND State<>'Expired'`, runID)
+	x.exec(`UPDATE LeaseRecords SET State='Expired' WHERE RunId=$1 AND State<>'Expired'`, runID)
 
 	// Journal entry
 	jID := uuid.NewString()
@@ -163,17 +169,17 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		"terminalState": dbState, "slotReleased": slotReleased,
 		"errorCategory": req.ErrorCategory, "businessOutcome": req.BusinessOutcome,
 	})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, runID, req.AttemptId, evType, now, string(p))
 
 	// Telemetry
 	telID := uuid.NewString()
 	telMeta, _ := json.Marshal(map[string]any{"terminalState": dbState})
-	tx.Exec(`INSERT INTO TelemetryEvents(Id,RunId,WorkerId,AttemptId,EventType,OccurredAt,Metadata) VALUES(?,?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO TelemetryEvents(Id,RunId,WorkerId,AttemptId,EventType,OccurredAt,Metadata) VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		telID, runID, workerId, req.AttemptId, "RUN_"+strings.ToUpper(dbState), now, string(telMeta))
 
-	if err := tx.Commit(); err != nil {
-		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+	if err := x.commit(); err != nil {
+		dbErr(w, err)
 		return
 	}
 
@@ -220,14 +226,14 @@ func triggerContinuation(db *sql.DB, sourceRunID, terminalState string, business
 	var mappingVersion int
 	err := db.QueryRow(
 		`SELECT MappingId,TargetArtifactId,TargetArtifactVersion,Version
-		 FROM ContinuationMappings WHERE TriggerRunId=? AND TriggerState=?`,
+		 FROM ContinuationMappings WHERE TriggerRunId=$1 AND TriggerState=$2`,
 		sourceRunID, terminalState,
 	).Scan(&mappingID, &targetArtifactID, &targetVersion, &mappingVersion)
 	if err == sql.ErrNoRows {
 		// Global fallback
 		err = db.QueryRow(
 			`SELECT MappingId,TargetArtifactId,TargetArtifactVersion,Version
-			 FROM ContinuationMappings WHERE TriggerRunId IS NULL AND TriggerState=? LIMIT 1`,
+			 FROM ContinuationMappings WHERE TriggerRunId IS NULL AND TriggerState=$1 LIMIT 1`,
 			terminalState,
 		).Scan(&mappingID, &targetArtifactID, &targetVersion, &mappingVersion)
 	}
@@ -238,7 +244,7 @@ func triggerContinuation(db *sql.DB, sourceRunID, terminalState string, business
 	// Dedup guard: already triggered for this (source, state) pair
 	var existing string
 	err = db.QueryRow(
-		`SELECT Id FROM ContinuationRunRecords WHERE SourceRunId=? AND TriggerState=?`,
+		`SELECT Id FROM ContinuationRunRecords WHERE SourceRunId=$1 AND TriggerState=$2`,
 		sourceRunID, terminalState,
 	).Scan(&existing)
 	if err == nil {
@@ -256,26 +262,27 @@ func triggerContinuation(db *sql.DB, sourceRunID, terminalState string, business
 		return
 	}
 	defer tx.Rollback()
+	x := newTx(tx)
 
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO RunRecords(Id,WorkflowId,State,AttemptId,CreatedAt,CorrelationId,
 		    ScriptArtifactId,ScriptVersion,SchemaVersion,InputRefsJson,SecretRefsJson,TriggerType,NeedsAttention)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,FALSE)`,
 		runB, targetArtifactID, "Queued", attemptB, now, corrB,
 		targetArtifactID, targetVersion, "1", "[]", "[]", "Continuation",
 	)
 
 	linkID := uuid.NewString()
-	tx.Exec(`
+	x.exec(`
 		INSERT INTO ContinuationRunRecords(Id,SourceRunId,TriggerState,RunBId,MappingId,MappingVersionSnapshot,CreatedAt)
-		VALUES(?,?,?,?,?,?,?)`,
+		VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		linkID, sourceRunID, terminalState, runB, mappingID, mappingVersion, now,
 	)
 
 	jID := uuid.NewString()
 	p, _ := json.Marshal(map[string]string{"sourceRunId": sourceRunID, "runBId": runB, "mappingId": mappingID})
-	tx.Exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES(?,?,?,?,?,?)`,
+	x.exec(`INSERT INTO JournalEntries(Id,RunId,AttemptId,EventType,OccurredAt,Payload) VALUES($1,$2,$3,$4,$5,$6)`,
 		jID, runB, attemptB, "RUN_QUEUED", now, string(p))
 
-	tx.Commit()
+	_ = x.commit() // best effort; a continuation that could not be written is simply not queued
 }
