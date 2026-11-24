@@ -99,7 +99,8 @@ Conventions used in every story:
 **Open items.**
 - Whether exit 0 means "statements fetched" or only "script ran"; the post-fetch check stays either way.
 - Timeout per entity (a business decision) and whether a second fetch for the same entity is harmless; the Python code removes the existing date folder first, so a repeat replaces earlier files.
-- `run_Bank_bot.bat` is not in the supplied Python folder. The folder has `download.py`, which runs only the download step for the entities in `selected_entities` with the window in `download_time_config`; nothing in the Python code or the web page reads `BankMaster.xlsx` `EntitySelected`. Whether the batch file runs `download.py`, and what sets the entity and dates for it, is unverified.
+- `run_Bank_bot.bat` runs `C:\xampp\htdocs\prod\collectionaccountingBankCheck\bot_run.py`, a download-only copy of the collection accounting code with the database `collection_accounting_bankcheck` ([SIS-01, "The Indian fetch bot"](../SIS-01-bank-avail-check.md#the-indian-fetch-bot)). It reads the entity from `BankMaster.xlsx` `EntitySelected` `A2`, takes no argument and always ends with exit code 0.
+- Its date window comes from the International `Bot_run_Configurations.xlsx`, a calendar that disagrees with Bot 1's and whose supplied copy starts with a note row ([open-questions.md](../open-questions.md), q115–q117).
 - The statement folder is written by the Python download as `{api_download_path}\BankStatements\{dd MMM yyyy}\{entity}\bankstatement.xml`; the live `api_download_path` is `C:\Automation\Data\Input\Statements1`, the root flow 1 checks, and the date is the Python machine's clock. The Python download only runs for entities in `selected_entities`, and the download step is switched off in the supplied database (`download_module_enabled = no`).
 
 ---
@@ -244,6 +245,7 @@ Conventions used in every story:
 - What reads `<entity>_BankAvail_Success_Queue` today; if it starts `International_Bot1_SXP`, flow 5 should wait for this result.
 - Whether MSS-Security is to be checked; the MSS fetch bot reads Southern Cross Protection's date window.
 - What sets `active_bot_run_id` in `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`; without it the fetch bots do nothing.
+- The fetch bots' calendar, `Bot_run_Configurations.xlsx`, uses a different rule from Bot 1's `MSS_SXP_BotRun.xlsx`: on a Monday the check confirms Friday to Sunday while Bot 1 downloads only Friday (q116).
 - Whether the International statements stay under `C:\xampp\htdocs\Statements1\`.
 
 ---
@@ -284,7 +286,7 @@ Conventions used in every story:
 **Open items.**
 - Entity-to-mailbox list and the platform of each (the workbook holds mailbox settings for DTSS only).
 - Which entities flow 2 covers; AEPL and RHSPL are in the Python loader list but not in the dispatcher list, RARE is the reverse.
-- Whether the customer sheet may take named columns and more than two aliases.
+- Whether the customer sheet may take named columns and more than two aliases, or whether the per-entity customer alias sheets of collection accounting should be the one source (q121).
 - IMAP password source on the worker (`${secret:NAME}`).
 
 ---
@@ -468,5 +470,5 @@ Conventions used in every story:
 - C2 depends on `AcceptedTypes` on the entity row (C1.5); epics D and F read the same entity table.
 - B1 and C1 share one entity table with a flag per flow; H1 (configuration templates) holds its layout.
 - B1 and C5 rely on the schedule time zone; G2 (schedules) passes `timeZone` as a job parameter, which the scheduler does not do today.
-- G1 publishes the two one-step main jobs; G2 schedules them (flow 1 before statement processing, flow 2 every 15 minutes, summary at `summary_time`).
+- G1 publishes the two one-step main jobs; G2 schedules them (flow 1 Indian at 11:00 and 11:30 and International at 07:00 Australian time; flow 2 Indian at 10:00 and International at 05:45 Australian time; summary at `summary_time`).
 - The queue choice (SQLite table or sheet, to be re-confirmed) affects A5 and C3 only.

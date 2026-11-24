@@ -83,7 +83,7 @@ Nothing here drives an application. Excel Application Scope opens workbooks, but
 ## The shape in Tracto
 
 ```
-Schedule, or started when flow 2 finishes
+Run now by the SPOC (by hand today), or started when flow 2 finishes
    │
    ▼
 Main job (desktop, one http.post) ──POST /excelextract/start──▶ Go service

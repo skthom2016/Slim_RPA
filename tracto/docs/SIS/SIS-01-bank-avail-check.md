@@ -68,14 +68,39 @@ C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe -W ignore E:
 Each folder is a copy of the collection accounting code (the same Bitbucket repository as the other copies) whose `bot_run.py` runs only the download. The two copies differ in two places: the Oracle Fusion entity name written into the code (`MSS Security Pty Limited` or `Southern Cross Protection Pty Limited`) and the database (`ca_with_pa_mss_bankcheck` or `ca_with_pa_sxp_bankcheck`). A run:
 
 1. Stops at once if `active_bot_run_id` in its database is -1 or empty.
-2. Reads the entity from `BankMasterInternational.xlsx`, `EntitySelected` `A2`, and the date window from `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` for both copies. That is the layout of `MSS_SXP_BotRun.xlsx` ([SIS-05, "The date window workbook"](SIS-05-international-bot1.md#the-date-window-workbook)).
+2. Reads the entity from `BankMasterInternational.xlsx`, `EntitySelected` `A2`, and the date window from `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`: the row whose `Current Date` is today, columns `SXP_Group Start Date` and `SXP_Group End Date` for both copies. It has the columns of `MSS_SXP_BotRun.xlsx`, the calendar Bot 1 reads, but it is a separate file with a different rule ([SIS-05, "The fetch bots' calendar"](SIS-05-international-bot1.md#the-fetch-bots-calendar-bot_run_configurationsxlsx)).
 3. Empties its `bankstatement` table.
 4. **Check.** Asks the Magic xpi middleware (report `ENTITYMTREPORT`) which bank accounts have an MT940 statement for the window, and writes the answer to `<root>\<today>\<entity>_check\bank_statements_check.xlsx`, one row per account with `AVAILABLE` `Y` or `N`. The `_check` folder is deleted and recreated first.
 5. **Compare.** Joins that file with the entity's sheet of `BankMasterInternational.xlsx` on `BANK_ACCOUNT_NAME`. Only if every listed account is `Y`:
 6. **Download.** Fetches the statement (report `BANKSTATEMENTRPA`) into `<root>\<today>\<entity>\bank_statements_downloaded.xlsx`; the folder is deleted and recreated first. That folder is what the UiPath process checks for. Statement lines whose customer cannot be identified are written to `C:\xampp\htdocs\prod\collectionaccounting\Unidentified.xlsx` and mailed by SMTP to `<entity>_receiver_emailID` from the database settings.
 7. Marks its `bot_run` row successful.
 
-Every error is printed and swallowed: the program ends with exit code 0 and status 1 whatever happened, so the folder check after it is the only real result. The Indian `run_Bank_bot.bat` is not supplied; it is probably the same kind of copy, reading `BankMaster.xlsx` cell `A2`.
+Every error is printed and swallowed: the program ends with exit code 0 and status 1 whatever happened, so the folder check after it is the only real result.
+
+### The Indian fetch bot
+
+`C:\xampp\htdocs\prod\run_Bank_bot.bat` runs one line:
+
+```
+C:\Users\botadmin\AppData\Local\Programs\Python\Python36\python.exe -W ignore C:\xampp\htdocs\prod\collectionaccountingBankCheck\bot_run.py
+```
+
+`collectionaccountingBankCheck` is the same download-only copy of the collection accounting code as the two International fetch bots, from the same Bitbucket repository. `ApiDownloadManager.py` is identical in all three copies. It runs the seven steps above, with these differences:
+
+| | Indian fetch bot | International fetch bots |
+|---|---|---|
+| Entity cell | `E:\Automation\Data\Config\BankMaster.xlsx`, `EntitySelected` `A2`, the cell `BankAvailCheck` writes | `BankMasterInternational.xlsx`, `EntitySelected` `A2` |
+| Oracle Fusion entity name | Looked up per entity in the `alias` setting of its database (JSON by environment and entity) | Written into the code |
+| Database | `collection_accounting_bankcheck` | `ca_with_pa_mss_bankcheck`, `ca_with_pa_sxp_bankcheck` |
+| Missing check workbook | Read without testing that it exists; the error is printed and swallowed | Tested; the comparison is skipped |
+
+What is the same matters more:
+
+- **The date window comes from the International calendar.** The Indian copy also reads `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`, columns `SXP_Group`. The Indian statements are fetched for the window kept for Southern Cross Protection ([SIS-05, "The fetch bots' calendar"](SIS-05-international-bot1.md#the-fetch-bots-calendar-bot_run_configurationsxlsx)).
+- **The entity comes from the cell, not from the loop.** The bot loops over `selected_entities` in its database, but every pass reads the entity from `EntitySelected` `A2`. If `selected_entities` holds several entities, the same entity is fetched several times.
+- **The statement root is the `api_download_path` setting** plus `BankStatements\{dd MMM yyyy}\{entity}`, the date from the machine clock when the program starts.
+- **It stops at once when `active_bot_run_id` is -1 or empty,** and otherwise ends with exit code 0 and status 1 whatever happened.
+- **All three bots write the same `C:\xampp\htdocs\prod\collectionaccounting\Unidentified.xlsx`** and mail it by SMTP to `<entity>_receiver_emailID` from their database settings.
 
 ### How it differs from the Indian check
 
@@ -84,7 +109,8 @@ Every error is printed and swallowed: the program ends with exit code 0 and stat
 | Entities | `entities` key of `E:\Automation\Data\Config\MasterConfig.xlsx` | `Entity` key of `...\International_CAwithPA\Bot_1\Data\Config\MasterConfig.xlsx`: MSS-Security, Southern-Cross-Protection |
 | Statement root | `C:\Automation\Data\Input\Statements1\BankStatements` | `C:\xampp\htdocs\Statements1\BankStatements` |
 | Bank workbook | `E:\Automation\Data\Config\BankMaster.xlsx` | `E:\Automation\International_CAwithPA\Config\BankMasterInternational.xlsx` |
-| Fetch bot | `C:\xampp\htdocs\prod\run_Bank_bot.bat`, one for all entities | `run_Bank_bot_<entity>.bat`, one per entity, each with its own code copy and database |
+| Fetch bot | `C:\xampp\htdocs\prod\run_Bank_bot.bat`, one for all entities, database `collection_accounting_bankcheck` | `run_Bank_bot_<entity>.bat`, one per entity, each with its own code copy and database |
+| Date window of the fetch | `SXP_Group` columns of `Bot_run_Configurations.xlsx` | The same |
 | Fetch failure | Ends the run | Caught and logged |
 | Statements still missing | Listed once, run continues | Retried every five minutes, no limit |
 | Mails | One summary of available entities, one HTML table of missing accounts, to the DTSS list | One mail per entity per try, to that entity's recipients; the missing accounts are not listed (the HTML table is built but not sent) |
@@ -96,7 +122,8 @@ Every error is printed and swallowed: the program ends with exit code 0 and stat
 - **One status for all entities.** The variable that holds the result is set to -1 once, before the entity loop, and not reset per entity. If the folder is still missing but no listed account is `N` in the check workbook (for example the account names do not match, or every account is `Y` and the download failed), the entity gets the previous entity's result: "available" mail and success queue item, or no mail at all for the first entity.
 - **A missing check workbook ends the run.** The read is not inside a `Try`/`Catch`, so when the fetch bot could not write the file, the run stops with an unhandled error.
 - **The account list is never sent.** The HTML table of missing accounts is built, then the mail sends a fixed sentence. The table also keeps growing across tries, because its body is never cleared.
-- **The MSS fetch bot uses Southern Cross Protection's window.** Both copies read the `SXP_Group` columns.
+- **The MSS fetch bot uses Southern Cross Protection's window.** Both copies read the `SXP_Group` columns. In `Bot_run_Configurations.xlsx` today the MSS columns are identical, so the effect is nil for now.
+- **The bank check and Bot 1 use different calendars.** The fetch bots look on Monday for Friday to Sunday; Bot 1 downloads Saturday to Monday on Tuesday ([SIS-05](SIS-05-international-bot1.md#the-fetch-bots-calendar-bot_run_configurationsxlsx)).
 - **A shared file in another program's folder.** Both copies write `Unidentified.xlsx` into the Indian code folder.
 - **The run always looks successful.** Exit code 0 and `bot_run` status 1 even after an error.
 
@@ -119,7 +146,7 @@ The story area names the area of work in the effort estimate (A platform capabil
 | 7 | **Build the report.** Duplicates are removed, then an HTML table with the heading "Unavailable Bank List". The column "Bank Account Number" holds the account name. | The same table, built in Go. | B3 |
 | 8 | **Availability mail.** Sent always, to `avail_receiver_id`, CC `cc_receiver_id`, subject `MT940 statement status`, plain text, even when the list is empty. | Sent through Graph; when the list is empty the mail is skipped or says so. | B3 |
 | 9 | **Unavailable mail.** Sent only when something is unavailable, to the `DTSS` list whichever entity is missing, HTML body, same subject. | Sent to each entity's own recipients, with a subject that tells the two mails apart. | B3 |
-| 10 | **Run.** There is no scheduler inside the package; an external trigger runs it once a day, before statement processing. | An Orchestrator schedule and a one-step main job. | G |
+| 10 | **Run.** There is no scheduler inside the package; UiPath time triggers run it at 11:00 and 11:30. The International check runs at 07:00 Australian time. | Orchestrator schedules at the same times and a one-step main job. | G |
 
 ## What this flow actually needs
 
@@ -142,7 +169,7 @@ This matters for the shape: the flow is not a script with a loop around it. It i
 ## The shape in Tracto
 
 ```
-Schedule (Orchestrator, e.g. 0 7 * * 1-5 Asia/Kolkata)
+Schedules (Orchestrator: Indian 11:00 and 11:30, International 07:00 Australian time)
    │  queues
    ▼
 Main job (desktop, one http.post)  ──POST /bankcheck/start──▶  Go service
@@ -271,7 +298,7 @@ Only the `Settings` sheet of `MasterConfig.xlsx` is used and only that is read; 
 
 **The Office 365 credentials live in a shared configuration workbook.** `MasterConfig.xlsx` holds `APP ID`, `Application Secret`, `Tenant ID`, `senderID` and `password`, and `Main.xaml` reads all five and hands them to the Office 365 Scope. An Azure AD client secret in an Excel file on a file share is readable by everyone who can open the file, and the project's log masking only covers keys matching `*password*`, so the other four are not even excluded from the logs.
 
-The International package reads the same keys from the International `MasterConfig.xlsx`, with `InteractiveToken` sign-in. Its two fetch bot folders hold the MySQL credentials in `DBClasses\mysql_helper.py`, and the fetch bot reads an SMTP password from its database settings.
+The International package reads the same keys from the International `MasterConfig.xlsx`, with `InteractiveToken` sign-in. All three fetch bot folders, the Indian one included, hold the MySQL root credentials in `DBClasses\mysql_helper.py`, and each fetch bot reads an SMTP password from its database settings. The Indian copy is a git checkout whose remote URL carries a user name but no password.
 
 The secret should be rotated and moved out of the workbook independently of any Tracto work. On Tracto the same mail goes out on the service's own Microsoft sign-in through `internal/msauth`, so there is no secret to store and nothing to mask.
 
@@ -299,8 +326,8 @@ These need answers before the Tracto flow can be built. They are not blockers fo
 
 ### For the process owner
 
-1. **How long may Go wait for the fetch bot, and does its exit code mean anything?** It is a console script, so Go gets an exit code — but whether a zero means "statements fetched" or only "script ran" needs checking, which is why the folder check after it stays. The timeout is a business decision: how long is "the bank is slow" before it is "the bot is broken"? Also needed: whether running it twice for the same entity is harmless, in case a run is repeated.
-2. **Can the fetch bot take the entity as an argument?** Today the entity name is written into one cell of a shared workbook and the bot reads it. If the bot can accept it on the command line instead, the shared cell disappears and entities could eventually run in parallel. If it cannot, the loop stays strictly sequential and we should say so deliberately.
+1. **How long may Go wait for the fetch bot?** All three fetch bots end with exit code 0 whatever happened, so the folder check after the run is the result. The timeout is a business decision: how long is "the bank is slow" before it is "the bot is broken"? Also needed: whether running it twice for the same entity is harmless, in case a run is repeated.
+2. **Can the fetch bot take the entity as an argument?** The supplied code takes none: the entity name is written into one cell of a shared workbook and the bot reads it. If the bot can accept it on the command line instead, the shared cell disappears and entities could eventually run in parallel. If it cannot, the loop stays strictly sequential and we should say so deliberately.
 3. **Which time zone decides "today"?** The folder name is `dd MMM yyyy` from the machine's clock. A run near midnight, or a machine in another region, looks in the wrong folder. The schedule names a zone; the folder date should come from the same answer.
 4. **Should each entity's missing accounts go to that entity's people?** Today every unavailable list goes to the DTSS recipients because of a literal in the workflow. The `Entities` sheet already holds a recipient key for each entity, so per-entity recipients need no new data. Two gaps: ONESIS has no key, and AEPL has a key but is not in flow 1's list. Confirm who receives ONESIS's list, and whether the DTSS list stays in copy.
 5. **Is `A1:E200` a real limit on the check workbook?** In `BankMaster.xlsx` no entity has more than ten bank accounts (37 in all), so `A1:A40` truncates nothing today. For the check workbook, Tracto reads the whole used range either way; this matters only if `A1:E200` stood for something real.
@@ -313,8 +340,15 @@ These need answers before the Tracto flow can be built. They are not blockers fo
 9. **How long should Tracto keep trying** when an International entity's statements are missing: a number of tries, or until a time of day? Should the "not available" mail go out once at the end, with the missing accounts listed?
 10. **What reads `<entity>_BankAvail_Success_Queue`?** If it starts `International_Bot1_SXP`, flow 5 should wait for flow 1's result for the entity instead of a fixed 07:55.
 11. **Both entities, or only Southern-Cross-Protection?** The International `Entity` key lists MSS-Security too.
-12. **The MSS fetch bot reads Southern Cross Protection's window** (`SXP_Group` columns). Intended? And is `Bot_run_Configurations.xlsx` the same file as `MSS_SXP_BotRun.xlsx`?
-13. **What sets `active_bot_run_id`** in `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`? Without it the fetch bot does nothing.
+12. **The MSS fetch bot reads Southern Cross Protection's window** (`SXP_Group` columns). Intended?
+13. **What sets `active_bot_run_id`** in `collection_accounting_bankcheck`, `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`? Without it the fetch bot does nothing.
+
+### Fetch bot calendar
+
+14. **Is the note in row 1 of `Bot_run_Configurations.xlsx` in the live file?** The fetch bots read the first row as column names; with the note there they find no `Current Date` column and download nothing.
+15. **Which calendar rule is right, and should there be one file?** The fetch bots' file and Bot 1's file disagree on 112 days.
+16. **Should the Indian fetch bot use the International calendar?** It reads the `SXP_Group` columns of `Bot_run_Configurations.xlsx`.
+17. **What does `selected_entities` hold in each bank-check database?** Every pass of the loop fetches the entity in `EntitySelected` `A2`, so several entities there mean repeated fetches of one entity.
 
 ### Not in Tracto yet
 

@@ -18,7 +18,7 @@
 
 | Box | What happens | Who does it |
 |---|---|---|
-| **Orchestrator schedule fires** (green) | After flow 2, or Run now. | Orchestrator |
+| **Orchestrator schedule fires** (green) | Today a SPOC starts the Indian extraction by hand in UiPath Assistant, so in Tracto the SPOC presses Run now. Starting it when flow 2 finishes is open. | Orchestrator |
 | **Desktop runtime runs excelextract-main** (purple) | One call to the Go API; the job ends at once. | Desktop runtime |
 | **Read the entity table and the format profiles** | Which entities send spreadsheets, and for each one the sheet name and columns to expect and how to map them. | Go API, through the **Sheet API** (`MasterConfig.xlsx`, format profiles) |
 | **For each entity (DTSS skipped)** (dark blue) | Outer loop. DTSS does not accept spreadsheets. | Go API |

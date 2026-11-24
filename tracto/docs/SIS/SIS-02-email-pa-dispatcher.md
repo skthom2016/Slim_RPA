@@ -134,7 +134,7 @@ Against that, a sheet needs nothing new, every item is visible, and `POST /apply
 ## The shape in Tracto
 
 ```
-Schedule (every 15 min, say)
+Schedules (Indian 10:00, International 05:45 Australian time)
    │
    ▼
 Main job (desktop, one http.post) ──POST /maildispatch/start──▶ Go service

@@ -18,7 +18,7 @@
 
 | Box | What happens | Who does it |
 |---|---|---|
-| **Orchestrator schedule fires** (green) | Every 15 minutes as proposed; the International mailbox at 05:45 Australian time. Or Run now. | Orchestrator |
+| **Orchestrator schedule fires** (green) | Indian mailboxes at 10:00; the International mailbox at 05:45 Australian time. Or Run now. | Orchestrator |
 | **Desktop runtime runs maildispatch-main** (purple) | One call to the Go API to start the mail dispatch; the job ends at once. | Desktop runtime |
 | **Read the entity table** | For each entity: its mailbox, which file types it accepts, and its recipients. | Go API, through the **Sheet API** (`MasterConfig.xlsx`) |
 | **For each entity** (dark blue) | Start of the outer loop. | Go API |

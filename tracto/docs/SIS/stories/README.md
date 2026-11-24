@@ -108,7 +108,7 @@ Reading the code while writing the stories turned up places where the analysis d
 | 7 | The one-step main job still runs on a desktop worker with an unlocked session | G1 |
 | 8 | A main job that succeeds when a batch is accepted hides failed items; notification on partial failure needs a rule | G2 |
 | 9 | The Python bank statement download deletes and recreates the entity's date folder before downloading, so an existing folder does not mean the statement is available | B2 |
-| 10 | The fetch batch file, the `EntitySelected` cell and the check workbook are not in the supplied Python folder; the fetch bot is unverified | B2 |
+| 10 | The Indian fetch bot is supplied: a download-only copy that reads `EntitySelected!A2`, takes no argument and always exits 0. All three fetch bots read the International `Bot_run_Configurations.xlsx`, which disagrees with Bot 1's calendar and starts with a note row in the supplied copy | B2, B5 |
 | 11 | The Python date folder follows the machine clock. (The statement root matches: the live `api_download_path` is the root flow 1 checks; the code default on `D:` is not used) | B1, B2 |
 | 12 | The Python download passes credentials as URL query parameters and truncates the statement, outstanding and unapplied tables on each run | B4 |
 | 13 | The UiPath taxonomy has a `TDS` column in the invoice table; two analysis documents say it has none | E3, E8 |

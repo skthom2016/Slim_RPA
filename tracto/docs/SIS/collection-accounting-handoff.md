@@ -67,6 +67,8 @@ The loader looks at one fixed path. If Tracto and UiPath both wrote there, the s
 
 The `EmailBody` tree is written by a process that is not among the four UiPath processes. The mail dispatcher raises work items for mails with no attachment, and something downstream consumes them and produces that workbook. It is not in the scope of this migration and stays as it is.
 
+The customer alias sheets, which let collection accounting recognise a customer on a bank statement line, are uploaded by a SPOC through the web page into the `customer_alias` table. They stay outside Tracto ([configuration-workbooks.md](configuration-workbooks.md#the-customer-alias-sheets)).
+
 ## To confirm
 
 1. **When does the loader run?** It reads whatever exists at that moment, for today's date. The extraction flows need to have written their workbooks first, so the schedule has to put them ahead of the loader.

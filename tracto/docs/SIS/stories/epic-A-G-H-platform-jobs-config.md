@@ -174,8 +174,8 @@ Paths in the evidence column are relative to `tracto/`.
 **Test notes.** A test `.bat` that exits 0, exits 3, sleeps beyond the timeout and prints a line with spaces. Checks: exit code mapping, timeout kill with no orphan, unknown command.
 
 **Open items.**
-- Whether `run_Bank_bot.bat` can take the entity as an argument; otherwise `EntitySelected!A2` stays shared state and the entity loop stays sequential ([SIS-01, open question 2](../SIS-01-bank-avail-check.md)).
-- What the bot's exit code means (script ran versus statements fetched) and how long Go may wait ([SIS-01, open question 1](../SIS-01-bank-avail-check.md)).
+- The fetch bots take no argument; `EntitySelected!A2` stays shared state and the entity loop stays sequential unless the code is changed ([SIS-01, open question 2](../SIS-01-bank-avail-check.md)).
+- The fetch bots always end with exit code 0, so the exit code is stored but the folder check decides; how long Go may wait is open ([SIS-01, open question 1](../SIS-01-bank-avail-check.md)).
 - `bot_run.py` catches its own errors and exits normally, so for B4 the exit code says only that the program ended; the result is read from `Response_Report.xlsx`.
 
 ---
@@ -307,12 +307,12 @@ Paths in the evidence column are relative to `tracto/`.
 | Depends on | G1 |
 | Capability today | Partly. Schedules exist: `POST/GET/PATCH/DELETE /admin/schedules` with cron in a named time zone, `overlapPolicy`, `graceSeconds`, compare-and-swap firing and collapse of missed fires (`orchestrator-go/internal/handlers/schedules.go`, `orchestrator-go/internal/scheduler/scheduler.go`, `docs/scheduling.md`); the console has a Schedules page with upcoming and completed views (`orchestrator-ui/public/app.js`, `loadSchedules`, `loadCompletedSchedules`) and a Jobs page and per-run Logs (`loadJobs`, `openLogs`). Failure notifications do not exist: no mail, SMTP or webhook code in `orchestrator-go`. Per-item status of a Go service's batch is not visible in the console. To build for the gaps |
 
-**User story.** As an operator, I want each flow on a schedule in the Asia/Kolkata time zone, a mail when a scheduled run fails or is skipped, and the flow's outcome visible in the console, so that a missed day is noticed the same morning and the run can be inspected without logging in to the service.
+**User story.** As an operator, I want each flow on a schedule in its entity group's time zone (Asia/Kolkata for the Indian entities, the Australian zone for the International ones), a mail when a scheduled run fails or is skipped, and the flow's outcome visible in the console, so that a missed day is noticed the same morning and the run can be inspected without logging in to the service.
 
 **Context.** UiPath ran the processes from Orchestrator triggers. In Tracto a schedule queues the main job; a run needs a worker and the scheduler only queues (`docs/scheduling.md`). The statement date folder of flow 1 and the output date folder of the loader tree use the schedule's time zone, so the zone is fixed to the estate's. The loader reads whatever exists for today when it runs, so the extraction flows must be scheduled ahead of it ([collection-accounting-handoff.md, "To confirm", item 1](../collection-accounting-handoff.md)).
 
 **Acceptance criteria.**
-1. Given `POST /admin/schedules` for each of the five main jobs with `timeZone:"Asia/Kolkata"`, `overlapPolicy:"skip"` and `graceSeconds`, then each reply carries `nextRunLocal` in `Asia/Kolkata`, and a schedule with `Local` or an empty zone is refused.
+1. Given `POST /admin/schedules` for each of the five main jobs with the group's `timeZone` (`Asia/Kolkata` or the Australian zone), `overlapPolicy:"skip"` and `graceSeconds`, then each reply carries `nextRunLocal` in `Asia/Kolkata`, and a schedule with `Local` or an empty zone is refused.
 2. Given a flow's run is still active when its next fire is due and the policy is `skip`, then no second run starts and the schedule's `lastStatus` is `Skipped`.
 3. Given the Orchestrator was down across a fire and restarts within `graceSeconds`, then exactly one run starts; beyond it, the fire is recorded as skipped and not replayed.
 4. Given a scheduled run ends `FAILED`, `TIMEDOUT` or never starts (`lastStatus` `Failed` or `Skipped`), then a mail is sent within 5 minutes to the configured operations recipients with the script id, schedule id, run id, state and the failure message, and no credential.
@@ -320,6 +320,8 @@ Paths in the evidence column are relative to `tracto/`.
 6. Given a flow's batch has 12 entities of which 2 failed, when the operator opens the run in the console, then the run record shows the batch id and the count done, failed and pending, and a link or call to read the per-item list from the service.
 7. Given `GET /jobs?limit=&state=` and the Completed view, then runs triggered by a schedule appear with `triggerType:"Schedule"` and a failed one is flagged.
 8. Given flow 3 or 4 is scheduled after flow 2, then the schedule times leave the configured gap, or flow 2's completion starts them (G2.4), and the schedule list shows the order.
+9. Given the schedules, then they match today's UiPath triggers: flow 2 Indian at 10:00 and International at 05:45 Australian time; flow 4 International at 05:49; flow 1 Indian at 11:00 and 11:30 and International at 07:00 Australian time; flow 5 at 07:55 Australian time.
+10. Given the Indian extraction (flows 3 and 4), then it has no schedule: the SPOC starts it with Run now, as they start it by hand in UiPath Assistant today. The Indian run of collection accounting has no schedule either: a person starts it from the web page.
 
 **Tasks.**
 | ID | Task | Notes |
@@ -336,6 +338,8 @@ Paths in the evidence column are relative to `tracto/`.
 - Run times per flow: the process owner sets them; the loader's run time is not known ([collection-accounting-handoff.md, "To confirm", item 1](../collection-accounting-handoff.md)).
 - A completed schedule view lists finished runs; whether a batch with failed items but a `SUCCEEDED` main job counts as a failure for notification purposes (the main job succeeds when the service accepts the batch).
 - Event-triggered starts are not built (`docs/scheduling.md`, "Not covered").
+- The time zone of the Indian times, the days of the week of each trigger, and the exact Australian zone ([open-questions.md](../open-questions.md), q90, q114, q11). Whether the Indian extraction stays a Run now or follows flow 2 (q91), and the SPOC's console account.
+- The International mail monitoring and PDF extraction packages, if they are not the Indian ones with International configuration (q113).
 
 ---
 

@@ -26,7 +26,7 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 | 4 | Whether Tracto runs on the UiPath robot's machine, with access to its folders and batch files | 89 |
 | 5 | Mailboxes, mail server, and `Mail.Read` / `Mail.Send` for the app registration | 31, 34 |
 | 6 | Test databases and a test Oracle Fusion / Magic xpi endpoint | 95 |
-| 7 | `run_Bank_bot.bat` (the Indian fetch bot), and who extends `MSS_SXP_BotRun.xlsx` past 31 December 2026 | 3, 19 |
+| 7 | The bank statement window: two calendars that disagree, a note row that stops the fetch bots, the Indian fetch bot on the International calendar, and who extends both files past 31 December 2026 | 3, 115, 116, 117 |
 | 8 | The PDF password list and its owner | 63 |
 | 9 | Which side is live per flow during the parallel run, and what decides the switch | 93, 94 |
 | 10 | Which spreadsheets `India.Excel.Extraction` processes (`XLS\` folder or `PA_` copies) | 37 |
@@ -54,13 +54,13 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 ## 2. `BankAvailCheck`
 
-19. `BankAvailCheck` writes the entity name into `E:\Automation\Data\Config\BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then runs `C:\xampp\htdocs\prod\run_Bank_bot.bat`. The International fetch bots are copies of the collection accounting code that run only the download: they read the entity from cell `A2` of `BankMasterInternational.xlsx`, ask Oracle Fusion which accounts have a statement, write `{entity}_check\bank_statements_check.xlsx`, and download the statement only when every account has one. Is `run_Bank_bot.bat` the same kind of copy for the Indian entities? Please share it, the code folder it runs, and where that copy takes its date window from.
-20. Can that fetch bot take the entity name as a command-line argument instead of reading cell `A2`? If not, entities must be fetched one at a time.
-21. When the fetch bot ends with exit code 0, does that mean the statements were downloaded, or only that the script finished? The International fetch bots end with 0 and mark their run successful even after an error.
+19. `BankAvailCheck` writes the entity name into `E:\Automation\Data\Config\BankMaster.xlsx`, sheet `EntitySelected`, cell `A2`, then runs `C:\xampp\htdocs\prod\run_Bank_bot.bat`. The International fetch bots are copies of the collection accounting code that run only the download: they read the entity from cell `A2` of `BankMasterInternational.xlsx`, ask Oracle Fusion which accounts have a statement, write `{entity}_check\bank_statements_check.xlsx`, and download the statement only when every account has one. `run_Bank_bot.bat` runs `C:\xampp\htdocs\prod\collectionaccountingBankCheck\bot_run.py`, the same kind of copy, with the database `collection_accounting_bankcheck`. Is the supplied folder the code that runs today?
+20. The fetch bots take no command-line argument; the entity comes from cell `A2`. May the code be changed to take the entity as an argument? If not, entities must be fetched one at a time.
+21. All three fetch bots end with exit code 0 and mark their run successful even after an error, so Tracto takes the folder check after the run as the result. Is any other signal from the fetch bot used today, for example its `bot_run` row?
 22. How long may one entity's fetch take before it should be treated as failed?
 23. Is it safe to run the fetch twice for the same entity on the same day? The Python download deletes and recreates the entity's date folder before it downloads.
 24. The Python download writes the statement to `C:\Automation\Data\Input\Statements1\BankStatements\{dd MMM yyyy}\{entity}\` with today's date from its machine clock, whatever the download window in `download_time_config` is. `BankAvailCheck` checks the same folder for today. Is the statement for a day always downloaded on that same day, or can it arrive later under a later date folder?
-25. For the International entities the fetch bot writes `{entity}_check\bank_statements_check.xlsx` (one row per bank account with `AVAILABLE` `Y` or `N`) on every run. Is the Indian check workbook written the same way, by `run_Bank_bot.bat`?
+25. Every fetch bot writes `{entity}_check\bank_statements_check.xlsx` (one row per bank account with `AVAILABLE` `Y` or `N`). The Indian copy reads it back without testing that it exists. Should Tracto treat a missing check workbook as a failed fetch for that entity?
 26. The unavailable-accounts table is headed "Bank Account Number" but holds the value of `BANK_ACCOUNT_NAME`. Which one does the operations team want to see?
 27. Today every unavailable-accounts mail goes to the DTSS recipients, whichever entity is missing statements. Should each entity's mail go to that entity's own recipients? Should the DTSS recipients stay in copy?
 28. ONESIS has no recipient key in `MasterConfig.xlsx`. Who should receive its mails?
@@ -143,11 +143,13 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 ## 8. Run times and cutover
 
-90. At what time should each process run, and in which time zone? The folder dates come from the run date.
-91. Should the two extraction processes start on their own schedule, or when the dispatcher finishes?
+90. The UiPath start times are: mail download Indian 10:00 and International 05:45 Australian time; extraction Indian by hand (a SPOC runs it from UiPath Assistant for all Indian entities) and International 05:49; bank check Indian 11:00 and 11:30, International 07:00 Australian time; International Bot 1 07:55. Are the Indian times India Standard Time? Why does the Indian bank check run twice: is the 11:30 run a second try for the entities still missing at 11:00? The folder dates come from the run date.
+91. The Indian extraction is started by hand by a SPOC. In Tracto the SPOC would press Run now in the Orchestrator console for flows 3 and 4. Should it stay by hand, or should Tracto start flows 3 and 4 for the Indian entities when the 10:00 mail download finishes? Does the SPOC need a Tracto console account?
 92. During the parallel run, the new process writes to a separate folder tree. Can the loader be pointed at that tree for a test load on a test database without changing the Python code?
 93. How many days of matching output are needed before switching over (the starting proposal is 10 working days with no unexplained difference)? Who stops the UiPath processes on the live path, and when?
 94. During the parallel run, only one side may start `bot_run.py` for an International entity on a day. Which side should, until cutover?
+113. The International mail monitoring (05:45) and PDF extraction (05:49): which UiPath packages are they? `MasterConfig_International.xlsx` names a separate download folder, `E:\Automation\International_CAwithPA\EmailPADispatcher-International\SourceDownload`. Are they `EmailPADispatcher` 1.0.10 and `Payment.Advice.Extraction` 1.0.57 run with the International configuration, or different code? If different, please share them.
+114. On which days of the week does each UiPath time trigger run (weekdays only, or every day), and in which time zone is each one set? A copy of the trigger list from UiPath Orchestrator answers both.
 95. Can we have a test copy of the MySQL databases `collection_accounting` and `ca_with_pa_sxp`, and a test Oracle Fusion / Magic xpi endpoint? Without them the collection accounting run can only be tested with stand-in batch files, never end to end before going live.
 
 ## 9. Extraction module team
@@ -167,13 +169,23 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 106. When an entity's statements are missing, the International check waits five minutes and tries again, with no limit: each try runs the fetch bot again and mails the bank-issue recipients again. How long should Tracto keep trying (a number of tries, or until a time of day)? Should the "not available" mail go out on every try, or once when Tracto stops trying?
 107. When an entity's statements are available, the check adds an empty item to the Orchestrator queue `{entity}_BankAvail_Success_Queue`. What reads that queue? Does it start `International_Bot1_SXP`, or anything else? In Tracto the same signal would be the entity's result in the bank check run.
-108. Both International fetch bots read the `SXP_Group` columns of `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`, so MSS-Security is fetched for Southern Cross Protection's window. Is that intended? Is `Bot_run_Configurations.xlsx` the same file as `MSS_SXP_BotRun.xlsx` (same columns), or a second copy kept in step by hand?
-109. The two fetch bots use their own databases, `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`, and stop at once when `active_bot_run_id` there is -1 or empty. What sets it in those two databases?
+108. Both International fetch bots read the `SXP_Group` columns of `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`, so MSS-Security is fetched for Southern Cross Protection's window. In that file the MSS columns equal the SXP columns today. Should MSS-Security have its own window?
+109. The fetch bots use their own databases, `collection_accounting_bankcheck` (Indian), `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`, and stop at once when `active_bot_run_id` there is -1 or empty. What sets it in those two databases?
 110. The fetch bot mails the bank statement lines it cannot identify, with `Unidentified.xlsx` attached, and writes that file into the Indian code folder `C:\xampp\htdocs\prod\collectionaccounting\`. Who receives that mail? Is the shared file location intended, given that the Indian and International bots can write it at the same time?
 111. The International check's "not available" mail says only "{entity} bank statement is not available, kindly check." The table of missing accounts is built but not sent. Should Tracto send the list of missing accounts, as the Indian check does?
 112. The International check reads its statements from `C:\xampp\htdocs\Statements1\BankStatements\`, the Indian one from `C:\Automation\Data\Input\Statements1\BankStatements\`. Do the International statements stay under the web server folder?
 
-## 11. Decisions for the Tracto team
+## 11. Fetch bot calendar and customer alias sheets
+
+115. Row 1 of the supplied `Bot_run_Configurations.xlsx` is a note ("These are the data uploaded by the SPOC who runs Bot manually…") above the column names. The fetch bots read the first row as column names, so with the note they find no `Current Date` column and fetch nothing. Is the note in the live file, or was it added for sharing? It also describes the customer alias data, not the calendar.
+116. `Bot_run_Configurations.xlsx` (fetch bots) and `MSS_SXP_BotRun.xlsx` (Bot 1) disagree on 112 days. The first covers Friday to Sunday on Monday and Monday on Tuesday, with a window on 25 and 26 December, 2 January and Easter Monday; the second covers Friday on Monday and Saturday to Monday on Tuesday, with no window on those holidays. Which rule is right? Should both programs read one file? Who keeps them, and who extends them past 31 December 2026?
+117. The Indian fetch bot reads its window from the International file `Bot_run_Configurations.xlsx`, columns `SXP_Group`. Is that intended, or should the Indian entities have their own window?
+118. The fetch bots loop over `selected_entities` in their database, but every pass fetches the entity in `EntitySelected!A2`. What does `selected_entities` hold in each bank-check database?
+119. The Indian fetch bot reads the Oracle Fusion entity name from the `alias` setting in its database, while the International copies have it written into the code. Please share the `alias` value (names only), so Tracto's entity table can hold the same names.
+120. In the customer alias sheets, APS and SMC have `Customer Code (Oracle)` instead of `account_number` and load with an empty account number. There are two SSMS files: `Customer_Alias_ SSMS.xlsx` (472 rows) and `Customer_Alias_SSMS.xlsx` (one column, loads nothing). Which SSMS file is current, and should APS and SMC carry an account number? Is a sheet always truncated before it is uploaded again (the upload does not skip duplicates)?
+121. Three lists map customer names: the customer alias sheets (bank statement names, for collection accounting), `Customers List.xlsx` (mail body names, for the dispatcher) and `Validation Station.xlsx` (International keywords). The alias sheets have a `customer_name_as_per_email_body` column that the upload does not store. Should the dispatcher in Tracto take its customer names from the alias data, so that there is one list per entity?
+
+## 12. Decisions for the Tracto team
 
 - Queue for work items: a SQLite table (the working default) or a sheet.
 - Which Go module hosts each start endpoint and the work-item store.

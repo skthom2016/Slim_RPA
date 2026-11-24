@@ -51,7 +51,10 @@ C:\Automation\Data\Input\Statements1\BankStatements\
   {date}\{entity}\                      flow 1: the folder's existence means "available"
   {date}\{entity}_check\bank_statements_check.xlsx   flow 1: per-account check
 
-C:\xampp\htdocs\prod\run_Bank_bot.bat  flow 1: the fetch bot
+C:\xampp\htdocs\prod\
+  run_Bank_bot.bat                      flow 1: the Indian fetch bot
+  collectionaccountingBankCheck\       its code, database collection_accounting_bankcheck
+  collectionaccounting\Unidentified.xlsx   written by all three fetch bots
 ```
 
 ## Flow 1: BankAvailCheck
@@ -99,7 +102,7 @@ E:\Automation\International_CAwithPA\
   Config\
     MasterConfig.xlsx                   read by the Python code (sheet Settings)
     MSS_SXP_BotRun.xlsx                 bank statement date window, one row per day, filled to 31 Dec 2026
-    Bot_run_Configurations.xlsx         the same columns, read by the International fetch bots
+    Bot_run_Configurations.xlsx         another calendar, different rule, read by all three fetch bots
     BankMasterInternational.xlsx        bank accounts per entity; EntitySelected!A2 = entity to fetch
   InternationalBankCheck\
     run_Bank_bot_MSS-Security.bat                 run by InternationalBankAvailCheck

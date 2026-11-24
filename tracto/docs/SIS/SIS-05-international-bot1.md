@@ -136,12 +136,35 @@ One gap is not covered cleanly: 7 April 2026 repeats the window of 3 April (2 Ap
 
 Until 1 December 2025 Monday covered Friday to Sunday and Tuesday only Monday. In December 2025 the MSS columns kept that older pattern on 31 rows while the SXP columns moved to the new one.
 
+### The fetch bots' calendar: `Bot_run_Configurations.xlsx`
+
+The three bank-check fetch bots (Indian, MSS-Security, Southern-Cross-Protection) read `E:\Automation\International_CAwithPA\Config\Bot_run_Configurations.xlsx`, not `MSS_SXP_BotRun.xlsx`. It has the same five columns and the same dates, 1 November 2025 to 31 December 2026, but it is a separate file with a different rule:
+
+| Run day | `Bot_run_Configurations.xlsx` (fetch bots) | `MSS_SXP_BotRun.xlsx` (Bot 1) |
+|---|---|---|
+| Monday | Friday to Sunday | The previous Friday |
+| Tuesday | Monday | Saturday to Monday |
+| Wednesday to Friday | The day before | The day before |
+| Saturday, Sunday | No window | No window |
+| 25 and 26 December 2025, 2 January 2026, Easter Monday 6 April 2026 | A window (the day before) | No window |
+| `MSS_Group` columns | Identical to `SXP_Group` on every row | Differ on 31 rows in December 2025 |
+
+The two files disagree on 112 days. The fetch bots' file has its own irregular rows: 29 December 2025 covers 24 to 28 December, 31 December 2025 covers itself, 2 January 2026 covers 31 December to 1 January, 7 April 2026 repeats 2 April, and 28 April, 9 June and 6 October 2026 cover Friday to Monday after a Monday that already had a window.
+
+Three consequences:
+
+- **The bank check and Bot 1 look at different days.** On a Monday the bank check confirms the weekend's statements; Bot 1 downloads them only on Tuesday.
+- **Row 1 of the supplied copy is a note,** not the column names. The fetch bots read the first row as column names, so with that row they find no `Current Date` column, print the error and fetch nothing, while still ending successfully.
+- **The Indian fetch bot reads this file too,** so the Indian bank statements are fetched for the International calendar ([SIS-01](SIS-01-bank-avail-check.md#the-indian-fetch-bot)).
+
+In Tracto the window is one rule per entity group with a holiday list, and the run record states which window was used, so the bank check and the collection accounting run cannot drift apart unnoticed.
+
 Two consequences for flow 5:
 
 - **The calendar ends on 31 December 2026.** From 1 January 2027 there is no row, so Bot 1 skips the bank statement and every run mails "Bank Statement Report was not downloaded" until someone extends the file. Tracto checks the row before starting the run (it already does) and warns when fewer than 30 days are left.
 - **An empty row is a day without a window.** On a weekend or holiday the row exists but is empty, which Bot 1 treats like a missing row. Tracto treats both the same way: the run is not started, and the mail says there is no bank statement window for today.
 
-The International fetch bots of the bank check read the same columns from `Bot_run_Configurations.xlsx` in the same folder ([SIS-01](SIS-01-bank-avail-check.md#the-international-bank-availability-check)).
+The bank-check fetch bots read the same columns from the other calendar, `Bot_run_Configurations.xlsx` (above).
 
 ### What SIS has confirmed
 

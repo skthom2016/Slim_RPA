@@ -16,7 +16,7 @@ Both groups go through the same boxes. What differs is held on each entity's row
 | Retry when still missing | None: tried once | Every five minutes, up to a limit still to be agreed |
 | Recipients | Each entity's own | Each entity's own (`_receiverID`, `_bank_issue_receiverID`, `_receiverID_CC`) |
 
-A fetch bot is an existing Python program, a copy of the collection accounting code that only downloads. It reads the entity from cell `A2` of the bank workbook, asks Oracle Fusion which accounts have a statement, writes that answer to a check workbook, and downloads the statement into the entity's folder only if every account has one. It always ends with exit code 0, even after an error, so the folder check after it is the real result.
+A fetch bot is an existing Python program, a copy of the collection accounting code that only downloads; the Indian one runs `C:\xampp\htdocs\prod\collectionaccountingBankCheck\bot_run.py`. It reads the entity from cell `A2` of the bank workbook, asks Oracle Fusion which accounts have a statement, writes that answer to a check workbook, and downloads the statement into the entity's folder only if every account has one. It always ends with exit code 0, even after an error, so the folder check after it is the real result.
 
 ## What has to exist for this flow
 
@@ -32,7 +32,7 @@ A fetch bot is an existing Python program, a copy of the collection accounting c
 
 | Box | What happens | Who does it |
 |---|---|---|
-| **Orchestrator schedule fires** (green) | The schedule starts the flow on weekday mornings, before statement processing. A person can also press Run now. | Orchestrator |
+| **Orchestrator schedule fires** (green) | Indian entities at 11:00 and 11:30, International at 07:00 Australian time, as in UiPath today. A person can also press Run now. | Orchestrator |
 | **Desktop runtime runs bankcheck-main** (purple) | The main job makes one call to the Go API to start the bank check. The Go API answers "accepted" at once and the job ends. | Desktop runtime |
 | **Read the settings and the entity table** | The Go API reads the list of entities (Indian and International rows), and for each one its statement folder root, bank workbook, fetch bot, recipients and retry setting. Today's date is taken in the schedule's time zone, so the folder name is right even if the machine clock is in another zone. | Go API, through the **Sheet API** (lavender box on the left: `MasterConfig.xlsx`, `BankMaster.xlsx`, `BankMasterInternational.xlsx`) |
 | **For each entity** (dark blue) | The start of the loop. Each entity gets its own result, so a problem with one does not stop the rest. | Go API |
@@ -58,4 +58,5 @@ A fetch bot is an existing Python program, a copy of the collection accounting c
 - One failing entity does not stop the others.
 - Each entity row says what differs: statement root, bank workbook, fetch bot, recipients and retry.
 - The fetch bots are console programs that always end with exit code 0, so the folder check after them is the result.
-- **Open:** the Indian `run_Bank_bot.bat` has not been supplied. For the International entities: how many tries, what reads the success queue today, and whether MSS-Security is to be checked at all.
+- All three fetch bots, Indian included, read their date window from `Bot_run_Configurations.xlsx`, a calendar with a different rule from the one flow 5 uses.
+- **Open:** which calendar rule is right, and whether the note in row 1 of the supplied calendar is in the live file. For the International entities: how many tries, what reads the success queue today, and whether MSS-Security is to be checked at all.

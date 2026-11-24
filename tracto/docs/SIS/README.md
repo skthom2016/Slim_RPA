@@ -51,9 +51,51 @@ mailboxes ──▶ 02 dispatcher ──┬──▶ 03 spreadsheet advices ─�
 
 01 bank availability runs alongside, ahead of the bank-statement processing
 collection accounting run (bot_run.py): Indian entities started from the web page (Start Process),
-                                         International Bot 1 started by 05,
+                                         International Bot 1 started by flow 5,
                                          International Bot 3 started from the web page (run-bot-sxp.php)
 ```
+
+## The daily chain: what starts each step
+
+The steps of one working day, in order. Bot 1 and Bot 3 are not UiPath processes: they are two International copies of the Python collection accounting program (`bot_run.py`), on the same server as the web page. The web page starts a copy by running it with `shell_exec` from a PHP file; UiPath starts one by running a batch file. Neither is an API call.
+
+| # | Step | Started today: Indian | Started today: International | In Tracto | Still open |
+|---|---|---|---|---|---|
+| 1 | **Mail download.** Read the customers' payment advice mails and save the attachments into dated folders | UiPath `EmailPADispatcher`, time trigger at 10:00 | UiPath International mail monitoring, time trigger at 05:45 Australian time | **Flow 2** (`maildispatch-main`): two schedules, Indian at 10:00 and International at 05:45 Australian time | Time zones and days of the week (q90, q11); the International mail monitoring package (q113); mailboxes and passwords (q2, q33) |
+| 2 | **Extraction.** Read the PDFs and spreadsheets and write `Extracted payment advices.xlsx` | By hand: a SPOC selects `Payment.Advice.Extraction` or `India.Excel.Extraction` in UiPath Assistant and clicks Run, for all Indian entities | UiPath PDF extraction, time trigger at 05:49 Australian time | **Flow 4** (PDF and image advices) and **flow 3** (Indian spreadsheet advices). Indian: the SPOC presses Run now in the Tracto console. International: flow 4 on a schedule at 05:49 | Whether the Indian start stays by hand or follows flow 2 (q91); the International package (q113); extraction service additions (q96–q99) |
+| 3 | **Bank check.** Check today's bank statement files have arrived; run the fetch bot for the missing ones | UiPath `BankAvailCheck`, time triggers at 11:00 and 11:30 | UiPath `InternationalBankAvailCheck`, time trigger at 07:00 Australian time, then every five minutes until available | **Flow 1** (`bankcheck-main`): Indian schedules at 11:00 and 11:30; International schedule at 07:00 Australian time, with its five-minute retry | Retry limit (q106); success queue (q107); MSS-Security (q13); the fetch bots' calendar (q115–q117); what the 11:30 run is for (q90) |
+| 4 | **Bot 1.** Load the advices into MySQL; download the bank statement and outstanding invoices from Oracle Fusion | Not separate: the Indian program does steps 4 and 5 in one run, started by a person from the web page (`run-bot.php`) | UiPath `International_Bot1_SXP`, time trigger at 07:55 Australian time, through `run_SXP_bot.bat` | **Flow 5** (`carun-main`): a schedule at 07:55 runs the same `run_SXP_bot.bat` and mails the result. The Indian run stays a person's click | Time zone (q11); what sets `active_bot_run_id` (q4); calendar after 31 Dec 2026 (q3); fixed time or after the bank check (q107) |
+| 5 | **Bot 3.** Match advice, bank line and invoice; create and apply receipts in Oracle Fusion; write the reconciliation reports | See step 4 | A person, from the web page (`run-bot-sxp.php`) | **No change.** Stays a person's click, outside Tracto | Which page calls it, and whether it should be scheduled (q1) |
+
+The start times and who starts each step are confirmed by SIS. Still open: the time zone of the Indian times, the exact Australian zone, and the days of the week (q90, q11, q114). The International bank check starts at 07:00 and can keep retrying past 07:55, when Bot 1 starts on a fixed time (q107).
+
+## Files supplied and files still needed
+
+### Supplied
+
+| Kind | Files |
+|---|---|
+| UiPath packages | `BankAvailCheck` 1.0.4, `EmailPADispatcher` 1.0.10, `India.Excel.Extraction` 1.0.7, `Payment.Advice.Extraction` 1.0.57, `International_Bot1_SXP` 1.0.3, `InternationalBankAvailCheck` 1.0.1 |
+| Live batch files | `run_Bank_bot.bat` (Indian fetch bot), `run_Bank_bot_MSS-Security.bat`, `run_Bank_bot_Southern-Cross-Protection.bat` (International fetch bots); `run_SXP_bot.bat` as text in a message, not as the file |
+| Web page launchers | `run-bot.php` (Indian program), `run-bot-sxp.php` (Bot 3) |
+| Python code | Indian `collectionaccounting`; International `ca_international_SXP_1` (Bot 1) and `ca_international_SXP` (Bot 3); fetch bots `collectionaccountingBankCheck` (Indian), `collectionaccountingBankCheck_MSS` and `_SXP` |
+| Web application | `ca_with_pa` (PHP) |
+| Workbooks | `MasterConfig.xlsx`, `MasterConfig_International.xlsx`, `BankMaster.xlsx`, `BankMasterInternational.xlsx`, `MSS_SXP_BotRun.xlsx`, `Bot_run_Configurations.xlsx`, `Validation Station.xlsx` |
+| Customer alias sheets | `Customer_Alias_<entity>.xlsx` for 15 Indian entities, uploaded by the SPOC through the web page ([configuration-workbooks.md](configuration-workbooks.md#the-customer-alias-sheets)) |
+| Database | Structure of the Indian database `collection_accounting` (`.sql`) |
+
+The `run_bot.bat` inside each Python code folder points at a developer path (`D:\Python\...`) and is not the file the live system runs.
+
+### Still needed
+
+| File or answer | Why | Question |
+|---|---|---|
+| The International mail monitoring and PDF extraction packages, if they differ from the Indian ones | Flows 2 and 4 for the International entity | q113 |
+| The days of the week and time zone of each UiPath trigger | The cron of every schedule | q114 |
+| `run_SXP_bot.bat` as the file | Only the text has been shared; enough to proceed | none |
+| Whether row 1 of `Bot_run_Configurations.xlsx` (a note) is in the live file, and which of the two calendars is right | The window every fetch bot reads | q115, q116 |
+| Structure of `ca_with_pa_sxp` and the three bank-check databases | Duplicate handling and `active_bot_run_id` | q5, q109 |
+| The page or button that calls `run-bot-sxp.php` | How Bot 3 is prepared and started | q1 |
 
 ## What they have in common
 

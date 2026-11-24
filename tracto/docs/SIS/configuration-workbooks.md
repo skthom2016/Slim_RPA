@@ -96,7 +96,7 @@ Southern Cross Protection (Australia, AUD) has a day folder, per-document workbo
 2. **Which version is live.** Whether the workbook or the packages are current, and the content of the `ExcelMappingPath` folder.
 3. **Where each entity's mailbox credentials are kept.** They are Orchestrator assets named `{entity}_{AssetCredentialName}`; Tracto needs them as `${secret:NAME}` on the worker.
 4. **Recipients for ONESIS,** which has none.
-5. **The fetch bot.** `run_Bank_bot.bat` and the code it runs are not in the supplied Python folder; whether it can take the entity as an argument and what its exit code means.
+5. **The fetch bot.** `run_Bank_bot.bat` runs a download-only copy of the collection accounting code ([SIS-01](SIS-01-bank-avail-check.md#the-indian-fetch-bot)). It takes no argument and always ends with exit code 0.
 6. **The International workbooks.** `MasterConfig_International.xlsx`, `BankMasterInternational.xlsx` and `Validation Station.xlsx` are described below; which of the two International `MasterConfig.xlsx` locations the supplied copy comes from is open ([SIS-05](SIS-05-international-bot1.md)).
 
 ## The International workbooks
@@ -107,7 +107,8 @@ Southern Cross Protection is the only International entity today. Its configurat
 |---|---|
 | `MasterConfig_International.xlsx` | `Settings`: the UiPath framework keys, `Entity` = `MSS-Security,Southern-Cross-Protection`, `PriorityEntity_1` = `Southern-Cross-Protection`, trackers under `E:\Automation\Tracker\International\`, `PaymentAdvicesFolderPath` = `E:\Automation\Data\Input\International\Payment Advices` and `PaymentAdvicesExtractionFolderPath` = `E:\Automation\Data\Input\International\Statements\ExtractedPaymentAdvices` (not the tree the loader reads). `EmailDetails`: the sender, recipients, CC, bank-issue and API-down recipients for MSS-Security, Southern-Cross-Protection, Henderson-Security-Services and Henderson-Technologies (MSS-Security has no API-down key). `InboxMonitor`: the International dispatcher's download folder and mail counts for nine International entities. `PDF Extraction`: `EntityNameForCurrentRun` = `Southern-Cross-Protection`. The other sheets are copies of the Indian ones |
 | `BankMasterInternational.xlsx` | The `BankMaster.xlsx` layout: one sheet per entity listing `BANK_ACCOUNT_NAME` (MSS-Security two accounts, Southern-Cross-Protection four) and `EntitySelected` `A2` = `Southern-Cross-Protection`. Used by `InternationalBankAvailCheck`, which writes `A2`, and by the International fetch bots, which read it ([SIS-01](SIS-01-bank-avail-check.md#the-international-bank-availability-check)) |
-| `MSS_SXP_BotRun.xlsx` | `Sheet1`: `Current Date`, then a start and end date for `SXP_Group` and for `MSS_Group`, all text `yyyy-MM-dd`, one row per day from 1 November 2025 to 31 December 2026; empty on weekends and some holidays. Bot 1 reads the SXP columns for its bank statement window ([SIS-05](SIS-05-international-bot1.md#the-date-window-workbook)); the fetch bots read the same columns from `Bot_run_Configurations.xlsx` |
+| `MSS_SXP_BotRun.xlsx` | `Sheet1`: `Current Date`, then a start and end date for `SXP_Group` and for `MSS_Group`, all text `yyyy-MM-dd`, one row per day from 1 November 2025 to 31 December 2026; empty on weekends and some holidays. Bot 1 reads the SXP columns for its bank statement window ([SIS-05](SIS-05-international-bot1.md#the-date-window-workbook)) |
+| `Bot_run_Configurations.xlsx` | The same five columns and dates, with a different rule: Monday covers Friday to Sunday, Tuesday covers Monday, holidays have a window, and the MSS columns equal the SXP columns. Read by all three bank-check fetch bots, Indian included. Row 1 of the supplied copy is a note, which the bots would read as the column names ([SIS-05](SIS-05-international-bot1.md#the-fetch-bots-calendar-bot_run_configurationsxlsx)) |
 | `Validation Station.xlsx` | One sheet, 5,089 rows: `Customer Name`, `Keyword`, `Entity` (Southern-Cross-Protection 3,348, MSS-Security 1,741), then unlabelled columns: a date (31.10.2022 to 28/5/25) on most rows, and notes such as `Customer name`, `Added Inv and amount`, `No Customer name` |
 
 About `Validation Station.xlsx`:
@@ -119,3 +120,27 @@ About `Validation Station.xlsx`:
 Tracto imports it once into the customer keyword table, de-duplicated, with a row per keyword and entity. Keyword rows with no customer name are listed for SIS rather than guessed.
 
 The International `MasterConfig.xlsx` holds an application secret, four mailbox passwords and the API password in clear text. They are not copied, and are to be rotated (H3).
+
+## The customer alias sheets
+
+One workbook per entity, `Customer_Alias_<entity>.xlsx`: AMRS, APS, DTSS, One SIS, PFS, RARE, SIS, SISCASH, SISCOCASH, SLV, SMC, SSMS, Terminix, TSIS and USSP. A SPOC uploads each one through the collection accounting web page (Customer Alias, Upload), which runs `customer_alias_populator.py` and inserts every row into the MySQL table `customer_alias`. A Truncate action on the same page empties one entity first.
+
+Collection accounting uses the table to recognise a customer on a bank statement line: the name in the statement's `Additional Entry Info` is matched against `customer_name_as_per_bankstatement` (a substring match), which gives `customer_name_as_per_erp` and `account_number` in Oracle Fusion. A line with no match goes into `Unidentified.xlsx`.
+
+| Column | Stored | Filled in the sheets |
+|---|---|---|
+| `customer_name_as_per_erp` | Yes; a row without it is skipped | Almost every row |
+| `customer_name_as_per_bankstatement` | Yes | Almost every row |
+| `customer_name_as_per_payment_advice` | Yes | 34 rows across all sheets |
+| `customer_name_as_per_email_body` | No | 30 rows across all sheets |
+| `account_number` | Yes | Every sheet except APS and SMC |
+| `entity` | Yes | Every row |
+
+What the supplied sheets show:
+
+- **Sizes differ widely:** SIS 16,172 rows (two entity values), DTSS 2,757, SMC 2,265, APS 2,060, down to 35 for One SIS and TSIS.
+- **APS and SMC have `Customer Code (Oracle)` instead of `account_number`,** so they load with an empty account number.
+- **There are two SSMS files.** `Customer_Alias_ SSMS.xlsx` has the full layout and 472 rows; `Customer_Alias_SSMS.xlsx` has one column, `SSMS`, and loads nothing.
+- **Uploading a sheet twice doubles its rows.** The duplicate check in the populator is commented out, so the entity has to be truncated first.
+
+The sheets belong to collection accounting and stay with the web page. None of the five flows reads them. They overlap with the dispatcher's `Customers List.xlsx` and the International `Validation Station.xlsx`, which also map customer names (open questions 120 and 121).

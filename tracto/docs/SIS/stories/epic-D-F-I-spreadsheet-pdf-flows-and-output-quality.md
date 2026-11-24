@@ -626,5 +626,5 @@ Shapes and expected output (the shapes are those seen; values are invented):
 - A6 appending write: not used for the hand-off workbook (written once by I3.3); available for trackers.
 - C2, C3 (flow 2 filing and work items): D1 reads the `PA_{entity}` files and F1 reads `PDF_JPEG\` items; mailbox noise (R11) is theirs.
 - E1 (locked, image and scan handling), E2 (splitting), E3 (International schema, `advice_number`, the "not a payment advice" answer, numeric confidence), E4 (colours), E5 (assembly), E6 (503 and 504 codes), E7 (scoring harness used by F3.6, F4.5 and I6.5).
-- G1 (main jobs `excelextract-main`, `padvice-main`), G2 (schedules with time zone: D1.7; ordering ahead of the loader).
+- G1 (main jobs `excelextract-main`, `padvice-main`), G2 (schedules with time zone: D1.7; ordering ahead of the loader). Indian runs are started by the SPOC with Run now; flow 4 International is scheduled at 05:49 Australian time.
 - H1 (profile, column map, customer rules and recipient templates): the sheets named in D1, D2, F1, I1 and F4.

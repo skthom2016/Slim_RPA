@@ -20,7 +20,7 @@
 
 | Box | What happens | Who does it |
 |---|---|---|
-| **Orchestrator schedule fires** (green) | For the International entity at 05:49 Australian time; the Indian time is to be confirmed. Or Run now. | Orchestrator |
+| **Orchestrator schedule fires** (green) | For the International entity at 05:49 Australian time. For the Indian entities a SPOC starts it by hand today, so in Tracto the SPOC presses Run now. | Orchestrator |
 | **Desktop runtime runs padvice-main** (purple) | One call to the Go API; the job ends at once. | Desktop runtime |
 | **Load the entity profiles, customer rules and keyword list** | The layout each entity's workbook needs, the rules for particular customers, and the keyword list used to recognise customer names. | Go API, through the **Sheet API** |
 | **Claim the next pending PDF / JPEG work item** (dark blue) | Start of the loop: take the next document flow 2 filed, one at a time. "Claim" means no other run can take the same document. | Go API, through the **Go work-item API** (box on the right) |
