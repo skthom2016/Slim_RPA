@@ -1,11 +1,12 @@
 package process
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver
+	"tracto/sheet-service/internal/pg"
 )
 
 // Batch states.
@@ -31,57 +32,39 @@ const (
 // ErrNotFound means no batch has that id.
 var ErrNotFound = errors.New("batch not found")
 
-// Store keeps batch progress in a SQLite file of its own. The sheet-service's other database
-// holds saved sign-ins, which have no business sharing a file with run data.
+// Store keeps batch progress in the process_batches and process_items tables.
 //
 // It holds no spreadsheet values: those are in the sheet. Only what a person needs to follow a
 // batch is kept: which rows, which child runs, and how each ended.
-type Store struct{ db *sql.DB }
+type Store struct {
+	db   *sql.DB
+	owns bool // the Store opened the pool itself and closes it
+}
 
-// OpenStore opens (creating when needed) the database at path.
-func OpenStore(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path)
+// NewStore wraps an open pool. The caller owns the pool.
+func NewStore(db *sql.DB) *Store { return &Store{db: db} }
+
+// OpenStore connects to the database (creating the schema and tables when needed). schema is
+// pg.Schema when empty.
+func OpenStore(ctx context.Context, url, schema string) (*Store, error) {
+	db, err := pg.OpenSheets(ctx, url, schema)
 	if err != nil {
 		return nil, err
 	}
-	// One connection: calls from the loop and from request handlers queue instead of colliding.
-	db.SetMaxOpenConns(1)
-	for _, stmt := range []string{
-		`PRAGMA busy_timeout = 30000`,
-		`CREATE TABLE IF NOT EXISTS process_batches (
-			id          TEXT PRIMARY KEY,
-			state       TEXT    NOT NULL,
-			source_path TEXT    NOT NULL,
-			sheet       TEXT    NOT NULL,
-			child       TEXT    NOT NULL,
-			total       INTEGER NOT NULL,
-			message     TEXT    NOT NULL DEFAULT '',
-			started_at  TEXT    NOT NULL,
-			finished_at TEXT    NOT NULL DEFAULT ''
-		)`,
-		`CREATE TABLE IF NOT EXISTS process_items (
-			batch_id   TEXT    NOT NULL,
-			row        INTEGER NOT NULL,
-			label      TEXT    NOT NULL DEFAULT '',
-			run_id     TEXT    NOT NULL DEFAULT '',
-			state      TEXT    NOT NULL,
-			message    TEXT    NOT NULL DEFAULT '',
-			updated_at TEXT    NOT NULL,
-			PRIMARY KEY (batch_id, row)
-		)`,
-	} {
-		if _, err := db.Exec(stmt); err != nil {
-			db.Close()
-			return nil, err
-		}
-	}
-	return &Store{db: db}, nil
+	return &Store{db: db, owns: true}, nil
 }
 
-// Close releases the database file.
-func (s *Store) Close() error { return s.db.Close() }
+// Close releases the pool when the Store opened it.
+func (s *Store) Close() error {
+	if s.owns {
+		return s.db.Close()
+	}
+	return nil
+}
 
-func now() string { return time.Now().UTC().Format(time.RFC3339) }
+func now() time.Time { return time.Now().UTC() }
+
+func stamp(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // BatchRecord is a batch as it is first stored.
 type BatchRecord struct {
@@ -103,13 +86,13 @@ func (s *Store) CreateBatch(b BatchRecord, items []ItemRecord) error {
 	defer tx.Rollback()
 	t := now()
 	if _, err := tx.Exec(
-		`INSERT INTO process_batches(id,state,source_path,sheet,child,total,started_at) VALUES(?,?,?,?,?,?,?)`,
+		`INSERT INTO process_batches(id,state,source_path,sheet,child,total,started_at) VALUES($1,$2,$3,$4,$5,$6,$7)`,
 		b.ID, BatchRunning, b.SourcePath, b.Sheet, b.Child, len(items), t); err != nil {
 		return err
 	}
 	for _, it := range items {
 		if _, err := tx.Exec(
-			`INSERT INTO process_items(batch_id,row,label,state,updated_at) VALUES(?,?,?,?,?)`,
+			`INSERT INTO process_items(batch_id,row_no,label,state,updated_at) VALUES($1,$2,$3,$4,$5)`,
 			b.ID, it.Row, it.Label, ItemPending, t); err != nil {
 			return err
 		}
@@ -119,11 +102,11 @@ func (s *Store) CreateBatch(b BatchRecord, items []ItemRecord) error {
 
 // SetBatchState moves a batch to a state. A state other than Running also stamps its end time.
 func (s *Store) SetBatchState(id, state, message string) error {
-	finished := ""
+	var finished any // NULL while the batch runs
 	if state != BatchRunning {
 		finished = now()
 	}
-	_, err := s.db.Exec(`UPDATE process_batches SET state=?, message=?, finished_at=? WHERE id=?`,
+	_, err := s.db.Exec(`UPDATE process_batches SET state=$1, message=$2, finished_at=$3 WHERE id=$4`,
 		state, message, finished, id)
 	return err
 }
@@ -131,9 +114,9 @@ func (s *Store) SetBatchState(id, state, message string) error {
 // SetItem records how far a row has got. An empty runID leaves the stored one alone.
 func (s *Store) SetItem(batchID string, row int, state, runID, message string) error {
 	_, err := s.db.Exec(
-		`UPDATE process_items SET state=?, message=?, run_id=CASE WHEN ?='' THEN run_id ELSE ? END, updated_at=?
-		 WHERE batch_id=? AND row=?`,
-		state, message, runID, runID, now(), batchID, row)
+		`UPDATE process_items SET state=$1, message=$2, run_id=CASE WHEN $3::text='' THEN run_id ELSE $3::text END, updated_at=$4
+		 WHERE batch_id=$5 AND row_no=$6`,
+		state, message, runID, now(), batchID, row)
 	return err
 }
 
@@ -174,17 +157,23 @@ type Batch struct {
 // Get returns a batch with its items in row order.
 func (s *Store) Get(id string) (*Batch, error) {
 	var b Batch
+	var started time.Time
+	var finished sql.NullTime
 	err := s.db.QueryRow(
-		`SELECT id,state,message,total,started_at,finished_at,source_path,sheet,child FROM process_batches WHERE id=?`, id).
-		Scan(&b.ID, &b.State, &b.Message, &b.Total, &b.StartedAt, &b.FinishedAt, &b.SourcePath, &b.Sheet, &b.Child)
+		`SELECT id,state,message,total,started_at,finished_at,source_path,sheet,child FROM process_batches WHERE id=$1`, id).
+		Scan(&b.ID, &b.State, &b.Message, &b.Total, &started, &finished, &b.SourcePath, &b.Sheet, &b.Child)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	b.StartedAt = stamp(started)
+	if finished.Valid {
+		b.FinishedAt = stamp(finished.Time)
+	}
 	rows, err := s.db.Query(
-		`SELECT row,label,run_id,state,message FROM process_items WHERE batch_id=? ORDER BY row`, id)
+		`SELECT row_no,label,run_id,state,message FROM process_items WHERE batch_id=$1 ORDER BY row_no`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -225,12 +214,12 @@ func (s *Store) InterruptRunning() (int, error) {
 	defer tx.Rollback()
 	t := now()
 	if _, err := tx.Exec(
-		`UPDATE process_items SET state=?, updated_at=? WHERE state=? AND batch_id IN (SELECT id FROM process_batches WHERE state=?)`,
+		`UPDATE process_items SET state=$1, updated_at=$2 WHERE state=$3 AND batch_id IN (SELECT id FROM process_batches WHERE state=$4)`,
 		ItemInterrupted, t, ItemRunning, BatchRunning); err != nil {
 		return 0, err
 	}
 	res, err := tx.Exec(
-		`UPDATE process_batches SET state=?, finished_at=?, message=? WHERE state=?`,
+		`UPDATE process_batches SET state=$1, finished_at=$2, message=$3 WHERE state=$4`,
 		BatchInterrupted, t, "the service restarted while this batch was running; start it again to continue", BatchRunning)
 	if err != nil {
 		return 0, err

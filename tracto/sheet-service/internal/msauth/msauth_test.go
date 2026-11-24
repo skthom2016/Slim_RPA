@@ -7,11 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"tracto/sheet-service/internal/pg/pgtest"
+	"tracto/sheet-service/internal/secretbox"
 )
 
 // fakeLogin imitates the Microsoft token endpoints used here.
@@ -96,11 +98,12 @@ func setup(t *testing.T) (*fakeLogin, *Store, Config) {
 	sleep = func(context.Context, time.Duration) error { return nil }
 	t.Cleanup(func() { sleep = realSleep })
 	f := newFakeLogin(t)
-	store, err := OpenStore(filepath.Join(t.TempDir(), "tokens.db"))
+	db, _, _ := pgtest.Sheets(t)
+	box, err := secretbox.New(secretbox.TestKey())
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { store.Close() }) // Windows cannot delete an open database file
+	store := NewStore(db, box)
 	return f, store, Config{Tenant: "tenant-1", ClientID: "app", LoginBase: f.srv.URL}
 }
 
@@ -208,8 +211,11 @@ func TestConfigFromEnv(t *testing.T) {
 	if _, _, err := ConfigFromEnv(get(map[string]string{"MS_TENANT_ID": "t"})); err == nil {
 		t.Fatal("client id is required")
 	}
-	cfg, db, err := ConfigFromEnv(get(map[string]string{"MS_TENANT_ID": "t", "MS_CLIENT_ID": "c"}))
-	if err != nil || cfg.Tenant != "t" || cfg.ClientID != "c" || db != DefaultDBFile {
-		t.Fatalf("got %+v %q %v", cfg, db, err)
+	if _, _, err := ConfigFromEnv(get(map[string]string{"MS_TENANT_ID": "t", "MS_CLIENT_ID": "c"})); err == nil {
+		t.Fatal("DATABASE_URL is required")
+	}
+	cfg, db, err := ConfigFromEnv(get(map[string]string{"MS_TENANT_ID": "t", "MS_CLIENT_ID": "c", "DATABASE_URL": "postgres://u@h/d", "SHEET_SERVICE_SCHEMA": "s"}))
+	if err != nil || cfg.Tenant != "t" || cfg.ClientID != "c" || db.URL != "postgres://u@h/d" || db.Schema != "s" {
+		t.Fatalf("got %+v %+v %v", cfg, db, err)
 	}
 }

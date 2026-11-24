@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +13,9 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"tracto/sheet-service/internal/msauth"
+	"tracto/sheet-service/internal/pg/pgtest"
 	"tracto/sheet-service/internal/process"
+	"tracto/sheet-service/internal/secretbox"
 )
 
 func workbook(t *testing.T) (path string) {
@@ -110,10 +113,12 @@ func TestBatch_MissingMicrosoftSignInIsUnauthorized(t *testing.T) {
 	t.Setenv("MS_ACCESS_TOKEN", "")
 	t.Setenv("MS_TENANT_ID", "tenant-1")
 	t.Setenv("MS_CLIENT_ID", "app")
-	db := filepath.Join(t.TempDir(), "tokens.db")
-	t.Setenv("SHEET_SERVICE_DB", db)
-	t.Cleanup(func() { // Windows cannot delete an open database file
-		if s, err := msauth.OpenStore(db); err == nil {
+	_, url, schema := pgtest.Sheets(t)
+	t.Setenv("DATABASE_URL", url)
+	t.Setenv("SHEET_SERVICE_SCHEMA", schema)
+	t.Setenv(secretbox.EnvKey, secretbox.TestKey())
+	t.Cleanup(func() { // the service opens its own pool; release it
+		if s, err := msauth.OpenStore(context.Background(), msauth.DBConfig{URL: url, Schema: schema}); err == nil {
 			s.Close()
 		}
 	})
@@ -239,11 +244,8 @@ func processHandler(t *testing.T) http.Handler {
 		}
 	}))
 	t.Cleanup(orch.Close)
-	store, err := process.OpenStore(filepath.Join(t.TempDir(), "batches.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { store.Close() })
+	db, _, _ := pgtest.Sheets(t)
+	store := process.NewStore(db)
 	m := process.NewManager(store, process.NewOrchestrator(orch.URL))
 	m.PollEvery = time.Millisecond
 	return NewWithProcess(m)

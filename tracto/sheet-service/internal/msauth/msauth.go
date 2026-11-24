@@ -22,7 +22,6 @@ const (
 	DefaultScope     = "https://graph.microsoft.com/Files.ReadWrite.All offline_access"
 	DefaultLoginBase = "https://login.microsoftonline.com"
 	DefaultName      = "default"
-	DefaultDBFile    = "sheet-service.db"
 
 	renewBefore = 5 * time.Minute
 )
@@ -40,18 +39,18 @@ type Config struct {
 	LoginBase string // DefaultLoginBase when empty
 }
 
-// ConfigFromEnv reads MS_TENANT_ID, MS_CLIENT_ID and the optional MS_SCOPES, and returns the
-// database path from SHEET_SERVICE_DB (default sheet-service.db in the working directory).
-func ConfigFromEnv(get func(string) string) (cfg Config, dbPath string, err error) {
+// ConfigFromEnv reads MS_TENANT_ID, MS_CLIENT_ID and the optional MS_SCOPES, and returns where
+// the sign-ins are kept: DATABASE_URL, in the schema named by SHEET_SERVICE_SCHEMA (default sheets).
+func ConfigFromEnv(get func(string) string) (cfg Config, db DBConfig, err error) {
 	cfg = Config{Tenant: get("MS_TENANT_ID"), ClientID: get("MS_CLIENT_ID"), Scope: get("MS_SCOPES")}
 	if cfg.Tenant == "" || cfg.ClientID == "" {
-		return cfg, "", fmt.Errorf("microsoft settings missing: set MS_TENANT_ID and MS_CLIENT_ID (or MS_ACCESS_TOKEN)")
+		return cfg, DBConfig{}, fmt.Errorf("microsoft settings missing: set MS_TENANT_ID and MS_CLIENT_ID (or MS_ACCESS_TOKEN)")
 	}
-	dbPath = get("SHEET_SERVICE_DB")
-	if dbPath == "" {
-		dbPath = DefaultDBFile
+	db = DBConfig{URL: get("DATABASE_URL"), Schema: get("SHEET_SERVICE_SCHEMA")}
+	if db.URL == "" {
+		return cfg, DBConfig{}, fmt.Errorf("DATABASE_URL is not set")
 	}
-	return cfg, dbPath, nil
+	return cfg, db, nil
 }
 
 func (c Config) endpoint(name string) string {

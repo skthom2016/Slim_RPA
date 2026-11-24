@@ -15,6 +15,7 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
+	"tracto/sheet-service/internal/pg/pgtest"
 	"tracto/sheet-service/internal/sheet"
 )
 
@@ -180,12 +181,8 @@ func request(path string) StartRequest {
 
 func manager(t *testing.T, f *fakeOrch) *Manager {
 	t.Helper()
-	dir := t.TempDir()
-	store, err := OpenStore(filepath.Join(dir, "batches.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { store.Close() })
+	db, _, _ := pgtest.Sheets(t)
+	store := NewStore(db)
 	m := NewManager(store, NewOrchestrator(f.srv.URL))
 	m.PollEvery, m.TimeoutUnit = 2*time.Millisecond, time.Millisecond
 	m.WriteRetries, m.WriteRetryWait = 1, time.Millisecond
@@ -476,11 +473,8 @@ func TestStart_RefusesASecondBatchOnTheSameSheetAndCancelStopsTheFirst(t *testin
 }
 
 func TestStore_InterruptRunningMarksWhatAPreviousProcessLeft(t *testing.T) {
-	store, err := OpenStore(filepath.Join(t.TempDir(), "b.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer store.Close()
+	db, _, _ := pgtest.Sheets(t)
+	store := NewStore(db)
 	if err := store.CreateBatch(BatchRecord{ID: "b1", SourcePath: "x", Sheet: "s", Child: "c@1"},
 		[]ItemRecord{{Row: 2}, {Row: 3}}); err != nil {
 		t.Fatal(err)

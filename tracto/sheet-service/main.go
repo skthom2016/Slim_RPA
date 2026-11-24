@@ -13,6 +13,7 @@ import (
 	"tracto/sheet-service/internal/envfile"
 	"tracto/sheet-service/internal/msauth"
 	"tracto/sheet-service/internal/process"
+	"tracto/sheet-service/internal/secretbox"
 )
 
 // loadEnv reads the .env file next to the executable, then the one in the working directory.
@@ -42,19 +43,19 @@ func login(args []string) {
 	name := fs.String("name", msauth.DefaultName, "name to save this sign-in under (a request picks it with \"connection\")")
 	_ = fs.Parse(args)
 
-	cfg, dbPath, err := msauth.ConfigFromEnv(os.Getenv)
+	cfg, dbc, err := msauth.ConfigFromEnv(os.Getenv)
 	if err != nil {
 		log.Fatal(err)
 	}
-	store, err := msauth.OpenStore(dbPath)
+	store, err := msauth.OpenStore(context.Background(), dbc)
 	if err != nil {
-		log.Fatalf("opening %s: %v", dbPath, err)
+		log.Fatalf("opening the database: %v", err)
 	}
 	defer store.Close()
 	if err := msauth.Login(context.Background(), store, cfg, *name, os.Stdout); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Signed in. Saved as %q in %s\n", *name, dbPath)
+	fmt.Printf("Signed in. Saved as %q in the database\n", *name)
 }
 
 func main() {
@@ -68,18 +69,19 @@ func main() {
 		port = "5090"
 	}
 
-	// Progress of batches that run a child job for each row is kept in a file of its own.
-	batchDB := os.Getenv("SHEET_SERVICE_BATCH_DB")
-	if batchDB == "" {
-		batchDB = "sheet-batches.db"
+	// Everything the service keeps lives in PostgreSQL (DATABASE_URL), in the sheets schema, and
+	// the stored Microsoft tokens are encrypted with TRACTO_SECRET_KEY. Refuse to start without
+	// either, rather than fail on the first request.
+	if _, err := secretbox.FromEnv(); err != nil {
+		log.Fatal(err)
 	}
-	store, err := process.OpenStore(batchDB)
+	store, err := process.OpenStore(context.Background(), os.Getenv("DATABASE_URL"), os.Getenv("SHEET_SERVICE_SCHEMA"))
 	if err != nil {
-		log.Fatalf("opening %s: %v", batchDB, err)
+		log.Fatalf("opening the database: %v", err)
 	}
 	defer store.Close()
 	if n, err := store.InterruptRunning(); err != nil {
-		log.Fatalf("checking %s: %v", batchDB, err)
+		log.Fatalf("checking the database: %v", err)
 	} else if n > 0 {
 		log.Printf("%d batch(es) were running when the service last stopped; marked Interrupted", n)
 	}

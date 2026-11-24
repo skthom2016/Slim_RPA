@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,6 +18,8 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"tracto/sheet-service/internal/msauth"
+	"tracto/sheet-service/internal/pg/pgtest"
+	"tracto/sheet-service/internal/secretbox"
 )
 
 // fakeGraph imitates the parts of Microsoft Graph the connector uses: the share lookup and the
@@ -311,18 +312,24 @@ func TestGraph_UsesTheSavedSignIn(t *testing.T) {
 	}))
 	t.Cleanup(login.Close)
 
-	db := filepath.Join(t.TempDir(), "tokens.db")
-	store, err := msauth.OpenStore(db)
+	db, url, schema := pgtest.Sheets(t)
+	t.Setenv(secretbox.EnvKey, secretbox.TestKey())
+	box, err := secretbox.New(secretbox.TestKey())
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { store.Close() })
+	store := msauth.NewStore(db, box)
+	t.Cleanup(func() { // the connector opens its own pool for the same schema; release it
+		if s, err := msauth.OpenStore(context.Background(), msauth.DBConfig{URL: url, Schema: schema}); err == nil {
+			s.Close()
+		}
+	})
 	_ = store.Put(context.Background(), msauth.Token{Name: "default", Tenant: "t1", ClientID: "app", Refresh: "saved-refresh", Expires: time.Now().Add(-time.Hour)})
 
 	retryWait = func(context.Context, time.Duration) error { return nil }
 	cfg := Config{
 		Path: "https://contoso.sharepoint.com/x.xlsx", Sheet: "Data", GraphBase: f.srv.URL, LoginBase: login.URL,
-		Env: env("MS_TENANT_ID", "t1", "MS_CLIENT_ID", "app", "SHEET_SERVICE_DB", db),
+		Env: env("MS_TENANT_ID", "t1", "MS_CLIENT_ID", "app", "DATABASE_URL", url, "SHEET_SERVICE_SCHEMA", schema),
 	}
 	src, err := Open(cfg)
 	if err != nil {

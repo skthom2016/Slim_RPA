@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver
+	"tracto/sheet-service/internal/pg"
+	"tracto/sheet-service/internal/secretbox"
 )
 
 // Token is one saved Microsoft connection: the refresh token that keeps it signed in and the
@@ -22,69 +23,90 @@ type Token struct {
 	Updated  time.Time
 }
 
-// Store keeps tokens in a SQLite file.
-type Store struct {
-	db   *sql.DB
-	path string
+// DBConfig says which PostgreSQL schema holds the saved sign-ins.
+type DBConfig struct {
+	URL    string // DATABASE_URL
+	Schema string // SHEET_SERVICE_SCHEMA; pg.Schema when empty
 }
 
-// Close releases the database file. The next OpenStore for the same path opens it again.
+func (c DBConfig) key() string { return c.URL + "\x00" + c.Schema }
+
+// Store keeps tokens in the ms_tokens table. The refresh and access tokens are credentials and
+// are encrypted before they are written.
+type Store struct {
+	db  *sql.DB
+	box *secretbox.Box
+	key string // cache key, empty when the Store was built with NewStore
+}
+
+// NewStore wraps an open pool. The caller owns the pool.
+func NewStore(db *sql.DB, box *secretbox.Box) *Store { return &Store{db: db, box: box} }
+
+// Close releases the pool of a Store made by OpenStore. The next OpenStore for the same database
+// opens it again. A Store made by NewStore leaves its pool to the caller.
 func (s *Store) Close() error {
-	stores.Delete(s.path)
+	if s.key == "" {
+		return nil
+	}
+	stores.Delete(s.key)
 	return s.db.Close()
 }
 
-var stores sync.Map // path -> *Store
+var stores sync.Map // DBConfig.key() -> *Store
 
-// OpenStore opens (creating when needed) the database at path. The same path always returns the
-// same Store within a process.
-func OpenStore(path string) (*Store, error) {
-	if s, ok := stores.Load(path); ok {
+// OpenStore connects to the database (creating the schema and tables when needed) and returns a
+// Store. The same database always returns the same Store within a process.
+func OpenStore(ctx context.Context, c DBConfig) (*Store, error) {
+	if s, ok := stores.Load(c.key()); ok {
 		return s.(*Store), nil
 	}
-	db, err := sql.Open("sqlite", path)
+	box, err := secretbox.FromEnv()
 	if err != nil {
 		return nil, err
 	}
-	// One connection: calls in this process queue up, and BEGIN IMMEDIATE below makes other
-	// processes wait for the file lock instead of failing.
-	db.SetMaxOpenConns(1)
-	for _, stmt := range []string{
-		`PRAGMA busy_timeout = 30000`,
-		`CREATE TABLE IF NOT EXISTS ms_tokens (
-			name           TEXT PRIMARY KEY,
-			tenant         TEXT    NOT NULL,
-			client_id      TEXT    NOT NULL,
-			refresh_token  TEXT    NOT NULL,
-			access_token   TEXT    NOT NULL DEFAULT '',
-			access_expires INTEGER NOT NULL DEFAULT 0,
-			updated_at     INTEGER NOT NULL
-		)`,
-	} {
-		if _, err := db.Exec(stmt); err != nil {
-			db.Close()
-			return nil, err
-		}
+	db, err := pg.OpenSheets(ctx, c.URL, c.Schema)
+	if err != nil {
+		return nil, err
 	}
-	actual, _ := stores.LoadOrStore(path, &Store{db: db, path: path})
-	return actual.(*Store), nil
+	s := &Store{db: db, box: box, key: c.key()}
+	if actual, loaded := stores.LoadOrStore(c.key(), s); loaded {
+		db.Close()
+		return actual.(*Store), nil
+	}
+	return s, nil
 }
 
-// Get returns the saved token for name, or nil when there is none.
-func (s *Store) Get(ctx context.Context, name string) (*Token, error) {
+const selectToken = `SELECT name, tenant, client_id, refresh_token, access_token, access_expires, updated_at
+	FROM ms_tokens WHERE name = $1`
+
+type queryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// load reads and decrypts the token called name; nil when there is none.
+func (s *Store) load(ctx context.Context, q queryer, name string) (*Token, error) {
 	var t Token
-	var exp, upd int64
-	err := s.db.QueryRowContext(ctx,
-		`SELECT name, tenant, client_id, refresh_token, access_token, access_expires, updated_at FROM ms_tokens WHERE name = ?`, name).
-		Scan(&t.Name, &t.Tenant, &t.ClientID, &t.Refresh, &t.Access, &exp, &upd)
+	var refresh, access string
+	err := q.QueryRowContext(ctx, selectToken, name).
+		Scan(&t.Name, &t.Tenant, &t.ClientID, &refresh, &access, &t.Expires, &t.Updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	t.Expires, t.Updated = time.Unix(exp, 0), time.Unix(upd, 0)
+	if t.Refresh, err = s.box.Open(refresh); err != nil {
+		return nil, err
+	}
+	if t.Access, err = s.box.Open(access); err != nil {
+		return nil, err
+	}
 	return &t, nil
+}
+
+// Get returns the saved token for name, or nil when there is none.
+func (s *Store) Get(ctx context.Context, name string) (*Token, error) {
+	return s.load(ctx, s.db, name)
 }
 
 // Put saves t, replacing any token with the same name.
@@ -92,57 +114,47 @@ func (s *Store) Put(ctx context.Context, t Token) error {
 	return s.Locked(ctx, t.Name, func(*Token) (*Token, error) { return &t, nil })
 }
 
-// Locked runs fn while holding the database write lock, so two processes never refresh the same
-// connection at once. fn receives the current token (nil when none) and returns the token to save,
-// or nil to leave it unchanged. Nothing is saved when fn fails.
+// Locked runs fn while holding a lock on the sign-in called name, so two processes never refresh
+// the same connection at once (a refresh token is single use). fn receives the current token (nil
+// when none) and returns the token to save, or nil to leave it unchanged. Nothing is saved when
+// fn fails. The lock is a transaction-level advisory lock: it is released at commit or rollback,
+// including when the process dies.
 func (s *Store) Locked(ctx context.Context, name string, fn func(cur *Token) (*Token, error)) error {
-	conn, err := s.db.Conn(ctx)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
-		return err
-	}
-	done := false
-	defer func() {
-		if !done {
-			_, _ = conn.ExecContext(context.Background(), `ROLLBACK`)
-		}
-	}()
-
-	var cur *Token
-	var t Token
-	var exp, upd int64
-	err = conn.QueryRowContext(ctx,
-		`SELECT name, tenant, client_id, refresh_token, access_token, access_expires, updated_at FROM ms_tokens WHERE name = ?`, name).
-		Scan(&t.Name, &t.Tenant, &t.ClientID, &t.Refresh, &t.Access, &exp, &upd)
-	switch {
-	case err == nil:
-		t.Expires, t.Updated = time.Unix(exp, 0), time.Unix(upd, 0)
-		cur = &t
-	case !errors.Is(err, sql.ErrNoRows):
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext('ms_tokens:' || $1))`, name); err != nil {
 		return err
 	}
 
+	cur, err := s.load(ctx, tx, name)
+	if err != nil {
+		return err
+	}
 	next, err := fn(cur)
 	if err != nil {
 		return err
 	}
 	if next != nil {
-		_, err := conn.ExecContext(ctx, `INSERT INTO ms_tokens (name, tenant, client_id, refresh_token, access_token, access_expires, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(name) DO UPDATE SET tenant = excluded.tenant, client_id = excluded.client_id,
+		refresh, err := s.box.Seal(next.Refresh)
+		if err != nil {
+			return err
+		}
+		access, err := s.box.Seal(next.Access)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO ms_tokens (name, tenant, client_id, refresh_token, access_token, access_expires, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (name) DO UPDATE SET tenant = excluded.tenant, client_id = excluded.client_id,
 				refresh_token = excluded.refresh_token, access_token = excluded.access_token,
 				access_expires = excluded.access_expires, updated_at = excluded.updated_at`,
-			next.Name, next.Tenant, next.ClientID, next.Refresh, next.Access, next.Expires.Unix(), time.Now().Unix())
+			next.Name, next.Tenant, next.ClientID, refresh, access, next.Expires.UTC(), time.Now().UTC())
 		if err != nil {
 			return err
 		}
 	}
-	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
-		return err
-	}
-	done = true
-	return nil
+	return tx.Commit()
 }

@@ -1,4 +1,7 @@
-# SQLite databases and WAL files
+# Local configuration (database URL, secrets)
+.env
+
+# Stray local database files
 *.db
 *.db-shm
 *.db-wal
