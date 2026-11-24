@@ -88,7 +88,7 @@ func (h *LogHandler) Append(w http.ResponseWriter, r *http.Request) {
 		if !keep {
 			continue
 		}
-		msg := redactSecrets(strings.TrimSpace(e.Message))
+		msg := redactSecrets(strings.TrimSpace(noNUL(e.Message)))
 		if msg == "" {
 			continue
 		}

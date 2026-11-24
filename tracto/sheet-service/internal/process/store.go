@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"tracto/sheet-service/internal/pg"
@@ -64,6 +65,9 @@ func (s *Store) Close() error {
 
 func now() time.Time { return time.Now().UTC() }
 
+// noNUL removes NUL characters, which SQLite stored and PostgreSQL text refuses.
+func noNUL(s string) string { return strings.ReplaceAll(s, "\x00", "") }
+
 func stamp(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // BatchRecord is a batch as it is first stored.
@@ -107,7 +111,7 @@ func (s *Store) SetBatchState(id, state, message string) error {
 		finished = now()
 	}
 	_, err := s.db.Exec(`UPDATE process_batches SET state=$1, message=$2, finished_at=$3 WHERE id=$4`,
-		state, message, finished, id)
+		state, noNUL(message), finished, id)
 	return err
 }
 
@@ -116,7 +120,7 @@ func (s *Store) SetItem(batchID string, row int, state, runID, message string) e
 	_, err := s.db.Exec(
 		`UPDATE process_items SET state=$1, message=$2, run_id=CASE WHEN $3::text='' THEN run_id ELSE $3::text END, updated_at=$4
 		 WHERE batch_id=$5 AND row_no=$6`,
-		state, message, runID, now(), batchID, row)
+		state, noNUL(message), runID, now(), batchID, row)
 	return err
 }
 

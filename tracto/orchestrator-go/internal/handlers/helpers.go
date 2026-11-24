@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -42,12 +43,19 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 // now returns the current UTC time formatted as RFC3339Nano.
 func nowStr() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
+// noNUL removes NUL characters. SQLite stored them; PostgreSQL text refuses them, which would fail the
+// whole write (a log batch, or a result a worker would then retry for ever).
+func noNUL(s string) string { return strings.ReplaceAll(s, "\x00", "") }
+
+// terminalStatesSQL lists the states a run never leaves.
+const terminalStatesSQL = "('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')"
+
 // nullStr returns sql.NullString from a *string.
 func nullStr(s *string) sql.NullString {
 	if s == nil {
 		return sql.NullString{}
 	}
-	return sql.NullString{String: *s, Valid: true}
+	return sql.NullString{String: noNUL(*s), Valid: true}
 }
 
 func strPtr(s string) *string { return &s }

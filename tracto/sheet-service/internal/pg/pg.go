@@ -12,6 +12,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	neturl "net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -49,7 +50,7 @@ func Open(ctx context.Context, url, schema string) (*sql.DB, error) {
 	_, err = boot.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema)
 	boot.Close()
 	if err != nil {
-		return nil, fmt.Errorf("create schema %s: %w", schema, err)
+		return nil, fmt.Errorf("create schema %s: %w", schema, redactURL(err, url))
 	}
 
 	if cfg.RuntimeParams == nil {
@@ -183,6 +184,10 @@ func redactURL(err error, url string) error {
 	msg := err.Error()
 	if u, perr := parsePassword(url); perr == nil && u != "" {
 		msg = strings.ReplaceAll(msg, u, "****")
+		// the password may appear decoded in an error, though it is percent-encoded in the URL
+		if plain, uerr := neturl.PathUnescape(u); uerr == nil && plain != u {
+			msg = strings.ReplaceAll(msg, plain, "****")
+		}
 	}
 	return fmt.Errorf("%s", msg)
 }

@@ -12,6 +12,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	neturl "net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -187,6 +188,10 @@ func redactURL(err error, url string) error {
 	msg := err.Error()
 	if pw := passwordOf(url); pw != "" {
 		msg = strings.ReplaceAll(msg, pw, "****")
+		// the password may appear decoded in an error, though it is percent-encoded in the URL
+		if plain, uerr := neturl.PathUnescape(pw); uerr == nil && plain != pw {
+			msg = strings.ReplaceAll(msg, plain, "****")
+		}
 	}
 	return fmt.Errorf("%s", msg)
 }

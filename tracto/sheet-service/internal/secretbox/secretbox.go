@@ -89,4 +89,6 @@ func (b *Box) Open(sealed string) (string, error) {
 }
 
 // TestKey returns a valid key for tests.
-func TestKey() string { return base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")) }
+func TestKey() string {
+	return base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+}

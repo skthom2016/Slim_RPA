@@ -22,7 +22,7 @@ Nothing else used SQLite: the desktop, browser and terminal runtimes, the design
 | Connection | `DATABASE_URL`, for example `postgres://tracto:<password>@localhost:5432/tracto?sslmode=disable`, read from the environment or from the service's git-ignored `.env`. Each pool sets its `search_path` to its schema |
 | Driver | `github.com/jackc/pgx/v5` through `database/sql`; `modernc.org/sqlite` and its dependencies are removed from both `go.mod` files |
 | Schema changes | Numbered SQL files embedded in each binary, applied at start-up in a transaction under an advisory lock, recorded in the schema's `schema_migrations` table. A schema change is a new file; start-up applies only what is missing. Two services starting together do not collide |
-| Existing data | Not carried over (agreed). Start empty: publish the scripts again and sign in to Microsoft once more |
+| Existing data | Copied once, by hand, with `copy_sqlite_data.py` (see "Copying the old data"). The SQLite files are left exactly as they were, so the old branch keeps working on them. There is no sync |
 
 ### Column types
 
@@ -86,6 +86,27 @@ PostgreSQL serves many requests at once, so the code had to be told what the sin
 - A worker claims a run with `FOR UPDATE SKIP LOCKED`. When a second worker finally locks a row the first has just released, PostgreSQL re-checks that row's own columns, not other tables: this is why the offer lives on the run row (`WorkerId`, `OfferExpiresAt`) and not only in `LeaseRecords`. A check against the lease table passed in about one concurrent pull in six; the test below caught it.
 - Accept, heartbeat, result, cancel, expiry, timeout and resolve each update the run only when it is in the state they expect, and look at the row count.
 - The schedule claim (compare-and-set on `NextRunAt`) already worked and is unchanged.
+
+## Copying the old data
+
+`copy_sqlite_data.py` (in this folder) copies the data of the three SQLite files into PostgreSQL, once:
+
+```powershell
+cd tracto\docs\migration-sqlite-to-postgres
+python copy_sqlite_data.py --dry-run     # does everything, then rolls back
+python copy_sqlite_data.py               # copies for real
+```
+
+- **It never changes SQLite.** It copies each `.db` file (and its `-wal`/`-shm`, if any) to a temporary folder and reads the copies. The originals are not opened, modified or deleted; the old branch carries on using them.
+- **It is not a sync.** It does not run by itself, does not watch anything, and refuses to write into a table that already has rows, so running it a second time changes nothing.
+- **All or nothing.** One transaction; if any row fails, nothing is written. It checks the counts afterwards.
+- **What goes where.** `orchestrator.db` into schema `orchestrator` (all 16 tables), `sheet-service.db` into `sheets.ms_tokens`, `sheet-batches.db` into `sheets.process_batches` and `process_items`.
+- **Conversions.** Text and Unix times become `timestamptz`, 0/1 flags become booleans, blobs stay bytes, an empty time becomes `NULL`, and `row` becomes `row_no`. The saved Microsoft tokens are encrypted on the way in with `TRACTO_SECRET_KEY`, so that key must be the one the sheet service uses.
+- **Prerequisites.** Both services must have started once so their tables exist, the tables must be empty, and the old services should not be writing to the SQLite files at the time. Needs Python 3.10+, `psycopg` and `cryptography`.
+
+The copy made on 24 November 2026 moved 206 runs, 50 published scripts, 1,081 journal entries, 110 leases, 205 final results, 880 run outputs, 107 logs, 110 telemetry events, 59,829 security events, 2 workers, 1 schedule, the saved Microsoft sign-in, and 12 batches with 35 items. None was skipped. Afterwards the data was compared with the originals by content: every script is byte-identical, run states, flags and creation times match, outputs and logs are identical, the token decrypts to the original, and the SQLite files are byte-for-byte unchanged.
+
+Detaching from SQLite entirely (deleting the files, retiring the old branch) is a separate step that has not been done.
 
 ## Running it
 

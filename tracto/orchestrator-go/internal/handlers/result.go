@@ -121,12 +121,18 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	x := newTx(tx)
 
-	// Update run state. The run must still be live: a second result, a cancel or a timeout that
-	// got here first has already closed it, and the answer is then the idempotent one.
-	if x.execRows(`UPDATE RunRecords SET State=$1,NeedsAttention=$2,UnknownReason=$3,UpdatedAt=$4 WHERE Id=$5 AND State NOT IN ('Succeeded','Failed','HandedOff','Cancelled','TimedOut','Unknown')`,
-		dbState, needsAttention, req.UnknownReason, now, runID) == 0 && x.err == nil {
+	// Update run state. The run must still be live and still on this attempt: a second result, a
+	// cancel or a timeout that got here first has already closed it (the answer is then the
+	// idempotent one), and a requeue since the check above has given it a new attempt (the answer
+	// is then the attempt fence).
+	if x.execRows(`UPDATE RunRecords SET State=$1,NeedsAttention=$2,UnknownReason=$3,UpdatedAt=$4 WHERE Id=$5 AND AttemptId=$6 AND State NOT IN `+terminalStatesSQL,
+		dbState, needsAttention, nullStr(req.UnknownReason), now, runID, req.AttemptId) == 0 && x.err == nil {
 		var cur string
 		h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, runID).Scan(&cur)
+		if !isTerminal(cur) {
+			errResp(w, http.StatusConflict, "WRONG_ATTEMPT", "AttemptId mismatch")
+			return
+		}
 		respond(w, http.StatusOK, map[string]any{
 			"runId": runID, "attemptId": req.AttemptId,
 			"terminalState": strings.ToUpper(cur),
@@ -142,13 +148,13 @@ func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 		    ErrorCategory,BusinessOutcome,EvidenceRefsJson,BusinessJobId,CompletedAt)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		frID, runID, req.AttemptId, dbState, needsAttention,
-		req.UnknownReason, req.ErrorCategory, req.BusinessOutcome,
-		string(evidenceJSON), req.BusinessJobId, now,
+		nullStr(req.UnknownReason), nullStr(req.ErrorCategory), nullStr(req.BusinessOutcome),
+		string(evidenceJSON), nullStr(req.BusinessJobId), now,
 	)
 
 	// Store the run's outputs for later segments and for GET /jobs/{runId}
 	for name, value := range req.Outputs {
-		x.exec(upsertRunOutput, runID, name, value, now)
+		x.exec(upsertRunOutput, runID, noNUL(name), noNUL(value), now)
 	}
 
 	// Release worker slot

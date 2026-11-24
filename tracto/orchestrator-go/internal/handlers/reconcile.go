@@ -89,16 +89,33 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 
 	var finalState string
 	var evType string
+	var closed int64
 
+	// The run must still be live and still on this attempt: a result, a cancel or a timeout that got
+	// here first has closed it, and a requeue since the check above has given it a new attempt.
 	if isConfirmedSucceeded {
 		finalState = "Succeeded"
 		evType = "RUN_RECONCILED_SUCCEEDED"
-		x.exec(`UPDATE RunRecords SET State='Succeeded',UpdatedAt=$1 WHERE Id=$2`, now, runID)
+		closed = x.execRows(`UPDATE RunRecords SET State='Succeeded',UpdatedAt=$1 WHERE Id=$2 AND AttemptId=$3 AND State NOT IN `+terminalStatesSQL,
+			now, runID, req.AttemptId)
 	} else {
 		finalState = "Unknown"
 		evType = "RUN_RECONCILED_UNKNOWN"
-		x.exec(`UPDATE RunRecords SET State='Unknown',NeedsAttention=TRUE,UnknownReason=$1,UpdatedAt=$2 WHERE Id=$3`,
-			"Reconciliation: uncertain journal", now, runID)
+		closed = x.execRows(`UPDATE RunRecords SET State='Unknown',NeedsAttention=TRUE,UnknownReason=$1,UpdatedAt=$2 WHERE Id=$3 AND AttemptId=$4 AND State NOT IN `+terminalStatesSQL,
+			"Reconciliation: uncertain journal", now, runID, req.AttemptId)
+	}
+	if closed == 0 && x.err == nil {
+		var cur string
+		h.db.QueryRow(`SELECT State FROM RunRecords WHERE Id=$1`, runID).Scan(&cur)
+		if !isTerminal(cur) {
+			errResp(w, http.StatusConflict, "WRONG_ATTEMPT", "AttemptId mismatch")
+			return
+		}
+		respond(w, http.StatusOK, map[string]any{
+			"runId": runID, "attemptId": req.AttemptId,
+			"reconciledState": strings.ToUpper(cur),
+		})
+		return
 	}
 
 	// Release worker slot + expire lease (same as CommitResult)

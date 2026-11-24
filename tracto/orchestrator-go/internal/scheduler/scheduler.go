@@ -77,7 +77,7 @@ func (s *Scheduler) Tick(now time.Time) {
 		       COALESCE(GraceSeconds,$1)
 		FROM ScheduleRecords
 		WHERE Enabled AND (NextRunAt IS NULL OR NextRunAt<=$2)
-		ORDER BY NextRunAt ASC, ScheduleId ASC`,
+		ORDER BY NextRunAt ASC NULLS FIRST, ScheduleId ASC`,
 		cronspec.DefaultGraceSeconds, cronspec.Format(now))
 	if err != nil {
 		s.Logger.Error("scheduler: query failed", "err", err)

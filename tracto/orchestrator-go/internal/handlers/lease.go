@@ -123,8 +123,13 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run: Queued → Leased → Running (both transitions in one shot)
-	x.exec(`UPDATE RunRecords SET State='Running',UpdatedAt=$1 WHERE Id=$2`, nowStr, runID)
+	// Run: Queued → Leased → Running (both transitions in one shot). Only this attempt's queued run
+	// moves: an offer that ran out and was given to another worker has a new attempt.
+	if x.execRows(`UPDATE RunRecords SET State='Running',UpdatedAt=$1 WHERE Id=$2 AND AttemptId=$3 AND State='Queued'`,
+		nowStr, runID, req.AttemptId) == 0 && x.err == nil {
+		errResp(w, http.StatusConflict, "LEASE_EXPIRED", "the run is no longer queued for this attempt")
+		return
+	}
 
 	// Worker: Available → Running
 	x.exec(`UPDATE WorkerRecords SET State='Running' WHERE WorkerId=$1`, req.WorkerId)
