@@ -136,6 +136,36 @@ func TestPull_OldestFirst(t *testing.T) {
 	}
 }
 
+// An offer nobody accepted runs out, and the run is then offered to another worker. Until it
+// runs out, no other worker is offered it.
+func TestPull_AnOfferThatRunsOutIsOfferedAgain(t *testing.T) {
+	e := newEnv(t)
+	e.publish("s1", "1.0.0", flatScript("s1", "1.0.0"))
+	e.register("w1")
+	e.register("w2")
+	runID := e.create("s1", "1.0.0", nil)
+
+	first := e.pull("w1")
+	if first.result != "JobOffered" || first.runID != runID {
+		t.Fatalf("first offer: %+v", first)
+	}
+	if o := e.pull("w2"); o.result != "NoPendingJob" {
+		t.Fatalf("a live offer must not be offered to a second worker: %+v", o)
+	}
+
+	// w1 never accepts; its offer runs out.
+	if _, err := e.db.Exec(`UPDATE RunRecords SET OfferExpiresAt = now() - interval '1 minute' WHERE Id=$1`, runID); err != nil {
+		t.Fatal(err)
+	}
+	second := e.pull("w2")
+	if second.result != "JobOffered" || second.runID != runID || second.attemptID == first.attemptID {
+		t.Fatalf("an expired offer must be offered again with a new attempt: %+v", second)
+	}
+	// The first worker is fenced out by the new attempt.
+	e.must(http.StatusConflict, "POST", "/jobs/"+runID+"/lease/accept", map[string]any{"attemptId": first.attemptID, "workerId": "w1"})
+	e.accept("w2", second)
+}
+
 // A job with a declared runtime is not offered to a worker of another runtime.
 func TestPull_RuntimeMustMatch(t *testing.T) {
 	e := newEnv(t)
@@ -149,10 +179,10 @@ func TestPull_RuntimeMustMatch(t *testing.T) {
 }
 
 // Two workers pulling at the same moment must never be handed the same run. This is the property
-// the single-connection SQLite database gave for free and PostgreSQL has to be told to keep.
+// a database that ran one statement at a time gave for free, and that PostgreSQL has to be told to keep.
 func TestPull_ConcurrentWorkersNeverShareARun(t *testing.T) {
 	const workers = 8
-	for round := 0; round < 6; round++ {
+	for round := 0; round < 15; round++ {
 		e := newEnv(t)
 		e.publish("s1", "1.0.0", flatScript("s1", "1.0.0"))
 		for i := 0; i < workers; i++ {
@@ -356,7 +386,7 @@ func TestReconcile(t *testing.T) {
 	o := e.pull("w1")
 	e.accept("w1", o)
 	out := e.must(http.StatusOK, "POST", "/jobs/"+runID+"/reconcile", map[string]any{
-		"attemptId": o.attemptID,
+		"attemptId":      o.attemptID,
 		"journalEntries": []map[string]any{{"eventType": "RUN_SUCCEEDED", "attemptId": o.attemptID}},
 	})
 	if str(out, "reconciledState") != "SUCCEEDED" {

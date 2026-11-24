@@ -349,7 +349,7 @@ Conventions used in every story:
 
 **User story.** As a payment-advice operator, I want a work item for every filed file, a tracker row for every artefact, and a reply to the sender when a file cannot be handled, so that nothing is lost silently and the sender is told once.
 
-**Context.** UiPath adds one queue item per file with `PAFileName`, `EntityName`, `From`, `TimeDate`, `AttachmentType` (or `CustomerName` for the mail-body queue) and `FilePath`; appends rows (ID, Entity Name, Attachment Name, From, Subject, Time/Date, DownloadStatus, FileName) to sheet `Email Tracker` in `LogTracker.xlsx`; writes `Success` or `Fail` into cell `B2` of the entity sheet in `ModuleTracker.xlsx`; and replies by SMTP for three cases (archive will not extract, attachment missing after save, unsupported type), copying the original CC and BCC ([SIS-02, steps 7 to 12](../SIS-02-email-pa-dispatcher.md)). In Tracto work items live in the A5 table (SQLite, to be re-confirmed against a sheet), a reply goes to the sender only, and the matched keyword and message id are stored on the work item.
+**Context.** UiPath adds one queue item per file with `PAFileName`, `EntityName`, `From`, `TimeDate`, `AttachmentType` (or `CustomerName` for the mail-body queue) and `FilePath`; appends rows (ID, Entity Name, Attachment Name, From, Subject, Time/Date, DownloadStatus, FileName) to sheet `Email Tracker` in `LogTracker.xlsx`; writes `Success` or `Fail` into cell `B2` of the entity sheet in `ModuleTracker.xlsx`; and replies by SMTP for three cases (archive will not extract, attachment missing after save, unsupported type), copying the original CC and BCC ([SIS-02, steps 7 to 12](../SIS-02-email-pa-dispatcher.md)). In Tracto work items live in the A5 table (PostgreSQL, to be re-confirmed against a sheet), a reply goes to the sender only, and the matched keyword and message id are stored on the work item.
 
 **Acceptance criteria.**
 1. Given a file filed to `PDF_JPEG`, then one work item exists with entity, sender, mail date, customer, attachment type, full path, matched keyword, message id and status `Pending`; the same file is never given two items on a rerun.
@@ -374,7 +374,7 @@ Conventions used in every story:
 **Test notes.** Test mailbox with a corrupt zip, an unsupported `.docx`, a good pdf; a copy of `LogTracker.xlsx` and `ModuleTracker.xlsx`; a second sender mailbox to receive replies. Checked: item count, tracker rows, reply recipients and text, no CC or BCC, no repeat on rerun.
 
 **Open items.**
-- Sheet or SQLite table for the work items (default table, to be re-confirmed).
+- Sheet or PostgreSQL table for the work items (default table, to be re-confirmed).
 - Whether a file nobody can process also becomes a work item with status, so the backlog is visible.
 - Wording of the three reply templates; the workbook has mail text that no flow reads.
 - Whether anything reads `ModuleTracker.xlsx` `B2` or the mail count next to `{entity}_MailCount`.
@@ -473,4 +473,4 @@ Conventions used in every story:
 - B1 and C1 share one entity table with a flag per flow; H1 (configuration templates) holds its layout.
 - B1 and C5 rely on the schedule time zone; G2 (schedules) passes `timeZone` as a job parameter, which the scheduler does not do today.
 - G1 publishes the two one-step main jobs; G2 schedules them (flow 1 Indian at 11:00 and 11:30 and International at 07:00 Australian time; flow 2 Indian at 10:00 and International at 05:45 Australian time; summary at `summary_time`).
-- The queue choice (SQLite table or sheet, to be re-confirmed) affects A5 and C3 only.
+- The queue choice (PostgreSQL table or sheet, to be re-confirmed) affects A5 and C3 only.

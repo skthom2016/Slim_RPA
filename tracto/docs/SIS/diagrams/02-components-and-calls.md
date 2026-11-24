@@ -8,7 +8,7 @@ The pieces of software involved, and which one calls which. The top row is what 
 |---|---|---|
 | **Operator** (pink) | The person responsible for the flows. Sets up the schedules once, can press Run now, and checks the results. | — |
 | **Orchestrator UI** (port 4000) | The web console. Pages for Schedules, Jobs, Logs and, to be added, Work items. | Yes; the Work items page is to build |
-| **Orchestrator** (port 5080, SQLite) | Keeps the schedules, fires them at the right time, queues the jobs, stores the published main jobs and keeps a record of every run. | Yes |
+| **Orchestrator** (port 5080, PostgreSQL) | Keeps the schedules, fires them at the right time, queues the jobs, stores the published main jobs and keeps a record of every run. | Yes |
 | **Desktop runtime** | The program on a Windows machine that runs jobs. It asks the Orchestrator for work, runs the main job and reports the result back. | Yes |
 | Line "uses" | The operator works through the web console. |
 | Line between UI and Orchestrator | The console shows what the Orchestrator holds and sends it the operator's actions (Run now, new schedule). |
@@ -30,7 +30,7 @@ The pieces of software involved, and which one calls which. The top row is what 
 | **Go file API** | Checks whether a file or folder exists, lists a folder, creates folders, copies, moves, deletes and unzips. It refuses any path outside the folders it is allowed to use, and refuses an archive that tries to write outside its target. | To build | **Folders**: `E:\Automation\...` and the bank statement folders |
 | **Go mail API** | Fetches unread mail (with body and attachment list), saves attachments or the whole mail to a folder, sends a mail (HTML, CC, attachments) and replies to a sender only. Remembers which mails it has processed, so a rerun never handles a mail twice. | To build | **Mailboxes**: Microsoft Graph for Microsoft 365, IMAP and SMTP for `mail.sisindia.com` |
 | **Go program runner** | Starts a program named in its configuration (never an arbitrary command), waits for it with a time limit, stops it if it runs too long, and returns its exit code and output. | To build | **Python programs**: `run_Bank_bot.bat` and `run_Bank_bot_{entity}.bat` (Indian and International bank statement downloads) and `run_SXP_bot.bat` (International collection accounting), which in turn use MySQL and Oracle Fusion |
-| **Go work-item API** | Adds a work item, lets a flow claim the next pending one (so two runs never take the same item), marks it done or failed, and counts attempts so an item can be retried. | To build | **Work-item table** in SQLite |
+| **Go work-item API** | Adds a work item, lets a flow claim the next pending one (so two runs never take the same item), marks it done or failed, and counts attempts so an item can be retried. | To build | **Work-item table** in PostgreSQL |
 | **Extraction API** (extraction service) | Reads one PDF or image and returns the header fields and invoice lines, with a colour per field showing how sure it is. | Exists; unlocking passwords and reading images are with the extraction module team | **LLM provider**: two readings of each document, compared |
 
 The double-headed lines at the bottom show that each service both reads from and writes to what it touches.

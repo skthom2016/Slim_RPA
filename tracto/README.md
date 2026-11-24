@@ -1,5 +1,25 @@
 # Tracto — Quick Start & Restart Guide
 
+## Database (once)
+
+The Orchestrator and the sheet service keep their data in PostgreSQL.
+
+```powershell
+cd C:\Users\santh\Downloads\New-NeeliRPA\tracto
+$env:TRACTO_DB_PASSWORD = "<choose one>"
+docker compose up -d postgres
+```
+
+Then create `orchestrator-go\.env` and `sheet-service\.env` from their `.env.example` files and put in each:
+
+```
+DATABASE_URL=postgres://tracto:<password>@localhost:5432/tracto?sslmode=disable
+```
+
+The sheet service also needs `TRACTO_SECRET_KEY` (see its `.env.example`). Each service creates its own schema and tables when it starts. The `.env` files are ignored by git.
+
+---
+
 ## Kill Everything
 
 ```powershell
@@ -20,7 +40,7 @@ if ($p) { Stop-Process -Id $p -Force; Write-Host "Hello World API killed" }
 
 ## Start Everything (4 separate terminals)
 
-**Terminal 1 — Go Orchestrator**
+**Terminal 1 — Go Orchestrator** *(PostgreSQL must be running)*
 ```powershell
 cd C:\Users\santh\Downloads\New-NeeliRPA\tracto\orchestrator-go
 go run .
@@ -84,11 +104,22 @@ Invoke-RestMethod "http://localhost:4000"          # Orchestrator UI
 
 ---
 
-## SQLite Lock / Orchestrator Hangs
+## Orchestrator Hangs or Will Not Start
 
-If Orchestrator endpoints time out (UI shows no data), restart it:
+First check the database is up, then restart the Orchestrator if endpoints time out (UI shows no data):
 ```powershell
+docker ps --filter name=tracto-postgres      # should show Up (healthy)
+docker logs tracto-postgres --tail 20
+
 $p = (Get-NetTCPConnection -LocalPort 5080 -State Listen -EA SilentlyContinue).OwningProcess
 if ($p) { Stop-Process -Id $p -Force }
 # Then start Terminal 1 again
+```
+
+## Tests
+
+```powershell
+cd orchestrator-go ; go test ./...        # needs the database; each package uses a schema of its own
+cd ..\sheet-service ; go test ./...
+cd .. ; .\run-e2e.ps1                      # end-to-end: Orchestrator + Hello World + the e2e tests
 ```

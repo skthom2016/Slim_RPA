@@ -42,15 +42,15 @@ var terminalStates = map[string]bool{
 func (h *ResultHandler) CommitResult(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 	var req struct {
-		AttemptId      string   `json:"attemptId"`
-		TerminalState  string   `json:"terminalState"`
-		ErrorCategory  *string  `json:"errorCategory"`
-		BusinessOutcome *string `json:"businessOutcome"`
-		EvidenceRefs   []string `json:"evidenceRefs"`
-		BusinessJobId  *string  `json:"businessJobId"`
-		UnknownReason  *string  `json:"unknownReason"`
-		Payload        *string  `json:"payload"`
-		Outputs        map[string]string `json:"outputs"`
+		AttemptId       string            `json:"attemptId"`
+		TerminalState   string            `json:"terminalState"`
+		ErrorCategory   *string           `json:"errorCategory"`
+		BusinessOutcome *string           `json:"businessOutcome"`
+		EvidenceRefs    []string          `json:"evidenceRefs"`
+		BusinessJobId   *string           `json:"businessJobId"`
+		UnknownReason   *string           `json:"unknownReason"`
+		Payload         *string           `json:"payload"`
+		Outputs         map[string]string `json:"outputs"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -177,4 +178,10 @@ func eventually(t *testing.T, what string, cond func() bool) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", what)
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dbtest.Cleanup()
+	os.Exit(code)
 }

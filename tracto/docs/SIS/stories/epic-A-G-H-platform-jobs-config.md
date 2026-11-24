@@ -25,7 +25,7 @@ Paths in the evidence column are relative to `tracto/`.
 | Epic | A: Tracto platform capabilities |
 | Type | Story |
 | Depends on | none |
-| Capability today | Partly. The Microsoft sign-in exists (`sheet-service/internal/msauth/msauth.go`: device-code flow, refresh token kept in table `ms_tokens` of `sheet-service.db`, renewed 5 minutes before expiry). Its default scope is `Files.ReadWrite.All offline_access`, so no mail permission is requested; `MS_SCOPES` can override it. No mail reading code exists anywhere under `tracto/` (no `/mail/*` route in `sheet-service/internal/api/api.go`, no IMAP client). To build |
+| Capability today | Partly. The Microsoft sign-in exists (`sheet-service/internal/msauth/msauth.go`: device-code flow, refresh token kept, encrypted with `TRACTO_SECRET_KEY`, in table `ms_tokens` of the sheet service's PostgreSQL database, renewed 5 minutes before expiry). Its default scope is `Files.ReadWrite.All offline_access`, so no mail permission is requested; `MS_SCOPES` can override it. No mail reading code exists anywhere under `tracto/` (no `/mail/*` route in `sheet-service/internal/api/api.go`, no IMAP client). To build |
 
 **User story.** As a flow developer, I want one endpoint that lists unread mail with its attachments and saves attachments and mail bodies to a folder, for every entity mailbox whatever its kind (a Microsoft 365 mailbox in the entity's own tenant, a mailbox reached through the service's sign-in, or an IMAP mailbox), so that the dispatcher flow can read every entity mailbox without a desktop session.
 
@@ -193,7 +193,7 @@ Paths in the evidence column are relative to `tracto/`.
 
 **User story.** As a flow developer, I want a work-item store with add, claim, complete and fail operations, an attempt count and a list view, so that flow 2 can hand each file to flows 3 and 4 and every item keeps its own status and reason.
 
-**Context.** Flow 2 produces one work item per filed file (a pointer and a state, not the file); flow 4 consumes them one at a time and uses the attempt count to hold an item on `ANALYZER_BUSY` instead of failing it ([SIS-02, "What a queue is for" and "Where the queue lives"](../SIS-02-email-pa-dispatcher.md); [SIS-04, "The shape in Tracto"](../SIS-04-payment-advice-extraction.md)). The working default is a SQLite table; a sheet is the simpler alternative at about 45 to 150 documents a day and the choice is re-confirmed before this story starts. Fields: `PAFileName`, `EntityName`, `From`, `TimeDate`, `CustomerName`, `AttachmentType`, `FilePath`, `Status`, `Message`, plus message id, matched keyword, attempts and timestamps.
+**Context.** Flow 2 produces one work item per filed file (a pointer and a state, not the file); flow 4 consumes them one at a time and uses the attempt count to hold an item on `ANALYZER_BUSY` instead of failing it ([SIS-02, "What a queue is for" and "Where the queue lives"](../SIS-02-email-pa-dispatcher.md); [SIS-04, "The shape in Tracto"](../SIS-04-payment-advice-extraction.md)). The working default is a PostgreSQL table; a sheet is the simpler alternative at about 45 to 150 documents a day and the choice is re-confirmed before this story starts. Fields: `PAFileName`, `EntityName`, `From`, `TimeDate`, `CustomerName`, `AttachmentType`, `FilePath`, `Status`, `Message`, plus message id, matched keyword, attempts and timestamps.
 
 **Acceptance criteria.**
 1. Given `POST /workitems {queue, entity, ...fields}`, then a row is stored with `Status:"Pending"` and `attempts:0`, and the reply holds its id; adding the same `(queue, message id, file name)` twice returns the existing id and stores one row.
@@ -219,7 +219,7 @@ Paths in the evidence column are relative to `tracto/`.
 **Test notes.** A temporary database; a loop that claims from 4 goroutines over 50 items. Checks: no item claimed twice, attempts counted, restart recovery, list filters. If the sheet alternative is chosen, this story becomes making `POST /apply` atomic (it reads under the file lock, releases it and writes under it again, `sheet-service/internal/api/api.go` `apply`), and A5.1 to A5.3 shrink accordingly.
 
 **Open items.**
-- Sheet or table for the queue: working default is the SQLite table, to be re-confirmed before the story starts ([SIS-02, "What decides it"](../SIS-02-email-pa-dispatcher.md)).
+- Sheet or table for the queue: working default is the PostgreSQL table, to be re-confirmed before the story starts ([SIS-02, "What decides it"](../SIS-02-email-pa-dispatcher.md)).
 - Which service hosts the store (the existing sheet-service module or a new Go module) and therefore which database file.
 - Daily volume: the earlier figure was 45 a working day, the samples show about 150 ([payment-advice-samples.md](../payment-advice-samples.md)).
 - Work items for mails with no attachment: the consumer is outside the four flows ([collection-accounting-handoff.md, "What is outside the four flows"](../collection-accounting-handoff.md)).
@@ -415,7 +415,7 @@ Paths in the evidence column are relative to `tracto/`.
 **Open items.**
 - Which side (UiPath or Tracto) starts `bot_run.py` for each International entity during the parallel run, recorded in the B4 runbook.
 - Flow 4's folder paths against a real run ([folders-and-files.md, "Points to confirm", item 1](../folders-and-files.md)).
-- Whether the queue is a SQLite table or a sheet changes the rerun and inspection steps in three runbooks.
+- Whether the queue is a PostgreSQL table or a sheet changes the rerun and inspection steps in three runbooks.
 
 ---
 
@@ -425,7 +425,7 @@ Paths in the evidence column are relative to `tracto/`.
 | Epic | H: Configuration templates and documentation |
 | Type | Story |
 | Depends on | none; A1 and A2 consume it |
-| Capability today | Partly. `${secret:NAME}` is resolved by the browser runtime only: it reads environment variable `TRACTO_SECRET_<NAME in capitals>` on the worker and never logs it (`browser-runtime/src/TractoRuntime.Browser.Host/BrowserRunEngine.cs`, `ResolveSecrets`; `browser-runtime/src/TractoRuntime.Browser.Host/.env.example`). The desktop runtime has no secret reference: `Tracto.Desktop.Security` holds `SecretRef`, `ISecretResolver` and `DpapiSecretResolver`, which no action handler uses, and `limits.md` states there is no mechanism. In the Orchestrator, `redactSecrets` masks Warning and Error run logs (`orchestrator-go/internal/handlers/logs.go`), `containsSecret` rejects a result payload or output holding secret material (`orchestrator-go/internal/handlers/result.go`), and the audit middleware masks `password` and `secretRefs` in request bodies (`orchestrator-go/internal/middleware/audit.go`). The sheet-service reads credentials only from environment variables or a `.env` file next to the executable, with the real environment winning (`sheet-service/main.go`, `sheet-service/internal/envfile/envfile.go`). Not there: publish-time refusal of a script that holds a credential (`orchestrator-go/internal/handlers/artifacts.go` `Publish` checks only base64 and the segment structure), a `${secret:NAME}` reader for Go services, masking in the Go services' own logs (they use the standard `log` package), and protection of the Microsoft token store (`ms_tokens` in `sheet-service.db`, `sheet-service/internal/msauth/store.go`, holds the refresh token in an ordinary SQLite file). Partly |
+| Capability today | Partly. `${secret:NAME}` is resolved by the browser runtime only: it reads environment variable `TRACTO_SECRET_<NAME in capitals>` on the worker and never logs it (`browser-runtime/src/TractoRuntime.Browser.Host/BrowserRunEngine.cs`, `ResolveSecrets`; `browser-runtime/src/TractoRuntime.Browser.Host/.env.example`). The desktop runtime has no secret reference: `Tracto.Desktop.Security` holds `SecretRef`, `ISecretResolver` and `DpapiSecretResolver`, which no action handler uses, and `limits.md` states there is no mechanism. In the Orchestrator, `redactSecrets` masks Warning and Error run logs (`orchestrator-go/internal/handlers/logs.go`), `containsSecret` rejects a result payload or output holding secret material (`orchestrator-go/internal/handlers/result.go`), and the audit middleware masks `password` and `secretRefs` in request bodies (`orchestrator-go/internal/middleware/audit.go`). The sheet-service reads credentials only from environment variables or a `.env` file next to the executable, with the real environment winning (`sheet-service/main.go`, `sheet-service/internal/envfile/envfile.go`). Not there: publish-time refusal of a script that holds a credential (`orchestrator-go/internal/handlers/artifacts.go` `Publish` checks only base64 and the segment structure), a `${secret:NAME}` reader for Go services, masking in the Go services' own logs (they use the standard `log` package), (the Microsoft token store, `ms_tokens` in the sheet service's PostgreSQL database, is now encrypted with `TRACTO_SECRET_KEY`: `sheet-service/internal/msauth/store.go`, `internal/secretbox`). Partly |
 
 **User story.** As a security owner, I want no credential in any configuration sheet, script or log, with the mailbox credentials of every entity held encrypted in one store that developers can add to without seeing existing values, and every other secret supplied as a named secret from the service environment, so that the credentials exposed by the UiPath packages are not re-created in Tracto.
 
@@ -451,14 +451,14 @@ Paths in the evidence column are relative to `tracto/`.
 5. Given the five main-job scripts and any schedule `params`, then none contains a credential (the main job's only input is a service URL and non-secret filters).
 6. Given a Go service logs a request, a response, a command's output or an error that contains a configured secret value or text matching the patterns in criterion 1, then the logged text shows `[redacted]`; request and response bodies of mail, IMAP and extraction calls are not logged at all.
 7. Given a test that runs each flow end to end against test mailboxes with known dummy secret values, then a search of every log file, the work-item store, the tracker and output workbooks, the run records, the Orchestrator's `/admin/logs` and its audit table finds none of the dummy values.
-8. Given the Microsoft token store, then `sheet-service.db` is readable only by the service account (file permissions set at creation and checked at start-up), and start-up fails with a clear message when it is world-readable.
+8. Given the Microsoft token store, then the access and refresh tokens are written to `ms_tokens` encrypted (AES-GCM under `TRACTO_SECRET_KEY`), the service refuses to start without the key, and a copy of the database does not reveal them. (Built with the move to PostgreSQL; `sheet-service/internal/secretbox`, `internal/msauth/store.go`.)
 9. Given the rotation checklist, then it lists every credential in the table above and every credential in the five packages and in the collection accounting service (counts and names, no values: the MySQL root password in `DBClasses\mysql_helper.py`, the report API credentials and six mailbox passwords in the `settings` table, the API credentials written into `bot_run_log` with each statement URL; in the International copies, the MySQL credentials in `DBClasses\mysql_helper.py`, and in the International `MasterConfig.xlsx` the application secret, four mailbox passwords and the API password): the Azure AD client secret, the mailbox passwords, the logged mailbox password and the old log retention, the SMTP passwords and the revoked app password, the report-API credential, the OCR API key and the PDF passwords; it names an owner and a done date per row and is completed independently of the build.
 10. Given the repository, then `.env` files are ignored by version control, and no published package or script bundle contains a configuration workbook, a `SourceDownload` folder, a debug log or screenshots.
-11. Given the mail account store (table `mail_accounts` in `sheet-service.db`), then each row holds the account name, kind (`graph-app`, `graph-delegated`, `imap`), mailbox address, tenant ID, client ID or host, port and user in plain columns, the client secret or password in a column encrypted with AES-GCM under the key in `TRACTO_SECRET_KEY`, the secret's expiry date, and who changed it and when.
+11. Given the mail account store (table `mail_accounts` in the sheet service's PostgreSQL database), then each row holds the account name, kind (`graph-app`, `graph-delegated`, `imap`), mailbox address, tenant ID, client ID or host, port and user in plain columns, the client secret or password in a column encrypted with AES-GCM under the key in `TRACTO_SECRET_KEY`, the secret's expiry date, and who changed it and when.
 12. Given `PUT /admin/mail-accounts/{name}` with a secret, then the secret is encrypted before it is stored; `GET /admin/mail-accounts` returns every field except the secret, showing its last four characters and expiry date only; no endpoint returns a secret.
 13. Given the service starts without `TRACTO_SECRET_KEY`, or with a key that does not decrypt a stored row, then it refuses to start and names the problem without printing any value.
 14. Given a stored secret expires within 30 days, then the operations recipients receive one warning mail naming the account and the date, repeated weekly until the row is updated.
-15. Given a copy of `sheet-service.db` alone, then no secret can be read from it.
+15. Given a copy of the database alone, then no secret can be read from it.
 
 **Tasks.**
 | ID | Task | Notes |
@@ -468,7 +468,7 @@ Paths in the evidence column are relative to `tracto/`.
 | H3.3 | Configuration guard: reject credential-looking cell values; secret columns hold names only |  |
 | H3.4 | Log masking in the Go services: value-based and pattern masking, no body logging |  |
 | H3.5 | Publish-time refusal of a script holding a literal credential, and the same rule in the validator | `orchestrator-go/internal/handlers/artifacts.go`, `.claude/skills/tracto-desktop-rpa/scripts/validate.js` |
-| H3.6 | Token store protection: file permission at creation and check at start |  |
+| H3.6 | Token store protection: tokens encrypted at rest under `TRACTO_SECRET_KEY` | Done with the move to PostgreSQL; the same helper (`secretbox`) serves H3.9 |
 | H3.7 | Tests: dummy secrets through each flow, search of logs, stores and workbooks |  |
 | H3.8 | Rotation checklist (independent of the build) | Produced and executed outside the build schedule |
 | H3.9 | Mail account store: table, AES-GCM encryption, key from `TRACTO_SECRET_KEY` | Used by A1 and A2 |
@@ -483,7 +483,7 @@ Paths in the evidence column are relative to `tracto/`.
 - Mailbox credentials are in the encrypted store; the remaining secrets stay as environment variables on the service machine (the platform has no vault integration; `docs/UIPATH-TRACTO-CAPABILITY-MAPPING.md` lists vault integration as not built). The store reads secrets through one interface, so a vault can replace it later.
 - Whether the desktop runtime needs `${secret:NAME}` at all: the five main jobs carry no secret; the existing `DpapiSecretResolver` is unused.
 - The retention of existing UiPath logs that already hold a mailbox password; rotating does not remove them ([SIS-02, "Security findings"](../SIS-02-email-pa-dispatcher.md)).
-- Whether `ms_tokens` should be encrypted (DPAPI) rather than only permission-restricted.
+- `ms_tokens` is encrypted with `TRACTO_SECRET_KEY` (AES-GCM). Whether the key should instead be protected by DPAPI or held in a vault is open.
 
 ---
 

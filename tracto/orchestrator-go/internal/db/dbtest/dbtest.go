@@ -5,7 +5,8 @@
 // emptying it milliseconds. Schemas of different packages never meet, so packages can run at the
 // same time. Tests of one package must not call t.Parallel, since they share the schema.
 //
-// A schema left behind by an interrupted run is dropped by the next run once it is an hour old.
+// Each package drops its schema from TestMain (see Cleanup); a schema left behind by an
+// interrupted run is dropped by the next run once it is a quarter of an hour old.
 //
 // The server comes from TEST_DATABASE_URL, or DATABASE_URL, read from the environment or from a
 // .env file in the working directory or one of its parents. Without one the test is skipped.
@@ -87,6 +88,25 @@ func OpenWithSchema(t testing.TB) (*sql.DB, string) {
 	return pool, schema
 }
 
+// Cleanup drops this package's test schema. Call it from TestMain after m.Run.
+func Cleanup() {
+	if pool == nil {
+		return
+	}
+	pool.Close()
+	pool = nil
+	if url := os.Getenv("TEST_DATABASE_URL"); url != "" || os.Getenv("DATABASE_URL") != "" {
+		if url == "" {
+			url = os.Getenv("DATABASE_URL")
+		}
+		if cfg, err := pgx.ParseConfig(url); err == nil {
+			admin := stdlib.OpenDB(*cfg)
+			_, _ = admin.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`)
+			admin.Close()
+		}
+	}
+}
+
 // truncateAll empties every table of the schema except schema_migrations.
 func truncateAll(d *sql.DB) error {
 	rows, err := d.Query(`SELECT table_name FROM information_schema.tables
@@ -122,7 +142,7 @@ func truncateAll(d *sql.DB) error {
 	return tx.Commit()
 }
 
-// dropOld removes test schemas older than an hour.
+// dropOld removes test schemas older than a quarter of an hour.
 func dropOld(url string) {
 	cfg, err := pgx.ParseConfig(url)
 	if err != nil {
@@ -142,7 +162,7 @@ func dropOld(url string) {
 		}
 		parts := strings.Split(n, "_")
 		if len(parts) >= 3 {
-			if ts, err := strconv.ParseInt(parts[1], 10, 64); err == nil && time.Since(time.Unix(ts, 0)) > time.Hour {
+			if ts, err := strconv.ParseInt(parts[1], 10, 64); err == nil && time.Since(time.Unix(ts, 0)) > 15*time.Minute {
 				old = append(old, n)
 			}
 		}

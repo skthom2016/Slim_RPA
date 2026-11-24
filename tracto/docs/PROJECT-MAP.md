@@ -49,13 +49,15 @@ dotnet run --project desktop-runtime\src\Tracto.Desktop.Host --no-launch-profile
 
 ---
 
-## Orchestrator — Go / SQLite  *(active production version)*
+## Orchestrator — Go / PostgreSQL
 
 **Folder:** `tracto\orchestrator-go\`
 
 | File | Purpose |
 |------|---------|
-| `main.go` | Complete Go orchestrator — HTTP API on **port 5080**, SQLite job queue, artifact store |
+| `main.go` | Go orchestrator — HTTP API on **port 5080**, job queue, artifact store, scheduler; data in PostgreSQL (`DATABASE_URL`) |
+| `internal/db/` | PostgreSQL pool and the embedded SQL migrations |
+| `internal/server/` | The HTTP router, and the API tests over a real database |
 
 **How to run:**
 ```
@@ -73,22 +75,6 @@ go run .
 | `POST` | `/jobs/pull` | Worker polls for next job |
 | `GET` | `/jobs/{runId}` | Get job status |
 | `GET` | `/jobs/{runId}/telemetry` | Get step-level telemetry |
-
----
-
-## Orchestrator (C# version) — C# / ASP.NET Core / .NET 10  *(legacy, not in active use)*
-
-**Folder:** `tracto\orchestrator\src\`
-
-| Project | Purpose |
-|---------|---------|
-| `Tracto.Orchestrator.Api\` | ASP.NET Core REST API |
-| `Tracto.Orchestrator.Application\` | Application / use-case layer |
-| `Tracto.Orchestrator.Domain\` | Domain entities (Job, Artifact, etc.) |
-| `Tracto.Orchestrator.Infrastructure\` | SQLite persistence |
-| `tests\` | Unit + integration tests |
-
-> The Go version replaced this. Kept for reference.
 
 ---
 
@@ -183,7 +169,7 @@ Open the dashboard at **http://localhost:4000** to upload scripts and submit job
 |-----------|----------|-----------|------|
 | Designer | C# | WPF / .NET 10 | — |
 | Desktop Runtime | C# | .NET 10 | — |
-| Orchestrator | Go | net/http + SQLite | 5080 |
+| Orchestrator | Go | net/http + PostgreSQL | 5080 |
 | Orchestrator UI | JavaScript | Node.js / Express | 4000 |
 | Hello World API | C# | ASP.NET Core / .NET 10 | 3000 |
 | Browser Runtime | C# | .NET 10 | — |

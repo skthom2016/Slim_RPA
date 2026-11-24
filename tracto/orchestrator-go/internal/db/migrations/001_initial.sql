@@ -27,7 +27,11 @@ CREATE TABLE RunRecords (
     InteractiveSessionId     TEXT,
     ParamsJson               TEXT,
     ParentRunId              TEXT,
-    SegmentIndex             INTEGER
+    SegmentIndex             INTEGER,
+    -- While a run is offered to a worker (Queued, WorkerId set) this is when the offer runs out;
+    -- the run is claimable again after it. It lives on the run row so that two workers pulling at
+    -- the same moment cannot both pass the check: PostgreSQL re-reads the locked row, not other tables.
+    OfferExpiresAt           TIMESTAMPTZ
 );
 CREATE INDEX IX_RunRecords_State              ON RunRecords (State);
 CREATE INDEX IX_RunRecords_WorkerId_State     ON RunRecords (WorkerId, State);

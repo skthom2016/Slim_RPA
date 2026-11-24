@@ -187,7 +187,7 @@ These answers decide what is built, where it runs, or whether it can be tested. 
 
 ## 12. Decisions for the Tracto team
 
-- Queue for work items: a SQLite table (the working default) or a sheet.
+- Queue for work items: a PostgreSQL table (the working default) or a sheet.
 - Which Go module hosts each start endpoint and the work-item store.
 - Whether the one-step main jobs stay on the desktop runtime, which needs an unlocked desktop session.
 - Whether a main job that succeeds while some items fail counts as a failure for alerts.

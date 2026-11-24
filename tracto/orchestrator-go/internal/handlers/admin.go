@@ -60,9 +60,9 @@ func (h *AdminHandler) ListUnknownRuns(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ResolveRun(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 	var req struct {
-		Resolution  string  `json:"resolution"`
-		ResolvedBy  *string `json:"resolvedBy"`
-		Notes       *string `json:"notes"`
+		Resolution string  `json:"resolution"`
+		ResolvedBy *string `json:"resolvedBy"`
+		Notes      *string `json:"notes"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -127,11 +127,11 @@ func (h *AdminHandler) SecurityEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	type ev struct {
-		Id        string  `json:"id"`
-		EventType string  `json:"eventType"`
-		SourceIp  *string `json:"sourceIp"`
-		OccurredAt string `json:"occurredAt"`
-		Details   string  `json:"details"`
+		Id         string  `json:"id"`
+		EventType  string  `json:"eventType"`
+		SourceIp   *string `json:"sourceIp"`
+		OccurredAt string  `json:"occurredAt"`
+		Details    string  `json:"details"`
 	}
 	var evs []ev
 	for rows.Next() {

@@ -13,7 +13,7 @@ The platform has six components that work together:
 
 | Component | Language / Stack | Port | Role |
 |-----------|-----------------|------|------|
-| **Orchestrator** (Go) | Go + SQLite | 5080 | Job queue, artifact store, REST API — the brain |
+| **Orchestrator** (Go) | Go + PostgreSQL | 5080 | Job queue, artifact store, REST API — the brain |
 | **Orchestrator UI** | Node.js / Express | 4000 | Web dashboard — upload scripts, trigger runs, view results |
 | **Desktop Runtime** | C# / .NET 10 | — | A worker — polls Orchestrator and executes `desktop` scripts on the local machine |
 | **Browser Runtime** | C# / .NET 10 + Playwright | — | A worker — polls Orchestrator and executes `browser` scripts in Chromium |
@@ -36,7 +36,6 @@ The GitHub repository (`https://github.com/skthoms2016/Slim_RPA.git`) contains e
 New-NeeliRPA/
 ├── tracto/                          ← THE MAIN PLATFORM CODE (start here)
 │   ├── orchestrator-go/             ← Go Orchestrator (active, port 5080)
-│   ├── orchestrator/                ← C# Orchestrator (legacy, replaced by Go version)
 │   ├── orchestrator-ui/             ← Node.js web dashboard (port 4000)
 │   ├── desktop-runtime/             ← C# script execution engine
 │   ├── designer/                    ← C# WPF script designer app
@@ -82,6 +81,7 @@ Install these before anything else:
 | .NET SDK | 10.0 | Build Designer, Desktop Runtime, Hello World API |
 | Node.js | 18+ | Run the Orchestrator UI |
 | Git | any | Clone the repo |
+| Docker Desktop | any | Run PostgreSQL (the Orchestrator and the sheet service keep their data in it) |
 
 Verify installs:
 ```powershell
@@ -96,11 +96,23 @@ node --version
 
 Open **6 separate PowerShell terminals**. Run one command in each.
 
+### Before Terminal 1 — the database (once)
+```powershell
+cd New-NeeliRPA\tracto
+$env:TRACTO_DB_PASSWORD = "<choose one>"
+docker compose up -d postgres
+```
+Copy `orchestrator-go\.env.example` to `orchestrator-go\.env` and `sheet-service\.env.example` to `sheet-service\.env`, and put the connection string in both:
+```
+DATABASE_URL=postgres://tracto:<password>@localhost:5432/tracto?sslmode=disable
+```
+The sheet service also needs `TRACTO_SECRET_KEY` (how to create one is in its `.env.example`). Each service creates its own schema and tables on start-up.
+
 ### Terminal 1 — Orchestrator (start this first)
 ```powershell
 cd New-NeeliRPA\tracto\orchestrator-go
 go run .
-# You should see: Orchestrator listening on :5080
+# You should see: database ready ... Tracto Orchestrator (Go) starting
 ```
 
 ### Terminal 2 — Orchestrator UI
@@ -226,8 +238,8 @@ service account and keeps that sign-in alive by itself.
    ```
    It prints a code and a link. Open the link on any device, enter the code, and sign in as the
    service account.
-3. That is the last sign-in. The access and refresh tokens are saved in the SQLite file named by
-   `SHEET_SERVICE_DB` (`sheet-service.db` by default), and the service renews the hourly access
+3. That is the last sign-in. The access and refresh tokens are saved, encrypted, in the PostgreSQL
+   database named by `DATABASE_URL` (table `ms_tokens`), and the service renews the hourly access
    token from the refresh token on its own.
 
 Nobody signs in again unless Microsoft stops accepting the refresh token — a password change,
@@ -418,7 +430,7 @@ Sprint plan: `Final/Common-Execution-Contract/13-sprint-plan.md`
 
 ## 8. Key Things to Know (Gotchas)
 
-1. **Use the Go Orchestrator, not the C# one.** `tracto/orchestrator-go/` is the active version. `tracto/orchestrator/` and `Tracto.Orchestrator/` are the C# version — kept for reference but not in active use.
+1. **The Orchestrator is the Go one.** `tracto/orchestrator-go/` is the only Orchestrator; the old C# Orchestrator has been removed.
 
 2. **Start Orchestrator before the Desktop Runtime.** The Runtime polls the Orchestrator on startup. If the Orchestrator isn't running, the Runtime will fail to connect.
 
@@ -432,7 +444,7 @@ Sprint plan: `Final/Common-Execution-Contract/13-sprint-plan.md`
    - VK codes (`VK_48`, `VK_45`…) instead of a `type` action (consolidate into one `type` step)
    - No delays (add 800–2000ms delays between major steps)
 
-5. **SQLite lock.** If the Orchestrator stops responding, kill it and restart it (see `tracto/README.md` for the kill command).
+5. **The database must be running.** If the Orchestrator will not start or stops responding, check `docker ps` for `tracto-postgres`, then restart the Orchestrator (see `tracto/README.md` for the kill command).
 
 6. **All parameter values are strings.** This is the most common mistake when writing scripts manually.
 

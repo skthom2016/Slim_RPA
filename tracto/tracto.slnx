@@ -101,14 +101,6 @@
       <Platform Project="x64" />
     </Project>
   </Folder>
-  <Folder Name="/orchestrator/">
-    <Project Path="orchestrator/src/Tracto.Orchestrator.Api/Tracto.Orchestrator.Api.csproj" />
-    <Project Path="orchestrator/src/Tracto.Orchestrator.Application/Tracto.Orchestrator.Application.csproj" />
-    <Project Path="orchestrator/src/Tracto.Orchestrator.Domain/Tracto.Orchestrator.Domain.csproj" />
-    <Project Path="orchestrator/src/Tracto.Orchestrator.Infrastructure/Tracto.Orchestrator.Infrastructure.csproj" />
-    <Project Path="orchestrator/tests/Tracto.Orchestrator.Integration.Tests/Tracto.Orchestrator.Integration.Tests.csproj" />
-    <Project Path="orchestrator/tests/Tracto.Orchestrator.Unit.Tests/Tracto.Orchestrator.Unit.Tests.csproj" />
-  </Folder>
   <Folder Name="/terminal-runtime/">
     <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Domain/Tracto.TerminalRuntime.Domain.csproj" />
     <Project Path="terminal-runtime/src/Tracto.TerminalRuntime.Application/Tracto.TerminalRuntime.Application.csproj" />

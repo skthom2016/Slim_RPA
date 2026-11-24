@@ -19,7 +19,7 @@ The sign-in is **not** repeated for each flow run, and it cannot happen during a
 
 ### What is saved
 
-After the one-time sign-in the service stores two tokens in a SQLite file (`SHEET_SERVICE_DB`):
+After the one-time sign-in the service stores two tokens in the `ms_tokens` table of its PostgreSQL database (`DATABASE_URL`), encrypted with `TRACTO_SECRET_KEY`:
 
 - **Access token.** Proves the sign-in to Microsoft Graph. It is valid for about one hour.
 - **Refresh token.** Allows the service to obtain a new access token without a person. Each time it is used, Microsoft returns a new refresh token, and the service saves the new one in place of the old one. The default lifetime of a refresh token is 90 days.
@@ -52,10 +52,10 @@ The failing flow step shows this message in its result. Once the sign-in is repe
 
 ### Security of the saved sign-in
 
-- The refresh token acts like a password for the service account's files. Anyone who has the database file can use it.
-- In the current version the tokens are stored as plain text in the SQLite file. Keep the file on the server that runs the service, outside any shared or version-controlled folder (`*.db` is ignored by git), and restrict access to it with operating-system permissions.
+- The refresh token acts like a password for the service account's files. Anyone who can read the database and has `TRACTO_SECRET_KEY` can use it.
+- Both tokens are encrypted (AES-256-GCM) before they are written to the database, so a copy of the database alone gives nothing away. Keep `TRACTO_SECRET_KEY` only in the service's environment or its `.env` file (ignored by git), never in the database or in version control, and restrict the database role's access.
 - Use a dedicated account that has access only to the files the flows need. The permission `Files.ReadWrite.All` is limited to what that account can open.
-- To remove a saved sign-in, delete the database file (or revoke the account's sessions in Microsoft 365) and run `sheet-service login` again.
+- To remove a saved sign-in, delete its row from `ms_tokens` (or revoke the account's sessions in Microsoft 365) and run `sheet-service login` again.
 
 ## 1. Prepare a service account
 
@@ -91,15 +91,16 @@ Delegated permissions let the service act only within what the signed-in service
 
 ## 5. Configure the service
 
-Put the two IDs in `sheet-service/.env`:
+Put the two IDs, the database and the encryption key in `sheet-service/.env`:
 
 ```
 MS_TENANT_ID=<Directory (tenant) ID>
 MS_CLIENT_ID=<Application (client) ID>
-SHEET_SERVICE_DB=C:\path\to\sheet-service.db
+DATABASE_URL=postgres://tracto:<password>@localhost:5432/tracto?sslmode=disable
+TRACTO_SECRET_KEY=<32 random bytes, base64>
 ```
 
-`SHEET_SERVICE_DB` is the SQLite file that holds the saved sign-in. Leave it out to use `sheet-service.db` in the folder the service is started from. If the service and the `login` command are started from different folders, set it explicitly so both use the same file.
+`DATABASE_URL` is the PostgreSQL database that holds the saved sign-in. The service and the `login` command must use the same database and the same `TRACTO_SECRET_KEY`, since the key decrypts what `login` saved.
 
 `MS_SCOPES` is optional and defaults to `Files.ReadWrite.All offline_access`.
 
@@ -196,6 +197,6 @@ Behaviour to know:
 | Sign-in says approval or admin consent is required | Grant admin consent for `Files.ReadWrite.All` (step 4). |
 | `device code request failed` | The client ID or tenant ID is wrong. Use the tenant ID or domain, not `common`. |
 | `sign-in code expired before sign-in finished; run login again` | The code was not entered within about 15 minutes. Run `sheet-service login` again. |
-| `microsoft sign-in is missing or expired; run: sheet-service login` | No sign-in is saved, or Microsoft no longer accepts it. Run `sheet-service login`. If the service and the command use different folders, set `SHEET_SERVICE_DB` explicitly. |
+| `microsoft sign-in is missing or expired; run: sheet-service login` | No sign-in is saved, or Microsoft no longer accepts it. Run `sheet-service login`. If the service and the command use a different `DATABASE_URL` or `TRACTO_SECRET_KEY`, set them the same. |
 | `graph api 403` or `404` on the file | The service account cannot open the file, or the link is wrong. |
 | `graph api 400` mentioning the workbook or an unsupported file | The file is not an `.xlsx` workbook. |

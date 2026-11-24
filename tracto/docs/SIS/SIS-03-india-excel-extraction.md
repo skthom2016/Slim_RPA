@@ -167,7 +167,7 @@ Read the profile, check the sheet, check the columns, clean and map, append, cop
 
 ### 6. A file as an item (generic)
 
-The same item-source gap as the other flows. One queue item per found file gives every file its own status, message and retry, which is the queue decided in `SIS-02` — a table in SQLite rather than a sheet. It also means flow 2 can enqueue those files directly as it saves them, and flow 3 becomes a consumer of that queue rather than a second scan of the same folders.
+The same item-source gap as the other flows. One queue item per found file gives every file its own status, message and retry, which is the queue decided in `SIS-02` — a table in PostgreSQL rather than a sheet. It also means flow 2 can enqueue those files directly as it saves them, and flow 3 becomes a consumer of that queue rather than a second scan of the same folders.
 
 ## Security findings in this package
 

@@ -1,0 +1,28 @@
+# The PostgreSQL server the Tracto services use (orchestrator-go and sheet-service).
+#
+#   docker compose up -d postgres
+#
+# Set TRACTO_DB_PASSWORD first (in the shell or in a .env file next to this file, which git ignores).
+# The services connect with  DATABASE_URL=postgres://tracto:<password>@localhost:5432/tracto?sslmode=disable
+# Each service creates its own schema (orchestrator, sheets) and its tables when it starts.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tracto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tracto
+      POSTGRES_PASSWORD: ${TRACTO_DB_PASSWORD:?set TRACTO_DB_PASSWORD}
+      POSTGRES_DB: tracto
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracto -d tracto"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

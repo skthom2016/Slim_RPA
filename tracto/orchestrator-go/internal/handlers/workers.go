@@ -21,11 +21,11 @@ func NewWorkerHandler(db *sql.DB) *WorkerHandler { return &WorkerHandler{db: db}
 // POST /workers/register
 func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		WorkerID               string   `json:"workerId"`
-		RuntimeType            string   `json:"runtimeType"`
-		ActionNames            []string `json:"actionNames"`
-		CapabilityDigest       *string  `json:"capabilityDigest"`
-		AbsenceThresholdSeconds int     `json:"absenceThresholdSeconds"`
+		WorkerID                string   `json:"workerId"`
+		RuntimeType             string   `json:"runtimeType"`
+		ActionNames             []string `json:"actionNames"`
+		CapabilityDigest        *string  `json:"capabilityDigest"`
+		AbsenceThresholdSeconds int      `json:"absenceThresholdSeconds"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -137,12 +137,12 @@ func (h *WorkerHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	type item struct {
-		WorkerID       string `json:"workerId"`
-		RuntimeType    string `json:"runtimeType"`
-		State          string `json:"state"`
-		IsOnline       bool   `json:"isOnline"`
-		LastHeartbeat  string `json:"lastHeartbeatAt"`
-		RegisteredAt   string `json:"registeredAt"`
+		WorkerID      string `json:"workerId"`
+		RuntimeType   string `json:"runtimeType"`
+		State         string `json:"state"`
+		IsOnline      bool   `json:"isOnline"`
+		LastHeartbeat string `json:"lastHeartbeatAt"`
+		RegisteredAt  string `json:"registeredAt"`
 	}
 	var items []item
 	for rows.Next() {

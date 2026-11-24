@@ -37,13 +37,13 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type artifactRow struct {
-		ArtifactId    string `json:"artifactId"`
-		Name          string `json:"name"`
-		Version       string `json:"version"`
-		SchemaVersion string `json:"schemaVersion"`
-		ContentHash   string `json:"contentHash"`
-		StoredAt      string `json:"storedAt"`
-		IsDeleted     bool   `json:"isDeleted"`
+		ArtifactId     string `json:"artifactId"`
+		Name           string `json:"name"`
+		Version        string `json:"version"`
+		SchemaVersion  string `json:"schemaVersion"`
+		ContentHash    string `json:"contentHash"`
+		StoredAt       string `json:"storedAt"`
+		IsDeleted      bool   `json:"isDeleted"`
 		SignatureValid bool   `json:"signatureValid"`
 	}
 

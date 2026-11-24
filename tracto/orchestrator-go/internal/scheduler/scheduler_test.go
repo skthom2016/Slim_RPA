@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -102,7 +103,7 @@ func stateOf(t *testing.T, d *sql.DB, id string) state {
 	t.Helper()
 	var s state
 	const utc = `'YYYY-MM-DD"T"HH24:MI:SS"Z"'`
-	err := d.QueryRow(`SELECT COALESCE(to_char(NextRunAt AT TIME ZONE 'UTC',` + utc + `),''),COALESCE(to_char(LastFireAt AT TIME ZONE 'UTC',` + utc + `),''),COALESCE(LastRunId,''),
+	err := d.QueryRow(`SELECT COALESCE(to_char(NextRunAt AT TIME ZONE 'UTC',`+utc+`),''),COALESCE(to_char(LastFireAt AT TIME ZONE 'UTC',`+utc+`),''),COALESCE(LastRunId,''),
 		COALESCE(LastStatus,''),COALESCE(LastError,'') FROM ScheduleRecords WHERE ScheduleId=$1`, id).
 		Scan(&s.next, &s.lastFire, &s.lastRun, &s.status, &s.errText)
 	if err != nil {
@@ -383,4 +384,10 @@ func TestNext_AFrequentScheduleHasNoRepeatsAcrossTheClockChange(t *testing.T) {
 		}
 		prev = n
 	}
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dbtest.Cleanup()
+	os.Exit(code)
 }

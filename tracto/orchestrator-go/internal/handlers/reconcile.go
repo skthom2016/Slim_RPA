@@ -22,9 +22,9 @@ func (h *ReconcileHandler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 	var req struct {
 		// Desktop Runtime format
-		LeaseId          string `json:"leaseId"`
-		WorkerId         string `json:"workerId"`
-		LastKnownStepId  string `json:"lastKnownStepId"`
+		LeaseId           string `json:"leaseId"`
+		WorkerId          string `json:"workerId"`
+		LastKnownStepId   string `json:"lastKnownStepId"`
 		LastKnownRunState string `json:"lastKnownRunState"`
 		// Go-native format
 		AttemptId      string `json:"attemptId"`

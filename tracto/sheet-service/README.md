@@ -15,7 +15,9 @@ All settings, including the port and every credential, are read from environment
 | `MS_TENANT_ID`, `MS_CLIENT_ID` | OneDrive and SharePoint: the Entra app registration |
 | `MS_SCOPES` | optional; default `Files.ReadWrite.All offline_access` |
 | `MS_ACCESS_TOKEN` | optional ready token, used instead of the saved sign-in |
-| `SHEET_SERVICE_DB` | SQLite file holding the saved Microsoft sign-in (default `sheet-service.db` in the working directory) |
+| `DATABASE_URL` | PostgreSQL database holding the saved Microsoft sign-in and the batch progress (required) |
+| `SHEET_SERVICE_SCHEMA` | schema for the service's tables (default `sheets`) |
+| `TRACTO_SECRET_KEY` | key that encrypts the saved Microsoft tokens: 32 random bytes, base64 (required) |
 
 Setup guides: [Google Sheets](docs/google-sheets-setup.md) and [Microsoft SharePoint / OneDrive](docs/microsoft-sharepoint-setup.md).
 
@@ -24,7 +26,7 @@ Setup guides: [Google Sheets](docs/google-sheets-setup.md) and [Microsoft ShareP
 The Excel range API of Microsoft Graph, which reads only the rows asked for and writes only the cells sent, accepts signed-in users only. The service therefore signs in once as a service account and keeps that sign-in alive:
 
 1. In the Entra app registration: add the delegated permission `Files.ReadWrite.All` (admin consent may be needed), and turn on *Allow public client flows*. The Application (client) ID and Directory (tenant) ID go in `MS_CLIENT_ID` and `MS_TENANT_ID`.
-2. Run `sheet-service login` (optionally `-name <connection>`). It prints a code and a link; open the link on any device, enter the code and sign in as the service account. The access token and refresh token are saved in the SQLite file named by `SHEET_SERVICE_DB`. The tokens are stored as plain text.
+2. Run `sheet-service login` (optionally `-name <connection>`). It prints a code and a link; open the link on any device, enter the code and sign in as the service account. The access token and refresh token are saved in the `ms_tokens` table of the PostgreSQL database in `DATABASE_URL`, encrypted with `TRACTO_SECRET_KEY`.
 3. From then on the service renews the access token (about an hour) from the refresh token by itself, and saves the new refresh token Microsoft returns each time. Nobody signs in again unless Microsoft stops accepting the refresh token (password change, revocation by an admin, a Conditional Access policy, or a long period of no use). Requests then fail with `401` and the message `microsoft sign-in is missing or expired; run: sheet-service login`.
 
 A request can name a saved sign-in with `"connection": "<name>"` inside `source` (default `default`).
@@ -114,7 +116,7 @@ The reply is `{"batchId": "...", "state": "Running", "total": 9}`. It is refused
 
 Every child is queued with the batch id as its `businessJobId`, so a batch's runs can be traced together. A batch stops (`Stopped`) rather than failing every remaining row when three rows in a row cannot reach the Orchestrator, or when a result cannot be written to the sheet (usually because the workbook is open in Excel). If the service restarts mid-batch the batch is marked `Interrupted`; start it again to carry on.
 
-Settings (in `.env`): `SHEET_SERVICE_ORCHESTRATOR_URL` (default `http://127.0.0.1:5080`) and `SHEET_SERVICE_BATCH_DB` (default `sheet-batches.db`, a file of its own: it holds only batch progress, never sheet values).
+Settings (in `.env`): `SHEET_SERVICE_ORCHESTRATOR_URL` (default `http://127.0.0.1:5080`). Batch progress is kept in the `process_batches` and `process_items` tables of the same PostgreSQL database: only progress, never sheet values.
 
 ## Behaviour to know
 

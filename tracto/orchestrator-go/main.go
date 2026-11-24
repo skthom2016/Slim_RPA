@@ -39,6 +39,9 @@ func loadEnv(logger *slog.Logger) {
 }
 
 func main() {
+	// The orchestrator keeps and reports every time in UTC; this also makes its log lines UTC.
+	time.Local = time.UTC
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	loadEnv(logger)
 

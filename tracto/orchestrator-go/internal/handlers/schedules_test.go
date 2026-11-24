@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -361,4 +362,10 @@ func TestCompleted_ListsFinishedScheduledRunsNewestFirst(t *testing.T) {
 			t.Fatalf("%s should be refused, got %d", bad, code)
 		}
 	}
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dbtest.Cleanup()
+	os.Exit(code)
 }

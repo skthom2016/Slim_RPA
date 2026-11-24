@@ -46,4 +46,4 @@
 - A ZIP file is deleted only after every file inside it has an outcome.
 - A mail is recorded as processed only after its work items exist, so a rerun never repeats or loses a mail.
 - Mailbox passwords never appear in a log.
-- **Open:** which mailboxes exist and whether each is Microsoft 365 or the in-house server, and whether the Microsoft 365 administrator grants the mail permissions; which spreadsheets flow 3 should read (the `XLS` folder or the `PA_` copies); whether work items live in a SQLite table (the working default) or a sheet.
+- **Open:** which mailboxes exist and whether each is Microsoft 365 or the in-house server, and whether the Microsoft 365 administrator grants the mail permissions; which spreadsheets flow 3 should read (the `XLS` folder or the `PA_` copies); whether work items live in a PostgreSQL table (the working default) or a sheet.

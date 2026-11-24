@@ -3,6 +3,7 @@ package db_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -119,4 +120,10 @@ func TestTimes_AreReturnedInUTC(t *testing.T) {
 	if s != "2026-11-24T05:00:00Z" {
 		t.Fatalf("got %q", s)
 	}
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dbtest.Cleanup()
+	os.Exit(code)
 }

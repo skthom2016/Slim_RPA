@@ -13,3 +13,9 @@ packages/
 TestResults/
 
 logs/
+
+# Local settings and stray database files
+.env
+*.db
+*.db-shm
+*.db-wal

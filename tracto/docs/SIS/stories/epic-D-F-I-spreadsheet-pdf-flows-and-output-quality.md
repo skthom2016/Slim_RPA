@@ -473,7 +473,7 @@ Shapes and expected output (the shapes are those seen; values are invented):
 | ID | Task | Notes |
 |---|---|---|
 | I3.1 | Collapse identical lines inside a document, with a profile switch and a count |  |
-| I3.2 | Content-hash register (SQLite table: hash, entity, first date, path, outcome) and the skip |  |
+| I3.2 | Content-hash register (PostgreSQL table: hash, entity, first date, path, outcome) and the skip |  |
 | I3.3 | Day workbook written once: temporary name then rename, refuse to overwrite |  |
 | I3.4 | Unique `File name` per advice |  |
 | I3.5 | Late-document handling |  |

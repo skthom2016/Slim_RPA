@@ -1,5 +1,5 @@
 // Package msauth signs in to Microsoft with the device-code flow and keeps the connection alive:
-// the refresh token and access token are saved in a SQLite file, and the access token is renewed
+// the refresh token and access token are saved, encrypted, in PostgreSQL, and the access token is renewed
 // silently shortly before it expires. A person is needed only for the first sign-in, or again if
 // Microsoft revokes the refresh token.
 package msauth

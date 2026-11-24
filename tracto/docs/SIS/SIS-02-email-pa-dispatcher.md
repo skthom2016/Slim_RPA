@@ -10,7 +10,7 @@ How the UiPath process `EmailPADispatcher` 1.0.10 is rebuilt on Tracto. This is 
 
 **What it becomes in Tracto.** A schedule starts a one-step main job, which calls a Go process and ends. There is no script and no worker in this flow at all: it is mail, files and spreadsheets from end to end. In UiPath every one of those steps had to run inside a robot holding a desktop session.
 
-**The decision this flow forces:** what a work queue is in Tracto, since everything this flow produces is work for a later process. The working default is **a queue-items table in SQLite**, with a sheet as the simpler alternative that is still used for configuration and output; which of the two is confirmed before the queue is built. **The biggest thing missing is a mail reader** — Tracto cannot read a mailbox at all today. Open questions are at the end of this document.
+**The decision this flow forces:** what a work queue is in Tracto, since everything this flow produces is work for a later process. The working default is **a queue-items table in PostgreSQL**, with a sheet as the simpler alternative that is still used for configuration and output; which of the two is confirmed before the queue is built. **The biggest thing missing is a mail reader** — Tracto cannot read a mailbox at all today. Open questions are at the end of this document.
 
 ## What the UiPath process does
 
@@ -92,7 +92,7 @@ So the list is not optional. The only decision is where it is kept.
 
 ## Where the queue lives
 
-Tracto has a job queue — runs waiting for a worker, a table in the Orchestrator's SQLite — but no business-data queue, nothing that holds work items with their own status and attempt count. Two ways to provide one.
+Tracto has a job queue — runs waiting for a worker, a table in the Orchestrator's PostgreSQL database — but no business-data queue, nothing that holds work items with their own status and attempt count. Two ways to provide one.
 
 ### Option A: a sheet is the queue
 
@@ -107,9 +107,9 @@ Each dispatched file becomes a row in a work sheet with the fields above. The co
 - **`POST /apply` is not atomic.** It reads under the file lock, releases it, then writes under it again, so two callers at once can be handed the same rows. A small fix, but a fix to make.
 - **One writer per sheet.** The per-file mutex is inside one sheet-service process; two instances on the same file have no coordination.
 
-### Option B: queue items in SQLite — the default
+### Option B: queue items in PostgreSQL — the default
 
-A `QueueItems` table and a small API over it: add an item, claim the next, move it through `Pending`, `Running`, `Done` and `Failed`, with an attempt count. It follows the SQLite and handler patterns the Orchestrator already uses, and **sheet-service's batch store is already most of it** — items with states, each carrying its child run id and how it ended — so what is new is that items arrive from an API instead of from sheet rows.
+A `QueueItems` table and a small API over it: add an item, claim the next, move it through `Pending`, `Running`, `Done` and `Failed`, with an attempt count. It follows the PostgreSQL and handler patterns the Orchestrator already uses, and **sheet-service's batch store is already most of it** — items with states, each carrying its child run id and how it ended — so what is new is that items arrive from an API instead of from sheet rows.
 
 **What it gives:** items that Tracto's own flows can claim and update without touching a file; a claim two callers cannot both win; and an attempt count, which flow 4 uses because the extraction service answers `ANALYZER_BUSY` when it is saturated and that means hold the item, not fail it.
 
@@ -217,7 +217,7 @@ A `QueueItems` table and the endpoints over it — add, claim, complete, fail, l
 
 ### 6. An appending write (small)
 
-`POST /update` writes to known row numbers. The Email Tracker wants "add these rows at the end", which needs either an append mode on `/update` or a small `POST /append`. Concurrency matters here: two entities finishing at once must not claim the same row. (The queue no longer needs this, since it lives in SQLite; the tracker and the output table still do.)
+`POST /update` writes to known row numbers. The Email Tracker wants "add these rows at the end", which needs either an append mode on `/update` or a small `POST /append`. Concurrency matters here: two entities finishing at once must not claim the same row. (The queue no longer needs this, since it lives in PostgreSQL; the tracker and the output table still do.)
 
 ### 7. The dispatcher process itself (flow-specific)
 
@@ -279,7 +279,7 @@ Flows 3 and 4 consume what this one produces, so the item's fields should be set
 
 | Question | Decision |
 |---|---|
-| What is the queue? | A queue-items table in SQLite as the working default; a sheet is the simpler alternative at this volume and is to be re-confirmed. Sheets stay for configuration and output. |
+| What is the queue? | A queue-items table in PostgreSQL as the working default; a sheet is the simpler alternative at this volume and is to be re-confirmed. Sheets stay for configuration and output. |
 | How much volume? | To be re-confirmed. The samples hold about 150 documents a working day across DTSS (22) and Southern Cross Protection (131 on its six distinct days, 248 on the largest); see [payment-advice-samples.md](payment-advice-samples.md). The earlier figure was about 1,000 a month, roughly 45 a day. One at a time is likely still enough; the extraction service's time per document decides. |
 | Who do replies to a sender go to? | The sender only. The original CC and BCC are not copied on. |
 | Does DTSS still skip spreadsheets? | Yes. It stays, held as an `AcceptedTypes` column on the entity row rather than a name in code. |

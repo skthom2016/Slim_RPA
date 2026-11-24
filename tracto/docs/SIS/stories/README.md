@@ -88,7 +88,7 @@ B4 depends on flows 2 to 4 only for its timing: it starts after flow 4 has writt
 | The International bank check: retry limit, what reads `<entity>_BankAvail_Success_Queue`, whether MSS-Security is checked, what sets `active_bot_run_id` in the two bank-check databases | B5 | The process owner |
 | The exact time zone of the 07:55 "Australian time" trigger | B4, G2 | The process owner |
 | Whether the International entity belongs in the four flows and the loader at all | F3, I1, I6 | The process owner |
-| Queue as a SQLite table or a sheet | A5, C3 | Re-confirmation; the table is the working default |
+| Queue as a PostgreSQL table or a sheet | A5, C3 | Re-confirmation; the table is the working default |
 | The threshold for review routing | F4 | Re-extracting the 248 International workbooks that carry UiPath confidences |
 | The release path for a reviewed document (the day workbook is never rewritten) | F4 | The proposal in F4.7 to be confirmed |
 | The spreadsheet advice formats of the entities other than DTSS | D1, D2 | Samples of each entity's workbook and the profile sheet |

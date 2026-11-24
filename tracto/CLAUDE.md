@@ -12,7 +12,7 @@ Tracto is a Windows desktop RPA platform with three components:
 
 | Component | Language | Port | Purpose |
 |-----------|----------|------|---------|
-| **Orchestrator** | Go + SQLite | 5080 | Job queue, artifact store, API |
+| **Orchestrator** | Go + PostgreSQL | 5080 | Job queue, artifact store, API |
 | **Orchestrator UI** | Node.js Express | 4000 | Web dashboard |
 | **Desktop Runtime** | C# .NET 10 | — | Executes scripts on Windows |
 | **Designer** | C# WPF .NET 10 | — | Visual script editor |
@@ -225,5 +225,5 @@ tracto/
 - **`{LWIN}` requires Win32.** Standard .NET SendKeys doesn't support the Windows key. The runtime routes `{LWIN}*` tokens through `keybd_event` automatically.
 - **`filePath` is a single full path.** `file.saveAs` takes one `filePath` param (e.g. `"%USERPROFILE%\\Downloads\\out.txt"`), not separate `fileName` + `directory`.
 - **Stale leases auto-expire.** If the Desktop Runtime crashes mid-job, the next `POST /jobs/pull` auto-expires the stale lease so the worker can pick up new jobs.
-- **SQLite lock.** If the Orchestrator hangs (endpoints time out), kill and restart it — see README.md.
+- **Database.** The Orchestrator and the sheet service need PostgreSQL (`DATABASE_URL` in their `.env`). If the Orchestrator does not start or its endpoints time out, check that the database is up (`docker ps`) — see README.md.
 - **Hello World API runs on port 3000**, not 5000.

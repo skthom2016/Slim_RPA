@@ -19,17 +19,17 @@ func NewJobHandler(db *sql.DB) *JobHandler { return &JobHandler{db: db} }
 // POST /jobs
 func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ScriptArtifactId       string   `json:"scriptArtifactId"`
-		ScriptVersion          string   `json:"scriptVersion"`
-		SchemaVersion          string   `json:"schemaVersion"`
-		InputRefs              []string `json:"inputRefs"`
-		SecretRefs             []string `json:"secretRefs"`
-		Deadline               *string  `json:"deadline"`
-		EventId                *string  `json:"eventId"`
-		TriggerType            string   `json:"triggerType"`
-		ContinuationScriptRef  *string  `json:"continuationScriptRef"`
-		BusinessJobId          *string  `json:"businessJobId"`
-		Params                 map[string]string `json:"params"`
+		ScriptArtifactId      string            `json:"scriptArtifactId"`
+		ScriptVersion         string            `json:"scriptVersion"`
+		SchemaVersion         string            `json:"schemaVersion"`
+		InputRefs             []string          `json:"inputRefs"`
+		SecretRefs            []string          `json:"secretRefs"`
+		Deadline              *string           `json:"deadline"`
+		EventId               *string           `json:"eventId"`
+		TriggerType           string            `json:"triggerType"`
+		ContinuationScriptRef *string           `json:"continuationScriptRef"`
+		BusinessJobId         *string           `json:"businessJobId"`
+		Params                map[string]string `json:"params"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -152,10 +152,10 @@ func scriptRuntimeType(db *sql.DB, artifactID, version string) string {
 // POST /jobs/pull
 func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		WorkerId            string   `json:"workerId"`
-		RuntimeType         string   `json:"runtimeType"`
-		CapabilityNames     []string `json:"capabilityNames"`
-		InteractiveSessionId *string `json:"interactiveSessionId"`
+		WorkerId             string   `json:"workerId"`
+		RuntimeType          string   `json:"runtimeType"`
+		CapabilityNames      []string `json:"capabilityNames"`
+		InteractiveSessionId *string  `json:"interactiveSessionId"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -203,12 +203,13 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	//
 	// A run stays Queued from the moment it is offered until its worker accepts it, so a run that
 	// holds an offer which has not yet run out is skipped too: without that, a second worker
-	// pulling a moment after the first would be offered the same run.
+	// pulling a moment after the first would be offered the same run. The offer is recorded on the
+	// run row itself (WorkerId and OfferExpiresAt), because when a worker finally locks a row that
+	// another has just released, PostgreSQL re-checks this row's own columns, not other tables.
 	query := `SELECT Id,AttemptId,ScriptArtifactId,ScriptVersion,InputRefsJson,SecretRefsJson,InteractiveSessionId
 	          FROM RunRecords
 	          WHERE State='Queued' AND (RuntimeType='' OR RuntimeType=$1)
-	            AND NOT EXISTS (SELECT 1 FROM LeaseRecords l
-	                            WHERE l.RunId=RunRecords.Id AND l.State='Offered' AND l.ExpiresAt > $2)
+	            AND (WorkerId IS NULL OR OfferExpiresAt IS NULL OR OfferExpiresAt <= $2)
 	          ORDER BY CreatedAt ASC LIMIT 1
 	          FOR UPDATE SKIP LOCKED`
 	var runID, attemptID, artifactID, artifactVersion string
@@ -260,8 +261,8 @@ func (h *JobHandler) PullJob(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Update run: adopt new AttemptId as fence, record worker
-	x.exec(`UPDATE RunRecords SET AttemptId=$1, WorkerId=$2, UpdatedAt=$3 WHERE Id=$4`,
-		newAttemptID, req.WorkerId, now, runID)
+	x.exec(`UPDATE RunRecords SET AttemptId=$1, WorkerId=$2, OfferExpiresAt=$3, UpdatedAt=$4 WHERE Id=$5`,
+		newAttemptID, req.WorkerId, expiresAt, now, runID)
 
 	// Journal: LEASE_OFFERED
 	jID := uuid.NewString()
@@ -335,9 +336,10 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 
 // GET /jobs?state=Queued&limit=50&includeSegments=false
 // Lists runs, newest first. Optional query params:
-//   state            — filter by state (case-insensitive); omit for all states
-//   limit            — max rows returned (default 50, max 200)
-//   includeSegments  — also list the child runs of segmented scripts (default false)
+//
+//	state            — filter by state (case-insensitive); omit for all states
+//	limit            — max rows returned (default 50, max 200)
+//	includeSegments  — also list the child runs of segmented scripts (default false)
 func (h *JobHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	stateFilter := r.URL.Query().Get("state")
 	includeSegments := r.URL.Query().Get("includeSegments") == "true"

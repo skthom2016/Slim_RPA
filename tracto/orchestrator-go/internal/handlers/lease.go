@@ -78,7 +78,7 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 			"runId": runID, "attemptId": req.AttemptId,
 			"artifactId": artifactID, "artifactVersion": artifactVersion,
 			"artifactHash": artifactHash,
-			"inputRefs": inputRefs, "secretRefs": secretRefs,
+			"inputRefs":    inputRefs, "secretRefs": secretRefs,
 		})
 		return
 	}
@@ -152,7 +152,7 @@ func (h *LeaseHandler) AcceptLease(w http.ResponseWriter, r *http.Request) {
 		"runId": runID, "attemptId": req.AttemptId,
 		"artifactId": artifactID, "artifactVersion": artifactVersion,
 		"artifactHash": artifactHash,
-		"inputRefs": inputRefs, "secretRefs": secretRefs,
+		"inputRefs":    inputRefs, "secretRefs": secretRefs,
 	})
 }
 

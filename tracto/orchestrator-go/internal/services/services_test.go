@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -224,4 +225,10 @@ func TestRestartRecovery_RequeuesTheRunsOfAnAbsentWorker(t *testing.T) {
 	if got := s.str(`SELECT State FROM RunRecords WHERE Id='r2'`); got != "Running" {
 		t.Errorf("r2 belongs to a present worker: %s", got)
 	}
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dbtest.Cleanup()
+	os.Exit(code)
 }

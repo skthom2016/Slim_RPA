@@ -9,7 +9,7 @@ The build starts before every question in [open-questions.md](open-questions.md)
 | Repository | Everything is built in this repository (`tracto`). The extraction service is called as it is through its API; its repository is not changed, and the extraction epic (E) stays with its team. Where a module-team feature is missing, Tracto flags the document for review instead of working around it inside the service | 96 to 105 |
 | Shared capabilities | Files, mail reading and sending, the program runner, work items and the appending write (stories A1 to A6) are added to `sheet-service`, which already holds the Microsoft sign-in, the sheet engine and the batch store | Decisions |
 | Flow logic | A new Go module, `sis-service`, holds the five start endpoints (`/bankcheck/start`, `/maildispatch/start`, `/excelextract/start`, `/padvice/start`, `/carun/start`) and calls `sheet-service` over HTTP | Decisions |
-| Work queue | A SQLite table in `sheet-service`, extending the batch store | Decisions |
+| Work queue | A PostgreSQL table in `sheet-service`, extending the batch store | Decisions |
 | Machine | Both services run on the Windows server that runs the UiPath robot today, with the same `E:\Automation`, `C:\Automation` and `C:\xampp\htdocs` paths, Python 3.6 and batch files. Every path is a setting | 89 |
 | Main jobs | One-step desktop scripts with `http.post`, as in story G1, on a worker with an unlocked session | Decisions |
 
