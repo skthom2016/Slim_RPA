@@ -85,6 +85,7 @@ Conventions used in every story:
 6. Given the fetch exits 0 but the folder is still missing or empty, then the entity is not reported available.
 7. Given a command name not present in the runner's configured list, when requested, then the call is refused with an error and nothing runs.
 8. Given the entity loop, when two entities need fetching, then they run strictly one after the other while the shared `EntitySelected` cell is in use.
+9. Given the fetch bots' calendar `Bot_run_Configurations.xlsx`, when its first row is not the column names or today has no filled row, then the fetch is not started and the entity's row records "no fetch window", because the bot would end successfully without fetching anything.
 
 **Tasks.**
 | ID | Task | Notes |
@@ -93,6 +94,7 @@ Conventions used in every story:
 | B2.2 | Run the fetch bot, wait, read the exit code and check again | Includes the `EntitySelected!A2` write through `POST /update`; uses A4 |
 | B2.3 | Timeout handling |  |
 | B2.4 | Empty-folder rule: a folder with no file counts as missing | Needs A3 `list` |
+| B2.5 | Fetch window check in `Bot_run_Configurations.xlsx` before a fetch | Path is a setting; uses the sheet engine |
 
 **Test notes.** A statements root with three entity folders (one full, one missing, one empty), a stub `bank-fetch` command that exits 0, exits 1, sleeps past the timeout, and one that creates the folder; a copy of `BankMaster.xlsx`. Checked: outcome per entity, the cell content after each fetch, the stored exit code and output, kill on timeout.
 
@@ -223,7 +225,7 @@ Conventions used in every story:
 **Acceptance criteria.**
 1. Given the entity table has rows for MSS-Security and Southern-Cross-Protection with `Flow1Enabled`, each with its own statement root, bank workbook, fetch command name and recipients, when `/bankcheck/start` runs, then each International entity is checked with its own values and the Indian entities are unchanged.
 2. Given an International entity whose folder is missing, when the fetch runs, then the entity name is written into `BankMasterInternational.xlsx` `EntitySelected!A2` and the entity's own named command runs (`bank-fetch-MSS-Security` or `bank-fetch-Southern-Cross-Protection`).
-3. Given an entity row with `RetryMinutes` 5 and `RetryLimit` n, when the statements are still missing after a try, then the entity is held and tried again after five minutes, other entities continue meanwhile, and after n tries the entity is `Unavailable`.
+3. Given an entity row with `RetryMinutes` 5 and `RetryUntil` 07:50 in the entity's time zone, when the statements are still missing after a try, then the entity is held and tried again after five minutes, other entities continue meanwhile, and after the last try before 07:50 the entity is `Unavailable`.
 4. Given an entity becomes `Unavailable` after its last try, then one mail goes to `<entity>_bank_issue_receiverID`, CC `<entity>_receiverID_CC`, listing the missing accounts; no mail is sent on the earlier tries.
 5. Given an International entity is available, then one mail goes to `<entity>_receiverID`, CC `<entity>_receiverID_CC`, and the run record holds the entity's result with the time it became available, readable by flow 5.
 6. Given the check workbook is missing after a fetch, then the entity's try is `Failed` with the message and the retry continues; the run does not stop.
@@ -241,7 +243,7 @@ Conventions used in every story:
 **Test notes.** Two International entity rows, a statements root with one entity folder present and one missing, stub fetch commands (one that creates the folder on the second try, one that never does), a copy of `BankMasterInternational.xlsx` and a check workbook with one `N` account. Checked: the cell write per entity, the retry timing and limit, one mail per outcome, and the result flow 5 reads.
 
 **Open items.**
-- The retry limit, and whether the "not available" mail goes once or on every try.
+- The retry limit; the default is every 5 minutes until 07:50 Sydney time, with one "not available" mail at the end ([build-defaults.md](../build-defaults.md)).
 - What reads `<entity>_BankAvail_Success_Queue` today; if it starts `International_Bot1_SXP`, flow 5 should wait for this result.
 - Whether MSS-Security is to be checked; the MSS fetch bot reads Southern Cross Protection's date window.
 - What sets `active_bot_run_id` in `ca_with_pa_mss_bankcheck` and `ca_with_pa_sxp_bankcheck`; without it the fetch bots do nothing.
@@ -263,7 +265,7 @@ Conventions used in every story:
 **Context.** UiPath loops `PriorityEntity_1..N` (15 entities), reads unread `Inbox` over IMAP port 993 (`outlook.office365.com` for RARE, `mail.sisindia.com` for the rest), sorts by the `Date` header, lower-cases the plain-text body and takes the first customer row whose alias in columns 3 or 4 is contained, else `Others` ([SIS-02, steps 1 to 6](../SIS-02-email-pa-dispatcher.md)). Tracto reads entities as rows with a flag per flow, uses Graph for Microsoft 365 and IMAP for the in-house server (A1), records processed message ids instead of relying on the read flag, and records the matched keyword.
 
 **Acceptance criteria.**
-1. Given an entity table with `Flow2Enabled`, `MailPlatform` (`graph` or `imap`) and `MailAccount` columns, when `/maildispatch/start` runs, then only enabled entities are processed, in sheet order, each with its own run-record row.
+1. Given an entity table with `Flow2Enabled` and `MailAccount` columns, the account being a row of the mail account store (H3) of kind `graph-app`, `graph-delegated` or `imap`, when `/maildispatch/start` runs, then only enabled entities are processed, in sheet order, each with its own run-record row.
 2. Given an entity with 12 unread mails, when fetched, then they are returned oldest first by the `Date` header, each with message id, sender, subject, date, plain-text body and attachment names, sizes and types.
 3. Given a message id already in the processed-message record (A1), when the mailbox is read again, then the mail is not handled again, whether or not the read flag is set.
 4. Given a person has opened a mail (read flag set) that is not in the processed record, then it is still handled.
@@ -279,7 +281,7 @@ Conventions used in every story:
 | C1.2 | Fetch unread mail in arrival order | Uses A1 |
 | C1.3 | Read the customer list | Sheet named after the entity in `Customers List.xlsx` |
 | C1.4 | Keyword matching, recording the matched keyword |  |
-| C1.5 | Entity table columns for flow 2: `Flow2Enabled`, `MailPlatform`, `MailAccount`, `AcceptedTypes`, recipients |  |
+| C1.5 | Entity table columns for flow 2: `Flow2Enabled`, `MailAccount`, `AcceptedTypes`, recipients | The mailbox kind and credentials are on the account row (H3) |
 
 **Test notes.** One test Microsoft 365 mailbox and one IMAP test account, each with mails of: a single match, two customers in one body, no match, no plain-text part, already read by a person; a customer sheet with aliases. Checked: order, matched keyword, `Others`, rerun after a crash between filing and recording (no loss, no repeat).
 
@@ -287,7 +289,7 @@ Conventions used in every story:
 - Entity-to-mailbox list and the platform of each (the workbook holds mailbox settings for DTSS only).
 - Which entities flow 2 covers; AEPL and RHSPL are in the Python loader list but not in the dispatcher list, RARE is the reverse.
 - Whether the customer sheet may take named columns and more than two aliases, or whether the per-entity customer alias sheets of collection accounting should be the one source (q121).
-- IMAP password source on the worker (`${secret:NAME}`).
+- Mailbox credentials: one row per mailbox in the mail account store (H3), whether IMAP password or tenant, client and secret.
 
 ---
 

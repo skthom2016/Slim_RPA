@@ -27,26 +27,29 @@ Paths in the evidence column are relative to `tracto/`.
 | Depends on | none |
 | Capability today | Partly. The Microsoft sign-in exists (`sheet-service/internal/msauth/msauth.go`: device-code flow, refresh token kept in table `ms_tokens` of `sheet-service.db`, renewed 5 minutes before expiry). Its default scope is `Files.ReadWrite.All offline_access`, so no mail permission is requested; `MS_SCOPES` can override it. No mail reading code exists anywhere under `tracto/` (no `/mail/*` route in `sheet-service/internal/api/api.go`, no IMAP client). To build |
 
-**User story.** As a flow developer, I want one endpoint that lists unread mail with its attachments and saves attachments and mail bodies to a folder, for both the Microsoft 365 mailboxes and the in-house IMAP mailbox, so that the dispatcher flow can read every entity mailbox without a desktop session.
+**User story.** As a flow developer, I want one endpoint that lists unread mail with its attachments and saves attachments and mail bodies to a folder, for every entity mailbox whatever its kind (a Microsoft 365 mailbox in the entity's own tenant, a mailbox reached through the service's sign-in, or an IMAP mailbox), so that the dispatcher flow can read every entity mailbox without a desktop session.
 
-**Context.** EmailPADispatcher reads each entity mailbox through a UiPath mail activity with a plain-text password and marks mail read as its progress marker ([SIS-02, "What the UiPath process does"](../SIS-02-email-pa-dispatcher.md)). In Tracto, Go reads through Microsoft Graph for Microsoft 365 accounts (same sign-in as the SharePoint reader, `Mail.Read` added to the scope) and through an IMAP client for the in-house server. Mail is never used as its own progress marker; a processed-message record keyed by message id is. The endpoints are `POST /mail/fetch` and `POST /mail/save` ([SIS-02, "What has to be built", item 1](../SIS-02-email-pa-dispatcher.md)).
+**Context.** EmailPADispatcher reads each entity mailbox through a UiPath mail activity with a plain-text password and marks mail read as its progress marker ([SIS-02, "What the UiPath process does"](../SIS-02-email-pa-dispatcher.md)). In Tracto, each mailbox is a row of the mail account store (H3) with one of three kinds: `graph-app`, Microsoft Graph with the entity's own tenant ID, client ID and client secret (application permission `Mail.Read` on that mailbox); `graph-delegated`, Graph through the service's existing sign-in with `Mail.Read` added to the scope; `imap`, an IMAP client with host, port, user and password. With 50 to 60 entity mailboxes, each may sit in a different tenant. Mail is never used as its own progress marker; a processed-message record keyed by message id is. The endpoints are `POST /mail/fetch` and `POST /mail/save` ([SIS-02, "What has to be built", item 1](../SIS-02-email-pa-dispatcher.md)).
 
 **Acceptance criteria.**
 1. Given a Microsoft 365 account configured with `MS_SCOPES` containing `Mail.Read`, when `POST /mail/fetch {account, folder:"Inbox", unreadOnly:true, markRead:false, max:100}` is called, then the reply holds one record per message with `id`, `from`, `subject`, `date`, plain-text body, and per attachment `name`, `size` and `type`, oldest first.
 2. Given the saved sign-in has no `Mail.Read` permission or the refresh token was revoked, when fetch is called, then the reply is an error with code `LOGIN_REQUIRED` or `SCOPE_MISSING` and a message naming `sheet-service login`; no partial list is returned.
-3. Given an IMAP account whose password is supplied through the worker environment (see H3), when fetch is called, then the same record shape is returned; when the password is wrong, the error is `AUTH_FAILED` and no log line contains the password.
+3. Given an IMAP account whose password is held in the mail account store (H3), when fetch is called, then the same record shape is returned; when the password is wrong, the error is `AUTH_FAILED` and no log line contains the password.
 4. Given `max` is 100 and the mailbox holds 250 unread messages, when fetch is called twice with the processed-message record updated between the calls, then the second call returns the next messages and never one already recorded.
 5. Given `POST /mail/save {messageId, what:"attachments", folder}`, when the message has three attachments, then three files are written and the reply lists their paths; given `what:"eml"`, one `.eml` file is written holding the whole message.
 6. Given an attachment name containing `..\`, a path separator, a reserved Windows name or more than 150 characters, when it is saved, then it is written under a sanitised name inside the target folder and the original name is returned alongside the path.
 7. Given the same message id is recorded as processed, when `/mail/fetch` runs again with `unreadOnly:true`, then the message is not returned, even if a person has since marked it unread, and a message a person has read but that is not recorded is still returned when `unreadOnly:false`.
 8. Given a mailbox that is unreachable (network down), when fetch is called, then the reply is `MAIL_UNREACHABLE` within the configured timeout and nothing is recorded as processed.
+9. Given a `graph-app` account row with its own tenant ID, client ID and secret, when fetch is called, then the service obtains an application token for that tenant (client credentials), caches it until shortly before expiry, and reads that mailbox only; a wrong secret gives `AUTH_FAILED` naming the account, not the secret.
+10. Given 50 account rows in different tenants, when the dispatcher fetches them in turn, then each uses its own token and a failure in one account does not affect the others.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
 | A1.1 | Microsoft Graph sign-in scope and token handling for mail | Add `Mail.Read` (and `Mail.Send`, see A2) to `MS_SCOPES`; a second `sheet-service login` is needed once |
 | A1.2 | Graph unread listing with body and attachment list |  |
-| A1.3 | IMAP client: connect, list and fetch for the in-house mailbox | Password from the worker environment, see H3 |
+| A1.3 | IMAP client: connect, list and fetch for the in-house mailbox | Password from the mail account store, see H3 |
+| A1.8 | Graph application sign-in per account (client credentials, token cache per tenant) | Tenant, client and secret from the mail account store |
 | A1.4 | Save attachments and .eml bodies to a target folder |  |
 | A1.5 | Processed-message record so a rerun never repeats a message | Table keyed by account and message id; written after the work item exists, not before |
 | A1.6 | Mail reader tests against test mailboxes |  |
@@ -56,7 +59,7 @@ Paths in the evidence column are relative to `tracto/`.
 
 **Open items.**
 - Which mailboxes exist, on which platform each runs and whether each is Microsoft 365 or IMAP is not known ([SIS-02, open question 2](../SIS-02-email-pa-dispatcher.md)); the configuration workbook holds mailbox settings for DTSS only.
-- Whether the Microsoft 365 accounts can be reached through one delegated sign-in (a shared mailbox permission) or need one sign-in each; `msauth` supports a named sign-in (`DefaultName`), the per-mailbox use is untested.
+- Which kind each mailbox is. The UiPath dispatcher reads every mailbox over IMAP with a password; the entity mailboxes are also reported to have their own tenant ID and client secret each. The store holds either, per row ([build-defaults.md](../build-defaults.md)).
 - The in-house IMAP server's TLS mode and port (the workbook shows port 465, which is SMTP over TLS, not IMAP).
 - Retention of saved attachments in the staging folder ([SIS-02, open question 6](../SIS-02-email-pa-dispatcher.md)).
 
@@ -72,7 +75,7 @@ Paths in the evidence column are relative to `tracto/`.
 
 **User story.** As a flow developer, I want to send an HTML mail with CC and to reply to a message so that the reply goes to the sender only, so that the flows can report results and chase senders without passing a password or copying strangers.
 
-**Context.** All four flows end in mail. Flow 1 sends an availability mail and an HTML table of unavailable accounts; flow 2 replies to the sender when a file is unusable; flows 3 and 4 send rejection and summary mails ([SIS-01, "What has to be built", item 2](../SIS-01-bank-avail-check.md); [SIS-02, item 3](../SIS-02-email-pa-dispatcher.md)). UiPath sent through SMTP accounts whose passwords sit in the packages. Tracto sends through Graph `sendMail` on the service's own sign-in. A reply goes to the sender only; the original CC and BCC are not copied.
+**Context.** All four flows end in mail. Flow 1 sends an availability mail and an HTML table of unavailable accounts; flow 2 replies to the sender when a file is unusable; flows 3 and 4 send rejection and summary mails ([SIS-01, "What has to be built", item 2](../SIS-01-bank-avail-check.md); [SIS-02, item 3](../SIS-02-email-pa-dispatcher.md)). UiPath sent through SMTP accounts whose passwords sit in the packages. Tracto sends through Graph `sendMail` with the sending account's row in the mail account store (H3): an application token for a `graph-app` row, the service's sign-in for a `graph-delegated` row. A reply goes to the sender only; the original CC and BCC are not copied.
 
 **Acceptance criteria.**
 1. Given `POST /mail/send {to, cc, subject, body, isHtml:true}` with an HTML table body, when it is sent, then the received mail renders the table and `cc` receives a copy.
@@ -93,7 +96,7 @@ Paths in the evidence column are relative to `tracto/`.
 **Test notes.** A test mailbox for sending and a second for receiving. Checks: HTML table renders in the received mail, CC delivered, reply recipients, refusal of a path outside the roots, error mapping with the permission removed.
 
 **Open items.**
-- Which account sends each flow's mail (the service's own sign-in or a per-entity sender).
+- Which account sends each flow's mail. Default: the entity row names a sending account in the mail account store, else the service sender in `Settings` ([build-defaults.md](../build-defaults.md)).
 - Mail text templates: the UiPath mail bodies are hard-coded in the workflows; the wording to keep is for the process owner, supplied through H1.
 - Whether the SIS tenant allows `Mail.Send` and `Mail.Read` to be consented for the existing app registration.
 
@@ -294,7 +297,7 @@ Paths in the evidence column are relative to `tracto/`.
 
 **Open items.**
 - The main job needs a desktop worker with an unlocked, logged-in session to run its single step, which the scheduling notes require for any desktop job (`docs/scheduling.md`); the flows need no worker for the work itself. Whether the one-step job should stay on the desktop runtime or move to another runtime is not decided here.
-- Which Go module hosts each `/…/start` endpoint (the existing sheet-service module or new ones).
+- Which Go module hosts each `/…/start` endpoint. Default: a new module `sis-service`; the shared capabilities go into `sheet-service` ([build-defaults.md](../build-defaults.md)).
 - Whether flows 3 and 4 are started by their own schedule or by flow 2 finishing; see G2.4.
 
 ---
@@ -424,7 +427,7 @@ Paths in the evidence column are relative to `tracto/`.
 | Depends on | none; A1 and A2 consume it |
 | Capability today | Partly. `${secret:NAME}` is resolved by the browser runtime only: it reads environment variable `TRACTO_SECRET_<NAME in capitals>` on the worker and never logs it (`browser-runtime/src/TractoRuntime.Browser.Host/BrowserRunEngine.cs`, `ResolveSecrets`; `browser-runtime/src/TractoRuntime.Browser.Host/.env.example`). The desktop runtime has no secret reference: `Tracto.Desktop.Security` holds `SecretRef`, `ISecretResolver` and `DpapiSecretResolver`, which no action handler uses, and `limits.md` states there is no mechanism. In the Orchestrator, `redactSecrets` masks Warning and Error run logs (`orchestrator-go/internal/handlers/logs.go`), `containsSecret` rejects a result payload or output holding secret material (`orchestrator-go/internal/handlers/result.go`), and the audit middleware masks `password` and `secretRefs` in request bodies (`orchestrator-go/internal/middleware/audit.go`). The sheet-service reads credentials only from environment variables or a `.env` file next to the executable, with the real environment winning (`sheet-service/main.go`, `sheet-service/internal/envfile/envfile.go`). Not there: publish-time refusal of a script that holds a credential (`orchestrator-go/internal/handlers/artifacts.go` `Publish` checks only base64 and the segment structure), a `${secret:NAME}` reader for Go services, masking in the Go services' own logs (they use the standard `log` package), and protection of the Microsoft token store (`ms_tokens` in `sheet-service.db`, `sheet-service/internal/msauth/store.go`, holds the refresh token in an ordinary SQLite file). Partly |
 
-**User story.** As a security owner, I want no credential in any configuration sheet, script or log, with every secret the flows need supplied as a named secret from the worker or service environment, so that the credentials exposed by the UiPath packages are not re-created in Tracto.
+**User story.** As a security owner, I want no credential in any configuration sheet, script or log, with the mailbox credentials of every entity held encrypted in one store that developers can add to without seeing existing values, and every other secret supplied as a named secret from the service environment, so that the credentials exposed by the UiPath packages are not re-created in Tracto.
 
 **Context.** All five packages carry credentials in clear text or write them to a log, each described under "Security findings" in the flow documents: [SIS-01](../SIS-01-bank-avail-check.md) (an Azure AD client secret and a mailbox password in a shared workbook, outside the log masking), [SIS-02](../SIS-02-email-pa-dispatcher.md) (a mailbox password written to the run log at `Info` on every run), [SIS-03](../SIS-03-india-excel-extraction.md) (SMTP credentials as literals in four mail activities and a live copy of the estate workbook in the package) and [SIS-04](../SIS-04-payment-advice-extraction.md) (an OCR API key, about fifty PDF passwords hard-coded in two workflows, an SMTP credential, and run artefacts and screenshots in the package) and [SIS-05](../SIS-05-international-bot1.md) (an Azure AD client secret and a mailbox password in `MasterConfig.xlsx`, and a test workflow in the package that mails a production report to a hard-coded address). In Tracto, configuration sheets hold secret names only; values come from the environment of the worker or service as `${secret:NAME}` (`TRACTO_SECRET_<NAME>`); Microsoft mail uses the service's own device-code sign-in so there is no mail secret for those accounts. Rotation of the existing credentials is a separate checklist that does not wait for the build.
 
@@ -432,8 +435,8 @@ Paths in the evidence column are relative to `tracto/`.
 
 | Source key or asset | In Tracto | Name |
 |---|---|---|
-| `Application Secret`, `APP ID`, `Tenant ID`, `senderID`, `password` (flow 1 workbook keys), and `APP ID`, `Application Secret`, `Tenant ID`, `<entity>_senderID`, `<entity>_password` (the International Bot 1 `MasterConfig.xlsx`) | Not carried. Mail uses `msauth`; the tenant and client ids are service settings `MS_TENANT_ID`, `MS_CLIENT_ID` | none |
-| `DTSS_EmailPassword` and the Orchestrator assets `{entity}_{AssetCredentialName}` | One secret per IMAP mailbox, referenced from the entity table's `Mailbox` settings by name | `${secret:<ENTITY>_IMAP_PASSWORD}` |
+| `Application Secret`, `APP ID`, `Tenant ID`, `senderID`, `password` (flow 1 workbook keys), and `APP ID`, `Application Secret`, `Tenant ID`, `<entity>_senderID`, `<entity>_password` (the International Bot 1 `MasterConfig.xlsx`) | Not read from the workbooks. A sending account that needs a tenant, client and secret is a row of the mail account store | store row |
+| `DTSS_EmailPassword`, the Orchestrator assets `{entity}_{AssetCredentialName}`, and each entity mailbox's tenant ID, client ID and client secret | One row per entity mailbox in the mail account store, referenced from the entity table by account name | store row |
 | API `Username` and `Password` of the report API (unused sheets) | Not carried | none |
 | SMTP accounts in flow 3 (four activities) and flow 4 (`Notifications\Missing Information.xaml`) | Not carried; mail goes out through Graph (A2) | none |
 | OCR API key (flow 4, `DU Extract.xaml`) | Not carried; replaced by the extraction service. The caller's key for that service | `${secret:EXTRACTION_API_KEY}` |
@@ -451,6 +454,11 @@ Paths in the evidence column are relative to `tracto/`.
 8. Given the Microsoft token store, then `sheet-service.db` is readable only by the service account (file permissions set at creation and checked at start-up), and start-up fails with a clear message when it is world-readable.
 9. Given the rotation checklist, then it lists every credential in the table above and every credential in the five packages and in the collection accounting service (counts and names, no values: the MySQL root password in `DBClasses\mysql_helper.py`, the report API credentials and six mailbox passwords in the `settings` table, the API credentials written into `bot_run_log` with each statement URL; in the International copies, the MySQL credentials in `DBClasses\mysql_helper.py`, and in the International `MasterConfig.xlsx` the application secret, four mailbox passwords and the API password): the Azure AD client secret, the mailbox passwords, the logged mailbox password and the old log retention, the SMTP passwords and the revoked app password, the report-API credential, the OCR API key and the PDF passwords; it names an owner and a done date per row and is completed independently of the build.
 10. Given the repository, then `.env` files are ignored by version control, and no published package or script bundle contains a configuration workbook, a `SourceDownload` folder, a debug log or screenshots.
+11. Given the mail account store (table `mail_accounts` in `sheet-service.db`), then each row holds the account name, kind (`graph-app`, `graph-delegated`, `imap`), mailbox address, tenant ID, client ID or host, port and user in plain columns, the client secret or password in a column encrypted with AES-GCM under the key in `TRACTO_SECRET_KEY`, the secret's expiry date, and who changed it and when.
+12. Given `PUT /admin/mail-accounts/{name}` with a secret, then the secret is encrypted before it is stored; `GET /admin/mail-accounts` returns every field except the secret, showing its last four characters and expiry date only; no endpoint returns a secret.
+13. Given the service starts without `TRACTO_SECRET_KEY`, or with a key that does not decrypt a stored row, then it refuses to start and names the problem without printing any value.
+14. Given a stored secret expires within 30 days, then the operations recipients receive one warning mail naming the account and the date, repeated weekly until the row is updated.
+15. Given a copy of `sheet-service.db` alone, then no secret can be read from it.
 
 **Tasks.**
 | ID | Task | Notes |
@@ -463,13 +471,16 @@ Paths in the evidence column are relative to `tracto/`.
 | H3.6 | Token store protection: file permission at creation and check at start |  |
 | H3.7 | Tests: dummy secrets through each flow, search of logs, stores and workbooks |  |
 | H3.8 | Rotation checklist (independent of the build) | Produced and executed outside the build schedule |
+| H3.9 | Mail account store: table, AES-GCM encryption, key from `TRACTO_SECRET_KEY` | Used by A1 and A2 |
+| H3.10 | Write-only admin endpoint for mail accounts, with audit of changes | |
+| H3.11 | Expiry warning for stored secrets | Uses A2 |
 
 **Test notes.** Dummy secrets with unmistakable values set as environment variables on the test service; test mailboxes; a script and a configuration sheet seeded with credential-looking text. Checks: criteria 1 to 8 by search of logs, stores, workbooks and Orchestrator tables; the rotation checklist is reviewed by the security owner and is not a test of code.
 
 **Open items.**
 - The final secret names, and which mailbox accounts use IMAP (each needs one `${secret:...}`).
 - Where the PDF password list lives: held by Tracto and sent one at a time, or by the extraction API ([extraction-api-exists-and-additions.md](../extraction-api-exists-and-additions.md)).
-- Whether secrets stay as plain environment variables on the worker or service machine (the platform has no vault integration; `docs/UIPATH-TRACTO-CAPABILITY-MAPPING.md` lists vault integration as not built).
+- Mailbox credentials are in the encrypted store; the remaining secrets stay as environment variables on the service machine (the platform has no vault integration; `docs/UIPATH-TRACTO-CAPABILITY-MAPPING.md` lists vault integration as not built). The store reads secrets through one interface, so a vault can replace it later.
 - Whether the desktop runtime needs `${secret:NAME}` at all: the five main jobs carry no secret; the existing `DpapiSecretResolver` is unused.
 - The retention of existing UiPath logs that already hold a mailbox password; rotating does not remove them ([SIS-02, "Security findings"](../SIS-02-email-pa-dispatcher.md)).
 - Whether `ms_tokens` should be encrypted (DPAPI) rather than only permission-restricted.

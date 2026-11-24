@@ -1,6 +1,6 @@
 # SIS migration: open questions
 
-Every question still open for moving the UiPath payment-advice processes to Tracto. Each one can be read on its own. The UiPath processes are named by their package names:
+Every question still open for moving the UiPath payment-advice processes to Tracto. Each one can be read on its own. Until a question is answered, the build follows the default in [build-defaults.md](build-defaults.md). The UiPath processes are named by their package names:
 
 | Package | What it does |
 |---|---|

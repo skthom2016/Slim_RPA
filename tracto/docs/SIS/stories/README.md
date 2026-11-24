@@ -2,7 +2,9 @@
 
 The work to move the UiPath payment-advice processes onto Tracto, as stories with acceptance criteria and tasks. The four flows are in [SIS-01](../SIS-01-bank-avail-check.md) to [SIS-04](../SIS-04-payment-advice-extraction.md); the International collection accounting run (`International_Bot1_SXP`) is in [SIS-05](../SIS-05-international-bot1.md). Each story cites the analysis it comes from in [the SIS documents](../README.md) and says whether the capability already exists in the Tracto code.
 
-**43 stories.** Work is planned and delivered story by story.
+**43 stories.** Work is planned and delivered story by story. Where a question is still open, the code follows the default in [build-defaults.md](../build-defaults.md).
+
+**Repository.** Every story except epic E is built in this repository: the shared capabilities in `sheet-service`, the flows in a new module `sis-service`. Epic E is the extraction service team's work in its own repository; the flows call that service as it is.
 
 ## The story files
 
@@ -90,7 +92,7 @@ B4 depends on flows 2 to 4 only for its timing: it starts after flow 4 has writt
 | The threshold for review routing | F4 | Re-extracting the 248 International workbooks that carry UiPath confidences |
 | The release path for a reviewed document (the day workbook is never rewritten) | F4 | The proposal in F4.7 to be confirmed |
 | The spreadsheet advice formats of the entities other than DTSS | D1, D2 | Samples of each entity's workbook and the profile sheet |
-| The password source for locked PDFs, and mailbox credentials for each entity | E1, H3, C1 | The owner of the password list and the mailbox accounts |
+| The password source for locked PDFs, and mailbox credentials for each entity (each mailbox may have its own tenant and secret) | E1, H3, C1, A1 | The owner of the password list and the mailbox accounts |
 | Volume: about 150 documents a working day in the samples | E6, G2 | Confirmation from the process owner |
 
 ## Findings against the code
@@ -141,4 +143,4 @@ Reading the code while writing the stories turned up places where the analysis d
 - **ID.** Story `E3`; its tasks `E3.1`, `E3.2`. A task's **Notes** say which platform capability it uses and, in the extraction epic, which side owns it (**Module team** or **Tracto Go**).
 - **Capability today.** Exists, Partly or To build, with the file path that is the evidence.
 - **Done.** Every acceptance criterion passes, the story's own tests pass, and the open items of the story are either closed or recorded in the gap table above.
-- **Decisions the stories take as fixed.** No child jobs and no browser runtime in any flow. The desktop runtime only runs a one-step main job that makes one HTTP call. Each flow is a main job plus a Go service that loops over items with its own status per item. The hand-off to collection accounting is the workbook file; the Python service is not modified and is started only as a program (B4). A reply to a sender goes to the sender only. DTSS skips spreadsheets. There is no review screen.
+- **Decisions the stories take as fixed.** Mailbox credentials live in an encrypted store with one row per mailbox (H3). No child jobs and no browser runtime in any flow. The desktop runtime only runs a one-step main job that makes one HTTP call. Each flow is a main job plus a Go service that loops over items with its own status per item. The hand-off to collection accounting is the workbook file; the Python service is not modified and is started only as a program (B4). A reply to a sender goes to the sender only. DTSS skips spreadsheets. There is no review screen.
