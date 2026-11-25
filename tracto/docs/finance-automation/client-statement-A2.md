@@ -44,31 +44,26 @@ Priya Nair's two claim bills (193.40 and 41.00) are paid as one line of 234.40, 
 
 The answers decide which data route is used (API, database or files in an agreed folder) and the exact layout of the bank's file. They do not change the feasibility above.
 
-**The bank file**
+**Getting the data**
 
-1. Which bank is used, and which file format does its portal accept for bulk payments? Can the bank's file specification and a sample file it has accepted be provided?
-2. Can the accounting system already produce a bank payment file from a batch of bills? If so, is that file accepted by the bank?
+1. How can the automation get the bills selected for a payment run: through an API, by reading a database, or from an export file placed in a folder? If files: in what format, and which folder?
+2. How does the finance officer mark the bills for a run (a payment date, a batch, a status or a tag), so the automation can tell which ones were selected?
+3. How can the automation get each payee's bank details: from the same source as the bills (API, database or export), or from a separate record such as a spreadsheet in a folder? Who keeps them up to date?
 
-**The selection**
+**Giving the data back**
 
-3. How does the finance officer mark the bills for a payment run in the accounting system: a payment date, a batch, a status or a tag?
-4. Should bills for the same payee always be combined into one payment, or only when they share the same payment date?
+4. Which file format does the bank accept for bulk payments? Can the bank's file specification and a sample file it has accepted be provided?
+5. Where should the payment files be saved (a SharePoint library or a network folder), and who may open them?
+6. How should finance be notified of each run (email, Teams), and who should receive it?
+7. After the bank has made the payments, should the automation mark the bills as paid? If so, how: API, database, or an import file?
+8. Can a dedicated account, or access to the API, database or folders above, be provided for the automation?
 
-**Payee bank details**
+**The payment file**
 
-5. Where are payee bank details maintained: in the accounting system's contacts or in a separate record? Who keeps them up to date?
-6. If one payee in a run has missing or invalid bank details: should that payee be left out and the rest of the file produced, or should the whole file be stopped?
-
-**Systems and access**
-
-7. Which accounting system is used (product name, cloud or on-premises), and which data route is available: an API, read access to its database, or an export of the selected bills and payee details to a folder? Can a dedicated account or access be provided for the automation?
-
-**Saving and notifying**
-
-8. Where should the payment files be saved (SharePoint site and folder, or network folder), and who may open them?
-9. How should finance be notified (email, Teams), and who should receive the notification?
-10. After the bank has made the payments, should the automation mark the bills as paid in the accounting system, or does finance do that?
+9. Should bills for the same payee always be combined into one payment, or only when they share the same payment date?
+10. If one payee in a run has missing or invalid bank details: should that payee be left out and the rest of the file produced, or should the whole file be stopped?
+11. Can the accounting system already produce a bank payment file from a batch of bills? If so, is that file accepted by the bank?
 
 **Running the process**
 
-11. How often are payment runs made, and how many bills and payees are typical per run?
+12. How often are payment runs made, and how many bills and payees are typical per run?

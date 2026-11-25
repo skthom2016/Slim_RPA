@@ -78,33 +78,37 @@ Please also note that the reconciliation in stage 5, as described, compares **th
 
 **To validate first** (these decide whether the process runs unattended)
 
-1. Which giving portals are used?
-2. For each portal: how does it sign in, does it show a CAPTCHA, does it send a one-time passcode and to where, does it remember the device, and how long does a session stay signed in? (The checklist under Validation 1.)
-3. For each portal: does it ask for a passcode again before exporting data?
-4. **Where is the settlement date taken from today:** the portal's payout report, the bank statement, or somewhere else? Does each portal provide a payout or settlement report listing the donations in each payout?
-5. Do the portals' terms of use allow automated sign-in and download?
+1. How many giving portals are there? For each one: how does it sign in, does it show a CAPTCHA, does it send a one-time passcode and to where, does it remember the device, and how long does a session stay signed in? (The checklist under Validation 1.)
+2. For each portal: does it ask for a passcode again before exporting data?
+3. **Where is the settlement date taken from today:** the portal's payout report, the bank statement, or somewhere else? Does each portal provide a payout or settlement report listing the donations in each payout?
+4. Do the portals' terms of use allow automated sign-in and download?
 
-**Reports from the portals**
+**Getting the data from the portals**
 
-6. For each portal: which report is used today, in what format (CSV, Excel, PDF), and can a sample be provided?
-7. Does any portal offer an API or scheduled reports by email?
+5. For each portal: which report is used today, in what format (CSV, Excel, PDF), and can a sample be provided?
+6. Can any portal provide its data without a sign-in in a browser: through an API, or as scheduled reports sent by email or to a folder?
 
-**The donation management system**
+**Giving the data to the donation management system**
 
-8. Which donation management system is used (product name, cloud or on-premises)?
-9. Which data route is available: an API, read and write access to its database, or importing donations and date corrections from files in a folder? If files: in what format?
-10. How is a donor matched: by email address, donor ID or name? What should happen with a new donor?
-11. Can a donation's date be changed after it has been recorded? Does that change if a tax receipt has already been issued or the month has been closed?
-12. Should the settlement date replace the donation date, or be recorded in a separate field?
+7. How should new donations be delivered to the donation management system: through an API, by writing to a database, or as an import file placed in a folder? If files: in what format, and which folder?
+8. How should the date corrections be delivered: the same way, or differently?
+9. How can the automation read back what the system holds, for the reconciliation: API, database, or an export to a folder?
+10. Can a dedicated account, or access to the API, database or folders above, be provided for the automation?
+
+**Donations and dates**
+
+11. How is a donor matched: by email address, donor ID or name? What should happen with a new donor?
+12. Can a donation's date be changed after it has been recorded? Does that change if a tax receipt has already been issued or the month has been closed?
+13. Should the settlement date replace the donation date, or be recorded in a separate field?
 
 **Reconciliation**
 
-13. What should be compared: totals per portal per day, per payout, or per donation?
-14. How should portal fees be treated, and what difference is acceptable (for example rounding)?
+14. What should be compared: totals per portal per day, per payout, or per donation?
+15. How should portal fees be treated, and what difference is acceptable (for example rounding)?
+16. Besides comparing the portals with the donation system, should the automation also check that each payout arrived in the bank? If so, how does the bank statement reach finance today?
 
-**Running the process**
+**Running the process and delivering the results**
 
-15. How often should the portals be collected (daily, weekly), and when is month end processed?
-16. How many donations per month are typical, and how many portals are there?
-17. How should finance be notified (email, Teams), and where should the consolidated file and the reconciliation report be saved?
-18. Besides comparing the portals with the donation system, should the automation also check that each payout arrived in the bank? If so, how does the bank statement reach finance today?
+17. How often should the portals be collected (daily, weekly), and when is month end processed?
+18. How many donations per month are typical?
+19. Where should the consolidated file and the reconciliation report be saved, and how should finance be notified (email, Teams)?

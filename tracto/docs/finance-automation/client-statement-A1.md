@@ -42,26 +42,31 @@ Once the missing account code is added, the next run creates the second bill. Th
 
 The answers decide which data route is used for each system (API, database or files in an agreed folder) and how your rules are applied. They do not change the feasibility above.
 
-**Systems and access**
+**Getting the data**
 
-1. Which claims platform and which accounting system are used (product name, cloud or on-premises)?
-2. For each system, which data route is available: an API, read and write access to its database, or files (the claims platform exporting approved claims to a folder, the accounting system importing bills and contacts from a folder)? Can a dedicated account or access be provided for the automation?
-3. If files are used: in what format, and which folder do the exports arrive in and the imports go to?
+1. How can the automation get the approved claims with their expense items: through an API, by reading a database, or from export files placed in a folder? If files: in what format, and which folder?
+2. How can it get the existing contacts, to look up each claimant: through an API, a database, or a file in a folder?
+3. How can it get the account coding (expense category to account code, tax rate, tracking categories)? Is there such a mapping today, for example in a spreadsheet?
+
+**Giving the data back**
+
+4. How should new contacts and draft bills be delivered to the accounting system: through an API, by writing to a database, or as import files placed in a folder? If files: in what format, and which folder?
+5. Can the automation record that a claim has been transferred, so it is never picked up twice? If so, how: API, database, or a file?
+6. How should the result of each run and the claims needing attention be delivered: email, Teams, or a file in a folder?
+7. Can a dedicated account, or access to the API, database or folders above, be provided for the automation?
 
 **Claims**
 
-4. Which status in the claims platform means "approved and ready to transfer"? Can the platform record that a claim has been transferred?
-5. What makes a claim complete: required fields, receipts, amount limits, age of expenses? Is there a written list of these rules?
-6. Does the claims platform already offer a direct link to the accounting system? If so, is there a reason it is not used today?
+8. Which status of a claim means "approved and ready to transfer"?
+9. What makes a claim complete: required fields, receipts, amount limits, age of expenses? Is there a written list of these rules?
+10. Is there already a direct link between the claims platform and the accounting system? If so, is there a reason it is not used today?
 
 **Contacts and bills**
 
-7. How should a claimant be matched to a contact in the accounting system: employee number, email address or name? What should happen when two contacts match?
-8. How is each expense item coded: account code, tax rate, tracking categories? Is there a mapping from expense category to account code today?
-9. Should each claim become its own bill, or should a claimant's claims be combined into one bill per run? What should appear as the bill's reference and due date?
+11. How should a claimant be matched to a contact: employee number, email address or name? What should happen when two contacts match?
+12. Should each claim become its own bill, or should a claimant's claims be combined into one bill per run? What should appear as the bill's reference and due date?
 
 **Running the process**
 
-10. How often should approved claims be picked up (for example, twice each working day)?
-11. How many claims and expense items are typical per day?
-12. How should the finance team be notified of each run's result and of claims needing attention (email, Teams)?
+13. How often should approved claims be picked up (for example, twice each working day)?
+14. How many claims and expense items are typical per day?
