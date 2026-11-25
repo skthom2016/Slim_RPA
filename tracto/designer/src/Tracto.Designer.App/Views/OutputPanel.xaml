@@ -16,7 +16,7 @@
         <Grid Grid.Row="0" Margin="0,0,0,9">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Output" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
-                <TextBlock Text="Validate, Run Test, Sign, Verify and Publish report here."
+                <TextBlock Text="Validate, Run Test and Publish report here."
                            Style="{StaticResource CaptionText}" Margin="10,0,0,0" VerticalAlignment="Center"
                            Foreground="{StaticResource TextTertiaryBrush}"/>
                 <TextBlock Text="Publishing..." Style="{StaticResource CaptionText}" Margin="10,0,0,0"
@@ -29,7 +29,7 @@
                            VerticalAlignment="Center" Margin="0,0,7,0"/>
                 <TextBox Text="{Binding Publication.OutputDirectory, UpdateSourceTrigger=PropertyChanged}"
                          Width="300" VerticalAlignment="Center"
-                         ToolTip="The folder Publish writes the signed script to."/>
+                         ToolTip="The folder Publish writes the script to."/>
                 <Button Style="{StaticResource IconButton}" Tag="&#xE894;" Margin="7,0,0,0"
                         Command="{Binding Output.ClearCommand}" ToolTip="Clear the output"/>
             </StackPanel>
@@ -42,7 +42,7 @@
         <!-- Nothing has been run yet -->
         <TextBlock Grid.Row="2" VerticalAlignment="Top" TextWrapping="Wrap"
                    Style="{StaticResource CaptionText}" Foreground="{StaticResource TextTertiaryBrush}"
-                   Text="Nothing yet. Use Validate, Run Test, Sign, Verify or Publish on the toolbar and the results appear here, newest last."
+                   Text="Nothing yet. Use Validate, Run Test or Publish on the toolbar and the results appear here, newest last."
                    Visibility="{Binding Output.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
         <ScrollViewer Grid.Row="2" x:Name="Scroller" VerticalScrollBarVisibility="Auto">

@@ -12,7 +12,6 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
 {
     private readonly IScriptPublisher _publisher;
     private readonly ScriptEditorViewModel _editor;
-    private readonly SigningViewModel _signing;
     private readonly TestPanelViewModel _testing;
     private readonly bool _testRequired;
     private readonly OutputLogViewModel? _output;
@@ -23,7 +22,6 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
 
     /// <param name="publisher">The script publisher implementation.</param>
     /// <param name="editor">View-model that owns the current script draft.</param>
-    /// <param name="signing">View-model that tracks the current signature.</param>
     /// <param name="testing">View-model that tracks the last test result.</param>
     /// <param name="testRequired">
     /// When <c>true</c> (the default) the Publish button stays disabled until a passing test
@@ -32,13 +30,12 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     /// </param>
     /// <param name="output">Where publication progress and its outcome are reported.</param>
     public PublicationViewModel(IScriptPublisher publisher, ScriptEditorViewModel editor,
-        SigningViewModel signing, TestPanelViewModel testing, bool testRequired = true,
+        TestPanelViewModel testing, bool testRequired = true,
         OutputLogViewModel? output = null)
     {
         _output = output;
         _publisher = publisher;
         _editor = editor;
-        _signing = signing;
         _testing = testing;
         _testRequired = testRequired;
         PublishCommand = new RelayCommand(async _ => await PublishAsync(), _ => CanPublish());
@@ -78,12 +75,11 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     public string PublisherName => _publisher.Name;
 
     private bool CanPublish() => !_isPublishing && _editor.Script is not null
-        && _signing.IsSigned
         && (!_testRequired || (_testing.HasResult && _testing.Passed));
 
     private async Task PublishAsync()
     {
-        if (_editor.Script is null || _signing.CurrentSignature is null) return;
+        if (_editor.Script is null) return;
         // When testing is not required by policy, substitute a "not-run" sentinel so the
         // gate (which also honours _testRequired) does not block the request.
         if (_testRequired && _testing.TestResult is null) return;
@@ -92,7 +88,7 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
         try
         {
             var testResult = _testing.TestResult ?? ScriptTestResult.NotRun;
-            var req = new PublicationRequest(_editor.Script, _signing.CurrentSignature, testResult, OutputDirectory);
+            var req = new PublicationRequest(_editor.Script, testResult, OutputDirectory);
             var result = await _publisher.PublishAsync(req).ConfigureAwait(false);
             LastResult = result;
             if (result.Success)

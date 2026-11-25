@@ -11,7 +11,6 @@ using Tracto.Designer.Infrastructure.Desktop;
 using Tracto.Designer.App.ViewModels;
 using Tracto.Designer.Core.Mcp;
 using Tracto.Designer.Core.Scripting;
-using Tracto.Designer.Core.Signing;
 using Tracto.Designer.Core.Testing;
 using Tracto.Designer.Core.Validation;
 using Tracto.Designer.Infrastructure.Mcp;
@@ -49,10 +48,6 @@ public partial class App : Application
         sc.AddSingleton<IJabCaptureAdapter, NullJabAdapter>();
         sc.AddSingleton<IScriptDraftGenerator, ScriptDraftGenerator>();
         sc.AddSingleton<IScriptValidator, ScriptValidator>();
-        sc.AddSingleton<IScriptSigner>(sp => new HmacScriptSigner(
-            "tracto-designer-dev",
-            System.Text.Encoding.UTF8.GetBytes("tracto-dev-signing-key-changeme"),
-            sp.GetRequiredService<IScriptValidator>()));
         sc.AddSingleton<IScriptTestRunner, LocalSimulationTestRunner>();
         sc.AddSingleton<PublicationGate>();
         var orchestratorUrl = System.Environment.GetEnvironmentVariable("TRACTO_ORCHESTRATOR_URL")

@@ -11,16 +11,14 @@ public sealed class OfflineExportViewModel : INotifyPropertyChanged
 {
     private readonly IOfflineExporter _exporter;
     private readonly ScriptEditorViewModel _editor;
-    private readonly SigningViewModel _signing;
     private bool _isIsolated, _includeScreenshots, _isExporting;
     private OfflineExportResult? _result;
     private CancellationTokenSource? _cts;
 
-    public OfflineExportViewModel(IOfflineExporter exporter, ScriptEditorViewModel editor, SigningViewModel signing)
+    public OfflineExportViewModel(IOfflineExporter exporter, ScriptEditorViewModel editor)
     {
         _exporter = exporter;
         _editor = editor;
-        _signing = signing;
         ExportCommand = new RelayCommand(async _ => await ExportAsync(), _ => !_isExporting && _editor.Script is not null);
         CancelCommand = new RelayCommand(_ => _cts?.Cancel(), _ => _isExporting);
     }
@@ -72,7 +70,7 @@ public sealed class OfflineExportViewModel : INotifyPropertyChanged
         var outputPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "Tracto", "Offline", $"{s.Id}_{s.Version}_offline.zip");
-        var req = new OfflineExportRequest(s, _signing.CurrentSignature, outputPath, _isIsolated, _includeScreenshots);
+        var req = new OfflineExportRequest(s, outputPath, _isIsolated, _includeScreenshots);
         using var cts = new CancellationTokenSource();
         _cts = cts;
         IsExporting = true;

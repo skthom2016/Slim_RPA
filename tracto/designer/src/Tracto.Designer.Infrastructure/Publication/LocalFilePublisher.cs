@@ -51,7 +51,6 @@ public sealed class LocalFilePublisher : IScriptPublisher
             {
                 publicationId = pubId,
                 publishedAt = DateTimeOffset.UtcNow,
-                signature = new { req.Signature.SignerId, req.Signature.Algorithm, req.Signature.Digest },
                 script = s.IsSegmented
                     ? ScriptDocument.Build(s)
                     : (object)new
@@ -66,7 +65,7 @@ public sealed class LocalFilePublisher : IScriptPublisher
 
             await File.WriteAllTextAsync(filePath, JsonSerializer.Serialize(envelope, _json), ct).ConfigureAwait(false);
 
-            catalog.Add(new CatalogEntry(s.Id, s.Name, s.Version, s.EffectiveRuntime, DateTimeOffset.UtcNow, fileName, req.Signature.Digest));
+            catalog.Add(new CatalogEntry(s.Id, s.Name, s.Version, s.EffectiveRuntime, DateTimeOffset.UtcNow, fileName));
             await File.WriteAllTextAsync(catalogPath, JsonSerializer.Serialize(catalog, _json), ct).ConfigureAwait(false);
 
             return PublicationResult.Ok(pubId);
@@ -94,6 +93,5 @@ public sealed class LocalFilePublisher : IScriptPublisher
         string Version,
         string TargetRuntime,
         DateTimeOffset PublishedAt,
-        string FilePath,
-        string SignatureDigest);
+        string FilePath);
 }

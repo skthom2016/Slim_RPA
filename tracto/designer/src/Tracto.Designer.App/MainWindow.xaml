@@ -127,12 +127,6 @@
                     <!-- Release -->
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource RibbonButton}" Tag="&#xE72E;"
-                                    Content="Sign" Command="{Binding Signing.SignCommand}"
-                                    ToolTip="Sign the script."/>
-                            <Button Style="{StaticResource RibbonButton}" Tag="&#xE8FB;"
-                                    Content="Verify" Command="{Binding Signing.VerifyCommand}"
-                                    ToolTip="Check the script's signature."/>
                             <Button Style="{StaticResource RibbonButton}" Tag="&#xE898;"
                                     Content="Publish" Command="{Binding Publication.PublishCommand}"
                                     ToolTip="Publish the script so a runtime can fetch it."/>

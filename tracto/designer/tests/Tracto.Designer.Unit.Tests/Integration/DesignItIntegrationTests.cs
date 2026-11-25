@@ -10,7 +10,6 @@ using Tracto.Designer.Core.Privacy;
 using Tracto.Designer.Core.Publication;
 using Tracto.Designer.Core.Recording;
 using Tracto.Designer.Core.Scripting;
-using Tracto.Designer.Core.Signing;
 using Tracto.Designer.Core.Testing;
 using Tracto.Designer.Core.Validation;
 using Tracto.Designer.Infrastructure.OfflineExport;
@@ -20,7 +19,6 @@ using Tracto.Designer.Infrastructure.Serialization;
 
 public class DesignItIntegrationTests
 {
-    private static readonly byte[] TestKey = System.Text.Encoding.UTF8.GetBytes("integration-test-key-2024");
 
     private static Script BuildValidScript(string id = "it-script")
     {
@@ -31,32 +29,26 @@ public class DesignItIntegrationTests
         return s;
     }
 
-    // DESIGN-IT-01: Desktop record → draft → validate → sign → test → publish (no AI)
+    // DESIGN-IT-01: Desktop record → draft → validate → test → publish (no AI)
     [Fact]
     public async Task DESIGN_IT_01_Full_Deterministic_Pipeline_Desktop()
     {
         var script = BuildValidScript("it-01");
         var validator = new ScriptValidator();
-        var signer = new HmacScriptSigner("it-signer", TestKey, validator);
         var runner = new LocalSimulationTestRunner(validator);
-        var gate = new PublicationGate(validator, signer);
+        var gate = new PublicationGate(validator);
         var pubDir = Path.Combine(Path.GetTempPath(), $"it01-pub-{Guid.NewGuid():N}");
 
         // Validate
         var vr = validator.Validate(script);
         vr.IsValid.Should().BeTrue("script should be valid");
 
-        // Sign
-        var sig = signer.Sign(script);
-        sig.Should().NotBeNull();
-        signer.Verify(script, sig).Should().BeTrue();
-
         // Test
         var tr = await runner.RunAsync(script);
         tr.Passed.Should().BeTrue();
 
         // Publish gate
-        var req = new PublicationRequest(script, sig, tr, pubDir);
+        var req = new PublicationRequest(script, tr, pubDir);
         gate.CheckGates(req).Should().BeNull("all gates should pass");
 
         if (Directory.Exists(pubDir)) Directory.Delete(pubDir, true);
@@ -159,17 +151,15 @@ public class DesignItIntegrationTests
     public async Task DESIGN_IT_08_Offline_Export_Package_Complete()
     {
         var script = BuildValidScript("it-08");
-        var signer = new HmacScriptSigner("it-signer", TestKey, new ScriptValidator());
-        var sig = signer.Sign(script);
         var path = Path.Combine(Path.GetTempPath(), $"it08-{Guid.NewGuid():N}.zip");
-        var req = new OfflineExportRequest(script, sig, path, IsIsolated: true);
+        var req = new OfflineExportRequest(script, path, IsIsolated: true);
         var r = await new ZipOfflineExporter().ExportAsync(req);
         r.Success.Should().BeTrue();
         using (var zip = System.IO.Compression.ZipFile.OpenRead(path))
         {
             zip.GetEntry("manifest.json").Should().NotBeNull();
             zip.GetEntry("script.json").Should().NotBeNull();
-            zip.GetEntry("signature.json").Should().NotBeNull();
+            zip.GetEntry("signature.json").Should().BeNull();
         }
         File.Delete(path);
     }

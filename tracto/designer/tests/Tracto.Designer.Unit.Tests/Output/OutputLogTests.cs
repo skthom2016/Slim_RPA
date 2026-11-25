@@ -80,37 +80,10 @@ public class OutputLogTests
     }
 
     [Fact]
-    public void Signing_And_Verifying_Both_Report()
-    {
-        var log = new OutputLogViewModel();
-        var signature = new ScriptSignature("author@example.com", "RS256", DateTimeOffset.UnixEpoch, new string('a', 64));
-        var signer = new Mock<IScriptSigner>();
-        signer.SetupGet(s => s.SignerId).Returns("author@example.com");
-        signer.Setup(s => s.Sign(It.IsAny<Script>())).Returns(signature);
-        signer.Setup(s => s.Verify(It.IsAny<Script>(), signature)).Returns(true);
-
-        var vm = new SigningViewModel(signer.Object, EditorWithScript(), log);
-        vm.SignCommand.Execute(null);
-        vm.VerifyCommand.Execute(null);
-
-        log.Entries.Should().HaveCount(2);
-        log.Entries[0].Message.Should().Contain("RS256").And.Contain("aaaaaaaaaaaaaaaa...");
-        log.Entries[1].Message.Should().Be("Signature valid.");
-        log.Entries.Should().OnlyContain(e => e.Severity == OutputSeverity.Success);
-    }
-
-    [Fact]
     public async Task Publishing_Reports_Where_It_Went_And_How_It_Went()
     {
         var log = new OutputLogViewModel();
         var editor = EditorWithScript();
-        var signer = new Mock<IScriptSigner>();
-        signer.SetupGet(s => s.SignerId).Returns("author");
-        signer.Setup(s => s.Sign(It.IsAny<Script>()))
-              .Returns(new ScriptSignature("author", "RS256", DateTimeOffset.UnixEpoch, "abc"));
-        var signing = new SigningViewModel(signer.Object, editor, log);
-        signing.SignCommand.Execute(null);
-
         var runner = new Mock<IScriptTestRunner>();
         runner.SetupGet(r => r.Name).Returns("runner");
         var testing = new TestPanelViewModel(runner.Object, editor, log);
@@ -120,7 +93,7 @@ public class OutputLogTests
         publisher.Setup(p => p.PublishAsync(It.IsAny<PublicationRequest>()))
                  .ReturnsAsync(PublicationResult.Ok("PUB-7"));
 
-        var vm = new PublicationViewModel(publisher.Object, editor, signing, testing,
+        var vm = new PublicationViewModel(publisher.Object, editor, testing,
             testRequired: false, output: log);
         vm.OutputDirectory = @"C:\out";
         vm.PublishCommand.Execute(null);
@@ -141,13 +114,9 @@ public class OutputLogTests
         validator.Setup(v => v.Validate(It.IsAny<Script>())).Returns(ScriptValidationResult.Pass());
         new ValidationViewModel(validator.Object, editor, log).ValidateCommand.Execute(null);
 
-        var signer = new Mock<IScriptSigner>();
-        signer.SetupGet(s => s.SignerId).Returns("author");
-        signer.Setup(s => s.Sign(It.IsAny<Script>()))
-              .Returns(new ScriptSignature("author", "RS256", DateTimeOffset.UnixEpoch, "abc"));
-        new SigningViewModel(signer.Object, editor, log).SignCommand.Execute(null);
+        log.Info("Publish", "Publishing...");
 
-        log.Entries.Select(e => e.Source).Should().Equal("Validation", "Signing");
+        log.Entries.Select(e => e.Source).Should().Equal("Validation", "Publish");
     }
 
     [Fact]

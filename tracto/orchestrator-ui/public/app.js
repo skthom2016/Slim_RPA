@@ -156,14 +156,11 @@ async function loadArtifacts() {
     const tbody = document.getElementById('artifacts-body');
 
     if (!data.artifacts || data.artifacts.length === 0) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No artifacts uploaded yet</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No artifacts uploaded yet</td></tr>`;
         return;
     }
 
     tbody.innerHTML = data.artifacts.map(a => {
-        const sigBadge = a.signatureValid
-            ? `<span class="badge b-SIGNED">✓ Signed</span>`
-            : `<span class="badge b-UNSIGNED">Unsigned</span>`;
         const delBadge = a.isDeleted
             ? `<span class="badge b-CANCELLED">Deleted</span>`
             : `<span class="badge b-SUCCEEDED">Active</span>`;
@@ -179,7 +176,6 @@ async function loadArtifacts() {
             <td>${nameCell}</td>
             <td><code>${esc(a.version)}</code></td>
             <td>${esc(a.schemaVersion)}</td>
-            <td>${sigBadge}</td>
             <td><code title="${a.contentHash}">${a.contentHash.substring(0, 14)}…</code></td>
             <td>${fmtDate(a.storedAt)}</td>
             <td>${delBadge}</td>

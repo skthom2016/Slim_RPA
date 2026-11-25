@@ -10,7 +10,6 @@ using Tracto.Designer.Core.Desktop;
 using Tracto.Designer.Core.Mcp;
 using Tracto.Designer.Core.Recording;
 using Tracto.Designer.Core.Scripting;
-using Tracto.Designer.Core.Signing;
 using Tracto.Designer.Core.Testing;
 using Tracto.Designer.Core.Publication;
 using Tracto.Designer.Core.Audit;
@@ -31,7 +30,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     private CaptureEngineType? _selectedEngineType = CaptureEngineType.Desktop;
     private ScriptSegment? _watchedSegment;
 
-    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptSigner scriptSigner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter, IBrowserProfileSignIn browserProfileSignIn)
+    public RecordingViewModel(IRecordingSessionService session, IDesktopCaptureEngine captureEngine, IVoiceTranscriptionAdapter voice, IScriptDraftGenerator draftGenerator, IScriptValidator validator, IMcpAuthoringServer mcpServer, IScriptTestRunner testRunner, IScriptPublisher publisher, AuditService auditService, PrivacySettings privacySettings, ITemplateLibrary templateLibrary, BrowserCaptureAdapter browserCaptureAdapter, ICredentialVault credentialVault, IsolatedModeSettings isolatedModeSettings, IsolatedModeValidator isolatedModeValidator, IOfflineExporter offlineExporter, IBrowserProfileSignIn browserProfileSignIn)
     {
         _session = session;
         _captureEngine = captureEngine;
@@ -49,8 +48,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         AiBridge = new AiAuthoringViewModel(mcpServer);
         TestRunner = new TestPanelViewModel(testRunner, ScriptEditor, Output);
         ScriptEditor.PropertyChanged += OnScriptEditorChanged;
-        Signing      = new SigningViewModel(scriptSigner, ScriptEditor, Output);
-        Publication  = new PublicationViewModel(publisher, ScriptEditor, Signing, TestRunner, output: Output);
+        Publication  = new PublicationViewModel(publisher, ScriptEditor, TestRunner, output: Output);
         ExportImport = new ExportImportViewModel(ScriptEditor);
         Audit = new AuditViewModel(auditService);
         PrivacySettings = new PrivacySettingsViewModel(privacySettings);
@@ -59,7 +57,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
         ProfileSignIn = new ProfileSignInViewModel(browserProfileSignIn, BrowserAdapter);
         IsolatedMode = new IsolatedModeViewModel(isolatedModeSettings, isolatedModeValidator, ScriptEditor);
         Credentials = new CredentialVaultViewModel(credentialVault);
-        OfflineExport = new OfflineExportViewModel(offlineExporter, ScriptEditor, Signing);
+        OfflineExport = new OfflineExportViewModel(offlineExporter, ScriptEditor);
     }
 
     public IReadOnlyList<CaptureEngineType> EngineTypes { get; } =
@@ -124,7 +122,6 @@ public sealed class RecordingViewModel : INotifyPropertyChanged, IDisposable
     public ValidationViewModel Validation { get; }
     public AiAuthoringViewModel AiBridge { get; }
     public TestPanelViewModel TestRunner { get; }
-    public SigningViewModel Signing { get; }
     public PublicationViewModel Publication { get; }
     public ExportImportViewModel ExportImport { get; }
     public AuditViewModel Audit { get; }

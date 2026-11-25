@@ -14,9 +14,6 @@ public sealed class AuditService(IAuditLog log)
         log.Log(new(Guid.NewGuid(), DateTimeOffset.UtcNow, Actor, "ScriptValidated", AuditCategory.Validation,
             passed ? AuditOutcome.Success : AuditOutcome.Failure, $"Script '{scriptId}': {errorCount} errors"));
 
-    public void LogScriptSigned(string scriptId, string signerId) =>
-        log.Log(new(Guid.NewGuid(), DateTimeOffset.UtcNow, Actor, "ScriptSigned", AuditCategory.Signing, AuditOutcome.Success, $"Script '{scriptId}' signed by '{signerId}'"));
-
     public void LogScriptPublished(string scriptId, string version, string? pubId, bool success) =>
         log.Log(new(Guid.NewGuid(), DateTimeOffset.UtcNow, Actor, "ScriptPublished", AuditCategory.Publication,
             success ? AuditOutcome.Success : AuditOutcome.Failure, $"Script '{scriptId}' v{version}, pubId={pubId}"));

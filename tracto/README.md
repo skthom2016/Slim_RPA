@@ -77,7 +77,7 @@ dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
 
 ## Run a Script (UI-driven, no terminal needed)
 
-1. **Designer** → Import script → Sign → Publish *(uploads to Orchestrator)*
+1. **Designer** → Import script → Publish *(uploads to Orchestrator; to change a published script, edit it, raise the version and Publish again)*
 2. **Orchestrator UI** → Artifacts tab → **▶ Run** *(queues a job)*
 3. **Desktop Runtime** picks up the job automatically and executes it
 

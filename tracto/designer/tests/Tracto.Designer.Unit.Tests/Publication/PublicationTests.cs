@@ -2,25 +2,20 @@ namespace Tracto.Designer.Unit.Tests.Publication;
 
 using System.IO;
 using FluentAssertions;
+using Tracto.Designer.App.ViewModels;
 using Tracto.Designer.Core.Publication;
 using Tracto.Designer.Core.Scripting;
-using Tracto.Designer.Core.Signing;
 using Tracto.Designer.Core.Testing;
 using Tracto.Designer.Core.Validation;
 
 public class PublicationTests
 {
-    private static readonly byte[] _key = System.Text.Encoding.UTF8.GetBytes("test-key-12345678");
-
     private static Script ValidScript()
     {
         var s = new Script { Id = "pub-test", Name = "PubTest", Version = "1.0.0", TargetRuntime = "desktop" };
         s.Steps.Add(new ScriptStep { StepNumber = 1, Description = "Click", Action = "click", Parameters = { ["coordinates"] = "10,10" } });
         return s;
     }
-
-    private static ScriptSignature GoodSig(Script s) =>
-        new HmacScriptSigner("ts", _key, new ScriptValidator()).Sign(s);
 
     private static ScriptTestResult PassedTest() =>
         new(true, [new StepTestResult(1, true, "OK", TimeSpan.FromMilliseconds(50))], TimeSpan.FromMilliseconds(50));
@@ -31,7 +26,7 @@ public class PublicationTests
     [Fact]
     public async Task NullPublisher_Always_Succeeds()
     {
-        var req = new PublicationRequest(ValidScript(), GoodSig(ValidScript()), PassedTest(), "catalog");
+        var req = new PublicationRequest(ValidScript(), PassedTest(), "catalog");
         NullPublisher p = new();
         var result = await p.PublishAsync(req);
         result.Success.Should().BeTrue();
@@ -41,9 +36,8 @@ public class PublicationTests
     public void Gate_Blocks_Invalid_Script()
     {
         var invalid = new Script { Id = "", Name = "", Version = "", TargetRuntime = "" };
-        var gate = new PublicationGate(new ScriptValidator(), new HmacScriptSigner("ts", _key, new ScriptValidator()));
-        var sig = new ScriptSignature("ts", "HMAC-SHA256", DateTimeOffset.UtcNow, new string('0', 64));
-        var req = new PublicationRequest(invalid, sig, PassedTest(), "cat");
+        var gate = new PublicationGate(new ScriptValidator());
+        var req = new PublicationRequest(invalid, PassedTest(), "cat");
         gate.CheckGates(req).Should().NotBeNull();
         gate.CheckGates(req)!.Success.Should().BeFalse();
     }
@@ -51,31 +45,16 @@ public class PublicationTests
     [Fact]
     public void Gate_Blocks_Failed_Test()
     {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer);
-        var req = new PublicationRequest(s, signer.Sign(s), FailedTest(), "cat");
-        gate.CheckGates(req)!.Success.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Gate_Blocks_Bad_Signature()
-    {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer);
-        var badSig = new ScriptSignature("ts", "HMAC-SHA256", DateTimeOffset.UtcNow, new string('0', 64));
-        var req = new PublicationRequest(s, badSig, PassedTest(), "cat");
+        var gate = new PublicationGate(new ScriptValidator());
+        var req = new PublicationRequest(ValidScript(), FailedTest(), "cat");
         gate.CheckGates(req)!.Success.Should().BeFalse();
     }
 
     [Fact]
     public void Gate_Passes_All_Good()
     {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer);
-        var req = new PublicationRequest(s, signer.Sign(s), PassedTest(), "cat");
+        var gate = new PublicationGate(new ScriptValidator());
+        var req = new PublicationRequest(ValidScript(), PassedTest(), "cat");
         gate.CheckGates(req).Should().BeNull();
     }
 
@@ -84,32 +63,26 @@ public class PublicationTests
     [Fact]
     public void Gate_Passes_When_Test_Not_Required_And_Test_Failed()
     {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
         // testRequired = false → Gate 2 is skipped
-        var gate = new PublicationGate(new ScriptValidator(), signer, testRequired: false);
-        var req = new PublicationRequest(s, signer.Sign(s), FailedTest(), "cat");
+        var gate = new PublicationGate(new ScriptValidator(), testRequired: false);
+        var req = new PublicationRequest(ValidScript(), FailedTest(), "cat");
         gate.CheckGates(req).Should().BeNull("VALIDATED publish must succeed when policy does not mandate a test");
     }
 
     [Fact]
     public void Gate_Blocks_Failed_Test_When_Test_Required()
     {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
         // Explicit testRequired = true — same semantics as the original default
-        var gate = new PublicationGate(new ScriptValidator(), signer, testRequired: true);
-        var req = new PublicationRequest(s, signer.Sign(s), FailedTest(), "cat");
+        var gate = new PublicationGate(new ScriptValidator(), testRequired: true);
+        var req = new PublicationRequest(ValidScript(), FailedTest(), "cat");
         gate.CheckGates(req)!.Success.Should().BeFalse();
     }
 
     [Fact]
     public void Gate_Passes_When_Test_Not_Required_And_No_Test_Run()
     {
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer, testRequired: false);
-        var req = new PublicationRequest(s, signer.Sign(s), ScriptTestResult.NotRun, "cat");
+        var gate = new PublicationGate(new ScriptValidator(), testRequired: false);
+        var req = new PublicationRequest(ValidScript(), ScriptTestResult.NotRun, "cat");
         gate.CheckGates(req).Should().BeNull("VALIDATED publish with NotRun sentinel must succeed when test is not policy-required");
     }
 
@@ -134,14 +107,13 @@ public class PublicationTests
     public async Task LocalFilePublisher_Publishes_To_Temp_Dir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "tracto-pub-test-" + Guid.NewGuid().ToString("N"));
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer);
+        var gate = new PublicationGate(new ScriptValidator());
         var pub = new Tracto.Designer.Infrastructure.Publication.LocalFilePublisher(dir, gate);
-        var req = new PublicationRequest(s, signer.Sign(s), PassedTest(), dir);
+        var req = new PublicationRequest(ValidScript(), PassedTest(), dir);
         var r = await pub.PublishAsync(req);
         r.Success.Should().BeTrue();
         File.Exists(Path.Combine(dir, "catalog.json")).Should().BeTrue();
+        File.ReadAllText(Path.Combine(dir, "pub-test_1.0.0.script.json")).Should().NotContain("signature");
         // cleanup
         Directory.Delete(dir, true);
     }
@@ -150,15 +122,49 @@ public class PublicationTests
     public async Task LocalFilePublisher_Blocks_Duplicate_Version()
     {
         var dir = Path.Combine(Path.GetTempPath(), "tracto-pub-dup-" + Guid.NewGuid().ToString("N"));
-        var s = ValidScript();
-        var signer = new HmacScriptSigner("ts", _key, new ScriptValidator());
-        var gate = new PublicationGate(new ScriptValidator(), signer);
+        var gate = new PublicationGate(new ScriptValidator());
         var pub = new Tracto.Designer.Infrastructure.Publication.LocalFilePublisher(dir, gate);
-        var req = new PublicationRequest(s, signer.Sign(s), PassedTest(), dir);
+        var req = new PublicationRequest(ValidScript(), PassedTest(), dir);
         await pub.PublishAsync(req); // first publish succeeds
         var r2 = await pub.PublishAsync(req); // second should fail
         r2.Success.Should().BeFalse();
         r2.Message.Should().Contain("already published");
         Directory.Delete(dir, true);
+    }
+
+    [Fact]
+    public async Task Same_Open_Script_Publishes_Again_After_The_Version_Is_Bumped()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "tracto-pub-bump-" + Guid.NewGuid().ToString("N"));
+        var gate = new PublicationGate(new ScriptValidator(), testRequired: false);
+        var publisher = new Tracto.Designer.Infrastructure.Publication.LocalFilePublisher(dir, gate);
+
+        var editor = new ScriptEditorViewModel();
+        var script = ValidScript();
+        editor.LoadScript(script);
+        var testing = new TestPanelViewModel(new LocalSimulationTestRunner(new ScriptValidator()), editor);
+        var vm = new PublicationViewModel(publisher, editor, testing, testRequired: false) { OutputDirectory = dir };
+
+        vm.PublishCommand.CanExecute(null).Should().BeTrue("an open script can be published without signing");
+        vm.PublishCommand.Execute(null);
+        await WaitUntilIdle(vm);
+        vm.LastResult!.Success.Should().BeTrue();
+
+        // Edit the same open script and bump its version, then publish again.
+        editor.Script!.Steps[0].Description = "Click, edited";
+        editor.Script.Version = "1.0.1";
+        vm.PublishCommand.CanExecute(null).Should().BeTrue("editing the open script must not block another publish");
+        vm.PublishCommand.Execute(null);
+        await WaitUntilIdle(vm);
+
+        vm.LastResult!.Success.Should().BeTrue(vm.LastResult.Message);
+        File.Exists(Path.Combine(dir, "pub-test_1.0.1.script.json")).Should().BeTrue();
+        Directory.Delete(dir, true);
+    }
+
+    private static async Task WaitUntilIdle(PublicationViewModel vm)
+    {
+        for (var i = 0; i < 200 && (vm.IsPublishing || !vm.HasResult); i++)
+            await Task.Delay(25);
     }
 }

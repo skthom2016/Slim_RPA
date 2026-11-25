@@ -8,5 +8,4 @@ public sealed record OfflinePackageManifest(
     string ScriptVersion,
     string TargetRuntime,
     string MinRuntimeVersion,
-    bool IsIsolated,
-    string? SignatureDigest);
+    bool IsIsolated);

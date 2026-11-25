@@ -21,7 +21,7 @@ public class OfflineExportTests
     {
         var dir = Path.Combine(Path.GetTempPath(), $"tracto-offline-{Guid.NewGuid():N}");
         var path = Path.Combine(dir, "test.zip");
-        var req = new OfflineExportRequest(MakeScript(), null, path);
+        var req = new OfflineExportRequest(MakeScript(),path);
         var r = await new ZipOfflineExporter().ExportAsync(req);
         r.Success.Should().BeTrue();
         r.PackagePath.Should().Be(path);
@@ -35,10 +35,10 @@ public class OfflineExportTests
     }
 
     [Fact]
-    public async Task Export_Without_Signature_No_Signature_File()
+    public async Task Export_Has_No_Signature_File()
     {
         var path = Path.Combine(Path.GetTempPath(), $"tracto-nosig-{Guid.NewGuid():N}.zip");
-        var req = new OfflineExportRequest(MakeScript(), null, path);
+        var req = new OfflineExportRequest(MakeScript(),path);
         await new ZipOfflineExporter().ExportAsync(req);
         using (var zip = ZipFile.OpenRead(path))
         {
@@ -52,7 +52,7 @@ public class OfflineExportTests
     {
         var path = Path.Combine(Path.GetTempPath(), $"tracto-mf-{Guid.NewGuid():N}.zip");
         var s = MakeScript();
-        await new ZipOfflineExporter().ExportAsync(new OfflineExportRequest(s, null, path, IsIsolated: true));
+        await new ZipOfflineExporter().ExportAsync(new OfflineExportRequest(s, path, IsIsolated: true));
         string json;
         using (var zip = ZipFile.OpenRead(path))
         {
@@ -72,7 +72,7 @@ public class OfflineExportTests
         var cts = new CancellationTokenSource();
         cts.Cancel();
         var r = await new ZipOfflineExporter().ExportAsync(
-            new OfflineExportRequest(MakeScript(), null, "C:\\noop.zip"), cts.Token);
+            new OfflineExportRequest(MakeScript(),"C:\\noop.zip"), cts.Token);
         r.Success.Should().BeFalse();
     }
 
@@ -97,7 +97,7 @@ public class OfflineExportTests
     [Fact]
     public void OfflinePackageManifest_IsIsolated_Field()
     {
-        var m = new OfflinePackageManifest(Guid.NewGuid(), DateTimeOffset.UtcNow, "id", "n", "1.0.0", "desktop", "1.0.0", true, null);
+        var m = new OfflinePackageManifest(Guid.NewGuid(), DateTimeOffset.UtcNow, "id", "n", "1.0.0", "desktop", "1.0.0", true);
         m.IsIsolated.Should().BeTrue();
     }
 }

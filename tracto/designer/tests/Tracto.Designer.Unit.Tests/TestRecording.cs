@@ -47,9 +47,6 @@ public static class TestRecording
         var runner = new Mock<IScriptTestRunner>();
         runner.SetupGet(r => r.Name).Returns("test runner");
 
-        var signer = new Mock<IScriptSigner>();
-        signer.SetupGet(s => s.SignerId).Returns("author");
-
         var publisher = new Mock<IScriptPublisher>();
         publisher.SetupGet(p => p.Name).Returns("test publisher");
 
@@ -61,7 +58,6 @@ public static class TestRecording
             new Mock<IScriptValidator>().Object,
             new Mock<IMcpAuthoringServer>().Object,
             runner.Object,
-            signer.Object,
             publisher.Object,
             new AuditService(auditLog.Object),
             new PrivacySettings(),

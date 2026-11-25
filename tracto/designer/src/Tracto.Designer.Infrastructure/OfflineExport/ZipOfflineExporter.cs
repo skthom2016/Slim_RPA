@@ -19,7 +19,7 @@ public sealed class ZipOfflineExporter : IOfflineExporter
             var manifest = new OfflinePackageManifest(
                 packageId, DateTimeOffset.UtcNow,
                 req.Script.Id, req.Script.Name, req.Script.Version, req.Script.EffectiveRuntime,
-                "1.0.0", req.IsIsolated, req.Signature?.Digest);
+                "1.0.0", req.IsIsolated);
 
             var dir = Path.GetDirectoryName(req.OutputPath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
@@ -33,10 +33,6 @@ public sealed class ZipOfflineExporter : IOfflineExporter
             // script.json
             var scriptJson = new JsonScriptSerializer().Serialize(req.Script);
             await WriteEntryAsync(zip, "script.json", scriptJson, ct);
-
-            // signature.json (if signed)
-            if (req.Signature is not null)
-                await WriteEntryAsync(zip, "signature.json", JsonSerializer.Serialize(req.Signature, _json), ct);
 
             // screenshots/ (if requested)
             if (req.IncludeScreenshots)

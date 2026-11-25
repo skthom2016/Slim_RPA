@@ -209,8 +209,6 @@ tbody tr:hover td { background: #fafbff; }
 .b-LEASED    { background: #eff6ff; color: #1e40af; }
 .b-AVAILABLE { background: #d1fae5; color: #065f46; }
 .b-OFFLINE   { background: #f3f4f6; color: #374151; }
-.b-SIGNED    { background: #d1fae5; color: #065f46; }
-.b-UNSIGNED  { background: #f3f4f6; color: #6b7280; }
 .b-default   { background: #f3f4f6; color: #374151; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */

@@ -106,7 +106,6 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		SchemaVersion   string  `json:"schemaVersion"`
 		Payload         string  `json:"payload"` // base64-encoded
-		Signature       *string `json:"signature"`
 		SelectorContent *string `json:"selectorContent"`
 	}
 	if !decodeJSON(w, r, &req) {
@@ -195,9 +194,8 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 
 	x.exec(`
 		INSERT INTO ArtifactRecords(ArtifactId,Version,SchemaVersion,ContentHash,StoredAt,IsDeleted,SignatureValid,SelectorContent,Name)
-		VALUES($1,$2,$3,$4,$5,FALSE,$6,$7,$8)`,
+		VALUES($1,$2,$3,$4,$5,FALSE,FALSE,$6,$7)`,
 		artifactID, version, req.SchemaVersion, contentHash, now,
-		req.Signature != nil && *req.Signature != "",
 		req.SelectorContent, scriptName,
 	)
 	x.exec(`INSERT INTO ArtifactContents(ArtifactId,Version,Payload) VALUES($1,$2,$3)`,

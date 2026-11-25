@@ -42,8 +42,7 @@ public sealed class OrchestratorPublisher : IScriptPublisher
         var body = new
         {
             schemaVersion = "1",
-            payload,
-            signature      = req.Signature.Digest
+            payload
         };
 
         try
