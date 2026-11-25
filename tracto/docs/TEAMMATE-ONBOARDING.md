@@ -33,7 +33,7 @@ a single job — see `tracto/CLAUDE.md` for the segmented format.
 The GitHub repository (`https://github.com/skthoms2016/Slim_RPA.git`) contains everything. After cloning, the top-level folders are:
 
 ```
-New-NeeliRPA/
+Slim_RPA/
 ├── tracto/                          ← THE MAIN PLATFORM CODE (start here)
 │   ├── orchestrator-go/             ← Go Orchestrator (active, port 5080)
 │   ├── orchestrator/                ← C# Orchestrator (legacy, replaced by Go version)
@@ -98,28 +98,28 @@ Open **6 separate PowerShell terminals**. Run one command in each.
 
 ### Terminal 1 — Orchestrator (start this first)
 ```powershell
-cd New-NeeliRPA\tracto\orchestrator-go
+cd tracto\orchestrator-go
 go run .
 # You should see: Orchestrator listening on :5080
 ```
 
 ### Terminal 2 — Orchestrator UI
 ```powershell
-cd New-NeeliRPA\tracto\orchestrator-ui
+cd tracto\orchestrator-ui
 node server.js
 # Open http://localhost:4000 in your browser
 ```
 
 ### Terminal 3 — Hello World API (needed for http.get action tests)
 ```powershell
-cd New-NeeliRPA\tracto
+cd tracto
 dotnet run --project hello-world/src/Tracto.HelloWorld.Api
 # Listens on http://localhost:3000
 ```
 
 ### Terminal 4 — Desktop Runtime (start AFTER you submit a job)
 ```powershell
-cd New-NeeliRPA\tracto
+cd tracto
 dotnet run --project desktop-runtime/src/Tracto.Desktop.Host --no-launch-profile -p:Platform=x64
 ```
 This worker registers as `runtimeType=desktop` and only picks up scripts whose
@@ -127,7 +127,7 @@ This worker registers as `runtimeType=desktop` and only picks up scripts whose
 
 ### Terminal 5 — Browser Runtime (start AFTER you submit a job that needs it)
 ```powershell
-cd New-NeeliRPA\tracto\browser-runtime\src\TractoRuntime.Browser.Host
+cd tracto\browser-runtime\src\TractoRuntime.Browser.Host
 dotnet run
 ```
 This worker registers as `runtimeType=browser` and only picks up scripts whose
@@ -158,7 +158,7 @@ This worker registers as `runtimeType=browser` and only picks up scripts whose
 
 ### Terminal 6 — Sheet Service (needed by any script that reads or writes a spreadsheet)
 ```powershell
-cd New-NeeliRPA\tracto\sheet-service
+cd tracto\sheet-service
 go run .
 # Listens on http://localhost:5090
 ```
@@ -189,7 +189,7 @@ folder at start. Copy `.env.example` to `.env` and fill in only what you use —
 git-ignored, so credentials never reach the repository.
 
 ```powershell
-cd New-NeeliRPA\tracto\sheet-service
+cd tracto\sheet-service
 Copy-Item .env.example .env
 notepad .env
 ```
@@ -221,7 +221,7 @@ service account and keeps that sign-in alive by itself.
    `MS_TENANT_ID`.
 2. Sign in once:
    ```powershell
-   cd New-NeeliRPA\tracto\sheet-service
+   cd tracto\sheet-service
    go run . login            # or: .\sheet-service.exe login -name default
    ```
    It prints a code and a link. Open the link on any device, enter the code, and sign in as the
@@ -256,7 +256,7 @@ The script holds no password. A person signs a named browser profile in once, by
 segment then names that profile:
 
 ```powershell
-cd New-NeeliRPA\tracto\browser-runtime\src\TractoRuntime.Browser.Host
+cd tracto\browser-runtime\src\TractoRuntime.Browser.Host
 dotnet run -- --login default https://outlook.office.com
 ```
 
@@ -286,7 +286,7 @@ Example script: `rpa-scripts\demo\sendemailV4.json`.
 
 ### Optional — Designer (for recording/editing scripts visually)
 ```powershell
-cd New-NeeliRPA\tracto
+cd tracto
 dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
 ```
 
