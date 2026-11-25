@@ -73,6 +73,12 @@ cd C:\Users\santh\Downloads\New-NeeliRPA\tracto
 dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
 ```
 
+**All of them at once** — from the repository root, in Git Bash:
+```bash
+./start-demo.sh
+```
+It opens one Windows Terminal window with a tab each for the database, orchestrator, sheet service, orchestrator UI, desktop runtime, browser runtime and designer, started in that order. Each tab waits for the database or the orchestrator before it starts.
+
 ---
 
 ## Run a Script (UI-driven, no terminal needed)
