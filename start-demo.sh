@@ -21,23 +21,49 @@ export MSYS2_ARG_CONV_EXCL='*'
 
 TAB_SCRIPT="$ROOT\\tracto\\scripts\\demo-tab.ps1"
 
-# Fresh or existing database? Asked here, before any tab opens, so nothing is running while it is cleared.
-# "fresh" runs demo-tools/clear-demo-database.ps1, a separate tool that is not part of the application.
+# What to do with the saved data? Asked here, before any tab opens, so nothing is running while it is cleared.
+#   2 runs demo-tools/clear-demo-database.ps1   (database; done by the database tab)
+#   3 runs demo-tools/clear-browser-profile.ps1 (saved browser sign-in; done here)
+# Both are separate tools that are not part of the application.
 DB_FLAG=""
-echo "Database:"
-echo "  1) Keep the existing data (default)"
+echo "Saved data:"
+echo "  1) Keep everything (default)"
 echo "  2) Start fresh - clears artifacts, schedules, runs, logs and workers (keeps the Microsoft sign-in)"
-read -r -p "Choose 1 or 2: " DB_CHOICE
+echo "  3) Keep the data, clear the saved browser sign-in (Microsoft, ACME) - you sign in again afterwards"
+# No answer within this many seconds means option 1, so an unattended start never clears anything.
+CHOICE_TIMEOUT=5
+DB_CHOICE=""
+# read returns non-zero when it times out; "|| true" keeps "set -e" from ending the script there.
+read -t "$CHOICE_TIMEOUT" -r -p "Choose 1, 2 or 3 (no answer in ${CHOICE_TIMEOUT}s = 1): " DB_CHOICE || true
+echo
+DB_CHOICE="${DB_CHOICE%$'\r'}"
 if [ "$DB_CHOICE" = "2" ]; then
   read -r -p "This permanently deletes the demo data. Type YES to continue: " CONFIRM
+  CONFIRM="${CONFIRM%$'\r'}"
   if [ "$CONFIRM" != "YES" ]; then
     echo "Cancelled. Nothing was changed and no tabs were opened."
     exit 0
   fi
   DB_FLAG="-Fresh"
   echo "Starting with a fresh database."
+elif [ "$DB_CHOICE" = "3" ]; then
+  read -r -p "This signs every site out of the saved browser profile. Type YES to continue: " CONFIRM
+  CONFIRM="${CONFIRM%$'\r'}"
+  if [ "$CONFIRM" != "YES" ]; then
+    echo "Cancelled. Nothing was changed and no tabs were opened."
+    exit 0
+  fi
+  if ! powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ROOT\\demo-tools\\clear-browser-profile.ps1" -Yes; then
+    echo "The browser sign-in was NOT cleared, so no tabs were opened. Fix the problem above and run this again." >&2
+    exit 1
+  fi
+  echo "Keeping the existing data. Sign in again from the Designer when it opens."
 else
-  echo "Keeping the existing data."
+  if [ -z "$DB_CHOICE" ]; then
+    echo "No answer in ${CHOICE_TIMEOUT} seconds. Keeping everything."
+  else
+    echo "Keeping everything."
+  fi
 fi
 
 # A leftover "database ready" marker from an earlier run must not let the other tabs start early.

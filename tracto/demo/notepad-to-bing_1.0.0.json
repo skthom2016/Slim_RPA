@@ -3,7 +3,7 @@
   "name": "Notepad To Bing",
   "version": "1.0.0",
   "params": {
-    "notePath": "C:\\Users\\TNT\\Downloads\\rpa-scripts\\search-text.txt",
+    "notePath": "H:\\Neelitech\\Slim_RPA\\tracto\\demo\\search-text.txt",
     "noteName": "search-text.txt"
   },
   "segments": [

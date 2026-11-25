@@ -3,7 +3,7 @@
   "name": "Items Test Read And Update",
   "version": "1.1.0",
   "params": {
-    "sheetPath": "C:/Users/TNT/Downloads/items-test.xlsx",
+    "sheetPath": "H:/Neelitech/Slim_RPA/tracto/demo/items-test.xlsx",
     "sheetName": "Items",
     "startRow": "2",
     "endRow": "21",

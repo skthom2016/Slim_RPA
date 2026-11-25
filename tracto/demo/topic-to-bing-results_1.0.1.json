@@ -3,9 +3,9 @@
   "name": "Topic To Bing Results",
   "version": "1.0.1",
   "params": {
-    "inputPath": "C:\\Users\\TNT\\Downloads\\rpa-scripts\\demo\\search-topic.txt",
+    "inputPath": "H:\\Neelitech\\Slim_RPA\\tracto\\demo\\search-topic.txt",
     "inputName": "search-topic.txt",
-    "outputPath": "C:\\Users\\TNT\\Downloads\\rpa-scripts\\demo\\result.txt",
+    "outputPath": "H:\\Neelitech\\Slim_RPA\\tracto\\demo\\result.txt",
     "outputName": "result.txt"
   },
   "segments": [
