@@ -96,39 +96,68 @@ function Wait-DatabaseOrStop {
     return $false
 }
 
+# The tab stays open after its service is stopped with Ctrl+C. So that the Up arrow brings the command
+# back, and the tab is already in the service's folder, the command is put into a history file that
+# belongs to this tab alone; PSReadLine reads it when the prompt appears. (Adding it to the running
+# session's history does not work: PSReadLine is not ready until this script has ended. Your own
+# PowerShell history is not touched.)
+function Initialize-Tab([string]$Folder, [string]$Command) {
+    if ($Folder) { Set-Location $Folder }
+    try {
+        Import-Module PSReadLine -ErrorAction Stop
+        $historyFile = Join-Path $env:TEMP ("tracto-demo-history-$Name.txt")
+        Set-Content -Path $historyFile -Value $Command -Encoding ASCII   # ASCII: a BOM would spoil the command
+        Set-PSReadLineOption -HistorySavePath $historyFile
+    } catch { }
+}
+
+function Show-Starting([string]$Command) {
+    Write-Host "Starting: $Command" -ForegroundColor Cyan
+    Write-Host 'Ctrl+C stops it. To start it again, press the Up arrow, then Enter.' -ForegroundColor DarkGray
+}
+
 switch ($Name) {
     'database' {
+        Initialize-Tab $null 'docker start tracto-postgres'
         Start-Database
     }
     'orchestrator' {
+        Initialize-Tab (Join-Path $tracto 'orchestrator-go') 'go run .'
         if (-not (Wait-DatabaseOrStop)) { return }
-        Set-Location (Join-Path $tracto 'orchestrator-go')
+        Show-Starting 'go run .'
         go run .
     }
     'sheet-service' {
+        Initialize-Tab (Join-Path $tracto 'sheet-service') 'go run .'
         if (-not (Wait-DatabaseOrStop)) { return }
         Wait-Orchestrator
-        Set-Location (Join-Path $tracto 'sheet-service')
+        Show-Starting 'go run .'
         go run .
     }
     'orchestrator-ui' {
+        Initialize-Tab (Join-Path $tracto 'orchestrator-ui') 'node server.js'
         Wait-Orchestrator
-        Set-Location (Join-Path $tracto 'orchestrator-ui')
+        Show-Starting 'node server.js'
         node server.js
     }
     'desktop-runtime' {
+        $cmd = 'dotnet run --project desktop-runtime/src/Tracto.Desktop.Host --no-launch-profile -p:Platform=x64'
+        Initialize-Tab $tracto $cmd
         Wait-Orchestrator
-        Set-Location $tracto
+        Show-Starting $cmd
         dotnet run --project desktop-runtime/src/Tracto.Desktop.Host --no-launch-profile -p:Platform=x64
     }
     'browser-runtime' {
+        Initialize-Tab (Join-Path $tracto 'browser-runtime\src\TractoRuntime.Browser.Host') 'dotnet run'
         Wait-Orchestrator
-        Set-Location (Join-Path $tracto 'browser-runtime\src\TractoRuntime.Browser.Host')
+        Show-Starting 'dotnet run'
         dotnet run
     }
     'designer' {
+        $cmd = 'dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64'
+        Initialize-Tab $tracto $cmd
         Wait-Orchestrator
-        Set-Location $tracto
+        Show-Starting $cmd
         dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
     }
     default {

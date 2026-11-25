@@ -1,5 +1,7 @@
 # Running the Tracto demo
 
+Created: 2026-11-25 | Last updated: 2026-11-25
+
 `start-demo.sh` opens one Windows Terminal window with a tab for each service. This guide takes a fresh clone to a running demo. Every step is a command, so a person or an AI assistant can follow it from top to bottom.
 
 | Tab | Service | Address |
@@ -163,10 +165,10 @@ Saved data:
   1) Keep everything (default)
   2) Start fresh - clears artifacts, schedules, runs, logs and workers (keeps the Microsoft sign-in)
   3) Keep the data, clear the saved browser sign-in (Microsoft, ACME) - you sign in again afterwards
-Choose 1, 2 or 3 (no answer in 5s = 1):
+Choose 1, 2 or 3 (no answer in 60s = 1):
 ```
 
-- No answer within 5 seconds, or `1`: nothing is cleared.
+- No answer within 60 seconds, or `1`: nothing is cleared and the tabs open as usual. To change the wait for one run, start with `CHOICE_TIMEOUT=10 ./start-demo.sh`.
 - `2`: asks you to type `YES`, then clears the database before anything else starts. Anything other than `YES` cancels and opens no tabs.
 - `3`: asks you to type `YES`, then deletes the saved browser profile before any tab opens. The database is kept. After the Designer opens, sign in again (step 6). It refuses while a browser window is using the profile.
 
