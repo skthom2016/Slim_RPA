@@ -187,8 +187,10 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// alreadyPublished lets a client say "nothing was added" instead of "published".
 		respond(w, http.StatusCreated, map[string]any{
 			"artifactId": artifactID, "version": version, "contentHash": contentHash, "segments": segmentCount,
+			"alreadyPublished": true,
 		})
 		return
 	}
@@ -235,6 +237,7 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", `"`+contentHash+`"`)
 	respond(w, http.StatusCreated, map[string]any{
 		"artifactId": artifactID, "version": version, "contentHash": contentHash, "segments": segmentCount,
+		"alreadyPublished": false,
 	})
 }
 

@@ -27,13 +27,17 @@ public class LatestTagTests
         public List<Seen> Requests { get; } = [];
         public HttpStatusCode VersionStatus { get; set; } = HttpStatusCode.Created;
         public HttpStatusCode TagStatus { get; set; } = HttpStatusCode.OK;
+        /// <summary>The body the Orchestrator answers a version publish with.</summary>
+        public string VersionReply { get; set; } = "{}";
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct);
             Requests.Add(new Seen(request.Method, request.RequestUri!.AbsolutePath, body));
-            var status = request.RequestUri.AbsolutePath.Contains("/aliases/") ? TagStatus : VersionStatus;
-            return new HttpResponseMessage(status) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+            var isTag = request.RequestUri.AbsolutePath.Contains("/aliases/");
+            var status = isTag ? TagStatus : VersionStatus;
+            var reply = isTag ? "{}" : VersionReply;
+            return new HttpResponseMessage(status) { Content = new StringContent(reply, Encoding.UTF8, "application/json") };
         }
     }
 
@@ -126,6 +130,64 @@ public class LatestTagTests
 
         result.Success.Should().BeFalse();
         server.Requests.Should().BeEmpty();
+    }
+
+    // ── publishing a version the Orchestrator already holds ──────────────────
+
+    [Theory]
+    [InlineData("{\"artifactId\":\"child\",\"version\":\"1.0.3\",\"alreadyPublished\":true}", true)]
+    [InlineData("{\"artifactId\":\"child\",\"version\":\"1.0.3\",\"alreadyPublished\":false}", false)]
+    [InlineData("{\"artifactId\":\"child\",\"version\":\"1.0.3\"}", false)]   // an Orchestrator that does not send the field
+    [InlineData("not json at all", false)]
+    [InlineData("", false)]
+    public async Task Reports_When_The_Version_Was_Already_There(string reply, bool expected)
+    {
+        var (publisher, server) = Publisher();
+        server.VersionReply = reply;
+
+        var result = await publisher.PublishAsync(Request(setAsLatest: false));
+
+        result.Success.Should().BeTrue();
+        result.AlreadyPublished.Should().Be(expected);
+        if (expected) result.Message.Should().Contain("nothing was added");
+    }
+
+    [Fact]
+    public async Task A_Repeat_With_Set_As_Latest_Still_Moves_The_Tag_And_Says_Nothing_Was_Added()
+    {
+        var (publisher, server) = Publisher();
+        server.VersionReply = "{\"alreadyPublished\":true}";
+
+        var result = await publisher.PublishAsync(Request(setAsLatest: true));
+
+        result.Success.Should().BeTrue();
+        result.AlreadyPublished.Should().BeTrue();
+        result.MovedLatest.Should().BeTrue();
+        server.Requests.Should().HaveCount(2, "promoting an unchanged version is a valid reason to publish it again");
+    }
+
+    [Fact]
+    public async Task The_Output_Says_Nothing_New_Was_Published_Instead_Of_Published()
+    {
+        var editor = new ScriptEditorViewModel();
+        editor.LoadScript(ValidScript());
+        var testing = new TestPanelViewModel(new LocalSimulationTestRunner(new ScriptValidator()), editor);
+        var publisher = new Mock<IScriptPublisher>();
+        publisher.SetupGet(p => p.Name).Returns("test publisher");
+        publisher.Setup(p => p.PublishAsync(It.IsAny<PublicationRequest>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(PublicationResult.Ok("child", alreadyPublished: true));
+        var log = new OutputLogViewModel();
+        var vm = new PublicationViewModel(publisher.Object, editor, testing, testRequired: false, output: log);
+
+        vm.PublishCommand.Execute(null);
+        await WaitUntilIdle(vm);
+
+        log.Entries.Should().Contain(e => e.Severity == OutputSeverity.Warning
+            && e.Message.Contains("Nothing new was published")
+            && e.Message.Contains("1.0.3")
+            && e.Message.Contains("raise the version"));
+        log.Entries.Should().NotContain(e => e.Message.StartsWith("Published"),
+            "a repeat must not read like a fresh publish");
     }
 
     // ── the checkbox ─────────────────────────────────────────────────────────

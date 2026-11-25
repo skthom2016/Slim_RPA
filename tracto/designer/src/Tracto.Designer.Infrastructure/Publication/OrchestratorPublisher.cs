@@ -62,8 +62,12 @@ public sealed class OrchestratorPublisher : IScriptPublisher
                 return PublicationResult.Failure($"Orchestrator returned {(int)response.StatusCode}: {errorBody}");
             }
 
+            // The Orchestrator answers success both for a new version and for a repeat of one it
+            // already holds with identical content; only the second adds nothing.
+            var already = await ReplySaysAlreadyPublishedAsync(response, ct).ConfigureAwait(false);
+
             if (!req.SetAsLatest)
-                return PublicationResult.Ok(s.Id);
+                return PublicationResult.Ok(s.Id, alreadyPublished: already);
 
             // The version is stored. Now move the tag to it. Publishing the same unchanged version
             // again is accepted by the Orchestrator, so this also promotes a version published earlier.
@@ -71,7 +75,7 @@ public sealed class OrchestratorPublisher : IScriptPublisher
             var tag = await _http.PutAsJsonAsync(tagUrl, new { version = s.Version, updatedBy = "designer" }, _json, ct)
                 .ConfigureAwait(false);
             if (tag.IsSuccessStatusCode)
-                return PublicationResult.Ok(s.Id, movedLatest: true);
+                return PublicationResult.Ok(s.Id, movedLatest: true, alreadyPublished: already);
 
             var tagError = await tag.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return PublicationResult.Failure(
@@ -81,6 +85,25 @@ public sealed class OrchestratorPublisher : IScriptPublisher
         catch (HttpRequestException ex)
         {
             return PublicationResult.Failure($"Cannot reach Orchestrator: {ex.Message}");
+        }
+    }
+
+    // True when the reply says {"alreadyPublished": true}. An older Orchestrator does not send the
+    // field, and anything unreadable also counts as "not known to be a repeat".
+    private static async Task<bool> ReplySaysAlreadyPublishedAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            using var doc = JsonDocument.Parse(text);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("alreadyPublished", out var flag)
+                && flag.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 }

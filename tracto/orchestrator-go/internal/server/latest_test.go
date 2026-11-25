@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"testing"
@@ -19,6 +20,29 @@ func latestOf(out map[string]any) map[string]any {
 	aliases, _ := out["aliases"].(map[string]any)
 	l, _ := aliases["latest"].(map[string]any)
 	return l
+}
+
+// Publishing a version that is already stored with identical content succeeds without adding
+// anything. The reply says so, so a client can tell "published" from "nothing new".
+func TestPublish_ReplySaysWhenTheVersionWasAlreadyThere(t *testing.T) {
+	e := newEnv(t)
+	body := map[string]any{"schemaVersion": "1", "payload": base64.StdEncoding.EncodeToString([]byte(flatScript("child", "1.0.0")))}
+
+	first := e.must(http.StatusCreated, "PUT", "/artifacts/child/versions/1.0.0", body)
+	if first["alreadyPublished"] != false {
+		t.Fatalf("a new version must say alreadyPublished=false: %v", first)
+	}
+	again := e.must(http.StatusCreated, "PUT", "/artifacts/child/versions/1.0.0", body)
+	if again["alreadyPublished"] != true {
+		t.Fatalf("a repeat of the same content must say alreadyPublished=true: %v", again)
+	}
+	if n := e.count(`SELECT COUNT(*) FROM ArtifactRecords WHERE ArtifactId='child'`); n != 1 {
+		t.Fatalf("the repeat must not add a row, found %d", n)
+	}
+
+	// A change under the same number is still refused outright.
+	changed := map[string]any{"schemaVersion": "1", "payload": base64.StdEncoding.EncodeToString([]byte(flatScript("child", "1.0.0") + " "))}
+	e.must(http.StatusConflict, "PUT", "/artifacts/child/versions/1.0.0", changed)
 }
 
 func TestLatest_NotSetYet(t *testing.T) {

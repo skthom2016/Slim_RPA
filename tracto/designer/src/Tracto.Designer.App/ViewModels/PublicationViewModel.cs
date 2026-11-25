@@ -102,7 +102,17 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
             var req = new PublicationRequest(_editor.Script, testResult, OutputDirectory, SetAsLatest);
             var result = await _publisher.PublishAsync(req).ConfigureAwait(false);
             LastResult = result;
-            if (result.Success)
+            if (result.Success && result.AlreadyPublished)
+            {
+                // Same version, same content: the Orchestrator already has it, so nothing was added.
+                _output?.Warning("Publish",
+                    $"Nothing new was published: version {req.Script.Version} is already on the Orchestrator with identical content. " +
+                    "To publish a change, raise the version.");
+                if (result.MovedLatest)
+                    _output?.Success("Publish", $"'latest' now points at version {req.Script.Version}.");
+                SetAsLatest = false;
+            }
+            else if (result.Success)
             {
                 _output?.Success("Publish", $"Published — ID {result.PublicationId}");
                 if (result.MovedLatest)
