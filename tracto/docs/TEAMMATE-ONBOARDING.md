@@ -98,7 +98,7 @@ Open **6 separate PowerShell terminals**. Run one command in each.
 
 ### Before Terminal 1 — the database (once)
 ```powershell
-cd New-NeeliRPA\tracto
+cd tracto
 $env:TRACTO_DB_PASSWORD = "<choose one>"
 docker compose up -d postgres
 ```
