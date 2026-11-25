@@ -1,10 +1,18 @@
 # Runs one Tracto service inside a Windows Terminal tab. Started by start-demo.sh at the repository root:
 #   powershell -NoExit -File tracto\scripts\demo-tab.ps1 <name>
 # Names: database, orchestrator, sheet-service, orchestrator-ui, desktop-runtime, browser-runtime, designer
-param([Parameter(Mandatory = $true)][string]$Name)
+#
+# -Fresh (database tab only): clear the demo data first, with demo-tools\clear-demo-database.ps1 at the
+# repository root. That tool is separate from the application.
+param([Parameter(Mandatory = $true)][string]$Name, [switch]$Fresh)
 
 $ErrorActionPreference = 'Continue'
 $tracto = Split-Path -Parent $PSScriptRoot
+$repoRoot = Split-Path -Parent $tracto
+
+# The database tab creates this file when the database is ready (and cleared, if asked). The other
+# tabs wait for it. start-demo.sh removes it before it opens the tabs.
+$readyMarker = Join-Path $env:TEMP 'tracto-demo-database-ready'
 
 function Wait-Until([string]$What, [scriptblock]$Ready, [int]$Seconds = 180) {
     $deadline = (Get-Date).AddSeconds($Seconds)
@@ -36,7 +44,9 @@ function Test-Database {
 }
 
 function Wait-Database {
-    Wait-Until 'PostgreSQL on localhost:5432' { Test-Database } | Out-Null
+    return (Wait-Until 'the database (started, and cleared if you chose a fresh one)' {
+        (Test-Path $readyMarker) -and (Test-Database)
+    })
 }
 
 function Start-Database {
@@ -58,8 +68,32 @@ function Start-Database {
         Write-Host '  cd tracto ; $env:TRACTO_DB_PASSWORD = "<password>" ; docker compose up -d postgres'
         return
     }
-    Wait-Database
-    Write-Host 'Database is up. This tab can stay open.' -ForegroundColor Green
+    if (-not (Wait-Until 'PostgreSQL on localhost:5432' { Test-Database })) {
+        Write-Host 'The database did not come up. The other tabs will not start.' -ForegroundColor Red
+        return
+    }
+
+    if ($Fresh) {
+        $clear = Join-Path $repoRoot 'demo-tools\clear-demo-database.ps1'
+        Write-Host 'Fresh database: clearing the demo data ...' -ForegroundColor Yellow
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $clear -Yes
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host 'The database was NOT cleared. The other tabs will not start. Fix the problem above and run ./start-demo.sh again.' -ForegroundColor Red
+            return
+        }
+    } else {
+        Write-Host 'Keeping the existing data.' -ForegroundColor Green
+    }
+
+    Set-Content -Path $readyMarker -Value (Get-Date -Format o)
+    Write-Host 'Database is ready. This tab can stay open.' -ForegroundColor Green
+}
+
+# Waits for the database tab; returns $false (and says so) when it never finished.
+function Wait-DatabaseOrStop {
+    if (Wait-Database) { return $true }
+    Write-Host 'The database tab did not finish, so this service was not started.' -ForegroundColor Red
+    return $false
 }
 
 switch ($Name) {
@@ -67,12 +101,12 @@ switch ($Name) {
         Start-Database
     }
     'orchestrator' {
-        Wait-Database
+        if (-not (Wait-DatabaseOrStop)) { return }
         Set-Location (Join-Path $tracto 'orchestrator-go')
         go run .
     }
     'sheet-service' {
-        Wait-Database
+        if (-not (Wait-DatabaseOrStop)) { return }
         Wait-Orchestrator
         Set-Location (Join-Path $tracto 'sheet-service')
         go run .

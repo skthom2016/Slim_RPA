@@ -77,7 +77,7 @@ dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
 ```bash
 ./start-demo.sh
 ```
-It opens one Windows Terminal window with a tab each for the database, orchestrator, sheet service, orchestrator UI, desktop runtime, browser runtime and designer, started in that order. Each tab waits for the database or the orchestrator before it starts.
+It opens one Windows Terminal window with a tab each for the database, orchestrator, sheet service, orchestrator UI, desktop runtime, browser runtime and designer, started in that order. Each tab waits for the database or the orchestrator before it starts. The script first asks whether to keep the existing data or start fresh; "fresh" runs `demo-tools\clear-demo-database.ps1` (a separate tool, not part of the application) which empties the artifacts, schedules, runs, logs and workers of the local `tracto-postgres` container and keeps the schema bookkeeping and the saved Microsoft sign-in. The tool can also be run on its own with `-WhatIf` to see what it would remove.
 
 ---
 
