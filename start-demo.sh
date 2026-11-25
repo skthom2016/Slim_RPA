@@ -20,7 +20,8 @@ SERVICES=(database orchestrator sheet-service orchestrator-ui desktop-runtime br
 TITLES=("1 Database" "2 Orchestrator" "3 Sheet service" "4 Orchestrator UI" "5 Desktop runtime" "6 Browser runtime" "7 Designer")
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  # Print the comment block at the top of this file.
+  awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"
   exit 0
 fi
 

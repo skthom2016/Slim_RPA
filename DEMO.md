@@ -271,6 +271,23 @@ powershell -File demo-tools\clear-browser-profile.ps1             # asks for YES
 
 Options: `-Profile <name>` for another profile, `-All` for every profile under the root. The tool is separate from the application, deletes only folders inside the profile root, and leaves the database, the downloaded Chromium and the sheet service's Microsoft sign-in (which is in the database) alone.
 
+## Restart one service
+
+After changing code, restart only the service you changed.
+
+**The tab is still open (usual case).** Press `Ctrl+C` in the tab to stop the service. The tab stays open, already in that service's folder, and its start command is in the tab's history. Press the Up arrow, then Enter. This history belongs to the tab only; your normal PowerShell history is not touched.
+
+**The tab was closed.** From the repository root, in Git Bash, name the service:
+
+```bash
+./start-demo.sh sheet-service
+./start-demo.sh orchestrator-ui designer      # several at once, in the order given
+```
+
+This opens a new tab for each named service in your Windows Terminal window, asks nothing about the data, and clears nothing. Names: `database`, `orchestrator`, `sheet-service`, `orchestrator-ui`, `desktop-runtime`, `browser-runtime`, `designer`. Stop the old copy first: two copies of a service cannot use the same port.
+
+Do not run plain `./start-demo.sh` to restart one service. It opens all seven tabs again.
+
 ## Stop
 
 Close the Windows Terminal window, or press `Ctrl+C` in a tab. The database container keeps running; stop it with `docker stop tracto-postgres`.

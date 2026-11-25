@@ -1,5 +1,7 @@
 # Tracto — Quick Start & Restart Guide
 
+Created: 2026-10-28 | Last updated: 2026-11-25
+
 ## Database (once)
 
 The Orchestrator and the sheet service keep their data in PostgreSQL.

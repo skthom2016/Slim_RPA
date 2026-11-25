@@ -1,5 +1,7 @@
 # Tracto — Teammate Onboarding Guide
 
+Created: 2026-11-05 | Last updated: 2026-11-25
+
 **Who this is for:** A developer joining the Tracto project for the first time.  
 **What this covers:** What the project is, how the repo is organized, how to get it running, and how to understand the design documents.
 
