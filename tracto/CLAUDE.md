@@ -142,6 +142,22 @@ Invoke-RestMethod -Uri "http://localhost:5080/artifacts/$($script.id)/versions/$
 
 The URL uses the script's `id` and `version`. For a segmented script they must equal the script's own `id` and `version`; the Orchestrator rejects a mismatch with `422 INVALID_SCRIPT`, and also rejects an unknown `runtime`, an empty `steps` or an empty `segments`. Publishing a segmented script also stores one hidden artifact per segment (`<id>.seg1`, `<id>.seg2`, ...), which `GET /artifacts` hides unless `includeSegments=true`.
 
+### The `latest` tag
+
+A script version can be asked for by number or as `latest`, a tag you move. Versions never change; the tag is a pointer to one of them.
+
+```powershell
+# Make 1.0.3 the version that "latest" means (the tag is created on first use)
+Invoke-RestMethod -Method PUT -ContentType "application/json" -Uri "http://localhost:5080/artifacts/<script-id>/aliases/latest" `
+    -Body (@{ version = "1.0.3"; updatedBy = "me" } | ConvertTo-Json)
+Invoke-RestMethod "http://localhost:5080/artifacts/<script-id>/aliases"      # where it points, and where it pointed before
+```
+
+- `scriptVersion: "latest"` is accepted by `POST /jobs`, by schedules, by `GET /artifacts/{id}/versions/latest` and by the sheet service's `/process/start` (`child.version`). The run, schedule fire or batch records the version number it resolved to.
+- `latest` is read once: a batch uses one version for every row even if the tag moves meanwhile, and a run already queued keeps its version.
+- Asking for `latest` before the tag is set is refused (`422 ARTIFACT_NOT_FOUND`). `latest` cannot be published as a version (`422 INVALID_VERSION`), and the version it points at cannot be deleted (`409 VERSION_IS_LATEST`).
+- To undo a move, move the tag back. In the Designer, tick **Set as latest** when publishing (off by default); in the Orchestrator UI use **Make latest** on the Artifacts tab.
+
 ## Submit a Job
 
 ```powershell

@@ -1,0 +1,27 @@
+{
+  "id": "email-batch-send",
+  "name": "Email Batch: Send An Email For Each Row",
+  "version": "1.1.0",
+  "params": {
+    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/batchemail/email-content.xlsx",
+    "sheetName": "Sheet1"
+  },
+  "segments": [
+    {
+      "name": "Start the batch",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Start the batch; this job then ends",
+          "parameters": {
+            "url": "http://localhost:5090/process/start",
+            "body": "{\"source\":{\"path\":\"${param.excelPath}\",\"sheet\":\"${param.sheetName}\"},\"child\":{\"artifactId\":\"email-child-send-one\",\"version\":\"latest\"},\"params\":{\"to\":\"To\",\"subject\":\"Subject\",\"message\":\"Message\"},\"statusColumn\":\"Status\",\"messageColumn\":\"Result\",\"successMessage\":\"Message sent\",\"timeoutSeconds\":180}",
+            "storeAs": "batch"
+          }
+        }
+      ]
+    }
+  ]
+}

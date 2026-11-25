@@ -17,6 +17,7 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     private readonly OutputLogViewModel? _output;
     private PublicationResult? _result;
     private bool _isPublishing;
+    private bool _setAsLatest;
     private string _outputDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Tracto", "Published");
 
@@ -42,6 +43,16 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
     }
 
     public ICommand PublishCommand { get; }
+
+    /// <summary>
+    /// Also move the "latest" tag to the version being published. Starts off, and goes back to off
+    /// after each successful publish, so moving the tag is a choice made each time.
+    /// </summary>
+    public bool SetAsLatest
+    {
+        get => _setAsLatest;
+        set { _setAsLatest = value; OnPropertyChanged(); }
+    }
 
     public string OutputDirectory
     {
@@ -88,11 +99,16 @@ public sealed class PublicationViewModel : INotifyPropertyChanged
         try
         {
             var testResult = _testing.TestResult ?? ScriptTestResult.NotRun;
-            var req = new PublicationRequest(_editor.Script, testResult, OutputDirectory);
+            var req = new PublicationRequest(_editor.Script, testResult, OutputDirectory, SetAsLatest);
             var result = await _publisher.PublishAsync(req).ConfigureAwait(false);
             LastResult = result;
             if (result.Success)
+            {
                 _output?.Success("Publish", $"Published — ID {result.PublicationId}");
+                if (result.MovedLatest)
+                    _output?.Success("Publish", $"'latest' now points at version {req.Script.Version}.");
+                SetAsLatest = false;
+            }
             else
                 _output?.Error("Publish", $"FAILED: {result.Message}");
         }

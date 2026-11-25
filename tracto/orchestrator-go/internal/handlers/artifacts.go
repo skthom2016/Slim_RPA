@@ -19,7 +19,10 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 	includeDeleted := r.URL.Query().Get("includeDeleted") == "true"
 	includeSegments := r.URL.Query().Get("includeSegments") == "true"
 
-	query := `SELECT ArtifactId, Version, SchemaVersion, ContentHash, StoredAt, IsDeleted, SignatureValid, Name
+	query := `SELECT ArtifactId, Version, SchemaVersion, ContentHash, StoredAt, IsDeleted, SignatureValid, Name,
+	                 EXISTS (SELECT 1 FROM ArtifactAliases al
+	                         WHERE al.ArtifactId = ArtifactRecords.ArtifactId AND al.Alias = '` + LatestAlias + `'
+	                           AND al.Version = ArtifactRecords.Version) AS IsLatest
 	          FROM ArtifactRecords WHERE 1=1`
 	if !includeDeleted {
 		query += ` AND NOT IsDeleted`
@@ -45,6 +48,7 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 		StoredAt       string `json:"storedAt"`
 		IsDeleted      bool   `json:"isDeleted"`
 		SignatureValid bool   `json:"signatureValid"`
+		IsLatest       bool   `json:"isLatest"`
 	}
 
 	artifacts := []artifactRow{}
@@ -53,7 +57,7 @@ func (h *ArtifactHandler) List(w http.ResponseWriter, r *http.Request) {
 		var name sql.NullString
 		if err := rows.Scan(
 			&a.ArtifactId, &a.Version, &a.SchemaVersion, &a.ContentHash,
-			&a.StoredAt, &a.IsDeleted, &a.SignatureValid, &name,
+			&a.StoredAt, &a.IsDeleted, &a.SignatureValid, &name, &a.IsLatest,
 		); err != nil {
 			dbErr(w, err)
 			return
@@ -113,6 +117,11 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.SchemaVersion == "" {
 		errResp(w, http.StatusBadRequest, "INVALID_REQUEST", "schemaVersion required")
+		return
+	}
+	if version == LatestAlias {
+		errResp(w, http.StatusUnprocessableEntity, "INVALID_VERSION",
+			"'"+LatestAlias+"' is a tag, not a version; publish a version number and move the tag to it")
 		return
 	}
 
@@ -230,13 +239,22 @@ func (h *ArtifactHandler) Publish(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /artifacts/{id}/versions/{version}
+// The version may be "latest"; the reply always names the version number it resolved to.
 func (h *ArtifactHandler) Get(w http.ResponseWriter, r *http.Request) {
 	artifactID := chi.URLParam(r, "id")
-	version := chi.URLParam(r, "version")
+	version, found, err := ResolveVersion(h.db, artifactID, chi.URLParam(r, "version"))
+	if err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if !found {
+		errResp(w, http.StatusNotFound, "NOT_FOUND", "the tag '"+LatestAlias+"' has not been set for "+artifactID)
+		return
+	}
 
 	var contentHash string
 	var payload []byte
-	err := h.db.QueryRow(
+	err = h.db.QueryRow(
 		`SELECT ar.ContentHash, ac.Payload
 		 FROM ArtifactRecords ar
 		 JOIN ArtifactContents ac ON ar.ArtifactId=ac.ArtifactId AND ar.Version=ac.Version
@@ -254,6 +272,8 @@ func (h *ArtifactHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("ETag", `"`+contentHash+`"`)
 	respond(w, http.StatusOK, map[string]string{
+		"artifactId":  artifactID,
+		"version":     version,
 		"payload":     base64.StdEncoding.EncodeToString(payload),
 		"contentHash": contentHash,
 	})
@@ -301,9 +321,19 @@ func (h *ArtifactHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.db.Exec(`UPDATE ArtifactRecords SET IsDeleted=TRUE WHERE (ArtifactId=$1 OR ParentArtifactId=$1) AND Version=$2`,
-		artifactID, version); err != nil {
+	// The version the tag "latest" points at cannot be deleted; move the tag first. The check is part
+	// of the update, so a tag moved here at the same moment cannot end up on a deleted version.
+	res, err := h.db.Exec(`UPDATE ArtifactRecords SET IsDeleted=TRUE
+		WHERE (ArtifactId=$1 OR ParentArtifactId=$1) AND Version=$2
+		  AND NOT EXISTS (SELECT 1 FROM ArtifactAliases WHERE ArtifactId=$1 AND Version=$2)`,
+		artifactID, version)
+	if err != nil {
 		dbErr(w, err)
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		errResp(w, http.StatusConflict, "VERSION_IS_LATEST",
+			"version "+version+" is what the tag '"+LatestAlias+"' points at; move the tag to another version first")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

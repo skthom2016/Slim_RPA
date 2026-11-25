@@ -199,14 +199,32 @@ Invoke-RestMethod -Method PUT -ContentType "application/json" -Body $body `
     -Uri "http://127.0.0.1:5080/artifacts/$($script.id)/versions/$($script.version)"
 ```
 
-Publish each **child** flow before its **main** flow. Starting a batch is refused when its child is not published.
+### Main and child flows: versions and the `latest` tag
+
+A main flow starts a batch that runs a child flow once per row. The main names the child by id and version. Instead of a number it can say `latest`, a tag that points at one version of the child. Then a new child version never needs a new main.
+
+- **Version numbers never change.** A published version is fixed; publishing the same number with different content is refused.
+- **`latest` is a pointer you move.** Publishing a version does not move it. Move it when you are ready, with **Set as latest** in the Designer's publish bar (unticked by default, and it unticks itself after each publish) or the **Make latest** button in the Orchestrator UI's Artifacts tab. Move it back the same way to roll back.
+- **The tag is read once.** A batch turns `latest` into a version number when it starts and runs that number for every row, even if the tag moves meanwhile. The batch record and the job list show the number, never the word `latest`.
+- **Not set means refused.** Starting a batch on `latest` fails until the tag has been set, as starting on an unpublished version does.
+- **The tagged version cannot be deleted.** Move the tag first.
+
+Developer routine for a changed child:
+
+1. Edit the child, raise its version (for example 1.0.2) and publish it. Nothing live changes.
+2. Test it by number: publish a main whose child version is `1.0.2`, or run the child on its own.
+3. When it works, move `latest` to 1.0.2 (Designer **Set as latest** when publishing, or **Make latest** in the UI). To undo, move `latest` back.
+
+To use the tag from a flow, write the child as `"version":"latest"` in the main's `/process/start` body. Publish the child first and set its `latest` once; the main flows named `_1.1.0` below do this.
 
 ### ACME invoice batch (`tracto/demo/acme-batch`)
 
 | Order | File | What it is |
 |---|---|---|
 | 1 | `acme-child-fetch-invoice_1.0.0.json` | looks up one invoice on the ACME site |
-| 2 | `acme-main-start-batch_1.0.0.json` | starts the batch over `acme-batch-invoices.xlsx` |
+| 2 | `acme-main-start-batch_1.1.0.json` | starts the batch over `acme-batch-invoices.xlsx`, using the child's `latest` |
+
+`acme-main-start-batch_1.0.0.json` is the earlier main; it names child 1.0.0 directly. After publishing the child, set its `latest` to 1.0.0 (Designer **Set as latest**, or **Make latest** in the UI).
 
 The browser profile must be signed in to ACME first (step 6). Run the main flow. It ends within seconds, once the batch has started, and the sheet service then runs the child once per row and writes the results into the workbook. Keep the workbook closed in Excel while it runs. Rows that already have `Status` = `Done` are skipped. Details: `tracto/demo/acme-batch/README.md`.
 
@@ -215,7 +233,9 @@ The browser profile must be signed in to ACME first (step 6). Run the main flow.
 | Order | File | What it is |
 |---|---|---|
 | 1 | `email-child-send-one_1.0.1.json` | sends one email in Outlook on the web |
-| 2 | `email-batch-send_1.0.1.json` | sends one email per row of `email-content.xlsx` |
+| 2 | `email-batch-send_1.1.0.json` | sends one email per row of `email-content.xlsx`, using the child's `latest` |
+
+Set the child's `latest` to 1.0.1 after publishing it. `email-batch-send_1.0.1.json` is the earlier main; it names child 1.0.1 directly.
 
 These flows send real email. Before running, change the addresses in the `To` column of `email-content.xlsx` and the `to` default in the child flow. Rows whose `Status` is already `Done` are skipped, so clear `Status` and `Result` to send them again.
 

@@ -14,9 +14,15 @@ public sealed class OrchestratorPublisher : IScriptPublisher
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = false };
 
     public OrchestratorPublisher(string orchestratorBaseUrl, PublicationGate gate)
+        : this(new HttpClient { BaseAddress = new Uri(orchestratorBaseUrl.TrimEnd('/') + "/") }, gate)
+    {
+    }
+
+    /// <summary>For callers that supply the HTTP client; its BaseAddress must end with a slash.</summary>
+    public OrchestratorPublisher(HttpClient http, PublicationGate gate)
     {
         _gate = gate;
-        _http = new HttpClient { BaseAddress = new Uri(orchestratorBaseUrl.TrimEnd('/') + "/") };
+        _http = http;
     }
 
     public string Name => "Orchestrator Publisher";
@@ -50,11 +56,27 @@ public sealed class OrchestratorPublisher : IScriptPublisher
             var url = $"artifacts/{Uri.EscapeDataString(s.Id)}/versions/{Uri.EscapeDataString(s.Version)}";
             var response = await _http.PutAsJsonAsync(url, body, _json, ct).ConfigureAwait(false);
 
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                return PublicationResult.Failure($"Orchestrator returned {(int)response.StatusCode}: {errorBody}");
+            }
+
+            if (!req.SetAsLatest)
                 return PublicationResult.Ok(s.Id);
 
-            var errorBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return PublicationResult.Failure($"Orchestrator returned {(int)response.StatusCode}: {errorBody}");
+            // The version is stored. Now move the tag to it. Publishing the same unchanged version
+            // again is accepted by the Orchestrator, so this also promotes a version published earlier.
+            var tagUrl = $"artifacts/{Uri.EscapeDataString(s.Id)}/aliases/latest";
+            var tag = await _http.PutAsJsonAsync(tagUrl, new { version = s.Version, updatedBy = "designer" }, _json, ct)
+                .ConfigureAwait(false);
+            if (tag.IsSuccessStatusCode)
+                return PublicationResult.Ok(s.Id, movedLatest: true);
+
+            var tagError = await tag.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return PublicationResult.Failure(
+                $"Version {s.Version} was published, but 'latest' could not be moved to it. " +
+                $"Orchestrator returned {(int)tag.StatusCode}: {tagError}");
         }
         catch (HttpRequestException ex)
         {

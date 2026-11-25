@@ -47,9 +47,24 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// "latest" becomes the version number it points at, here and now. The run, its segments and the
+	// queued job all carry that number, so a later move of the tag does not change this run.
+	requested := req.ScriptVersion
+	resolved, found, err := ResolveVersion(h.db, req.ScriptArtifactId, req.ScriptVersion)
+	if err != nil {
+		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if !found {
+		errResp(w, http.StatusUnprocessableEntity, "ARTIFACT_NOT_FOUND",
+			"artifact "+req.ScriptArtifactId+": the tag '"+LatestAlias+"' has not been set; move it to a published version first")
+		return
+	}
+	req.ScriptVersion = resolved
+
 	// Check artifact exists and is not deleted
 	var isDeleted bool
-	err := h.db.QueryRow(
+	err = h.db.QueryRow(
 		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		req.ScriptArtifactId, req.ScriptVersion,
 	).Scan(&isDeleted)
@@ -115,11 +130,15 @@ func (h *JobHandler) CreateJob(w http.ResponseWriter, r *http.Request) {
 		errResp(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
+	out := map[string]any{"runId": runID, "state": state}
 	if segments > 0 {
-		respond(w, http.StatusOK, map[string]any{"runId": runID, "state": state, "segments": segments})
-		return
+		out["segments"] = segments
 	}
-	respond(w, http.StatusOK, map[string]string{"runId": runID, "state": state})
+	if requested == LatestAlias {
+		// Say which version "latest" meant for this run.
+		out["scriptVersion"] = req.ScriptVersion
+	}
+	respond(w, http.StatusOK, out)
 }
 
 // scriptRuntimeType returns the targetRuntime declared by a stored script ("desktop",

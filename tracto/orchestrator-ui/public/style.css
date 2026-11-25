@@ -201,6 +201,7 @@ tbody tr:hover td { background: #fafbff; }
 .b-QUEUED    { background: #fef3c7; color: #92400e; }
 .b-RUNNING   { background: #dbeafe; color: #1e40af; }
 .b-SUCCEEDED { background: #d1fae5; color: #065f46; }
+.b-LATEST    { background: #dbeafe; color: #1e40af; }
 .b-FAILED    { background: #fee2e2; color: #991b1b; }
 .b-CANCELLED { background: #f3f4f6; color: #374151; }
 .b-TIMEDOUT  { background: #ffedd5; color: #9a3412; }

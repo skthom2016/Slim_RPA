@@ -165,6 +165,14 @@ async function loadArtifacts() {
             ? `<span class="badge b-CANCELLED">Deleted</span>`
             : `<span class="badge b-SUCCEEDED">Active</span>`;
         const canRun = !a.isDeleted;
+        // "latest" is the tag that scripts asking for "latest" follow. It marks one version of a script.
+        const latestBadge = a.isLatest
+            ? ` <span class="badge b-LATEST" title="Scripts that ask for &quot;latest&quot; run this version">latest</span>`
+            : '';
+        const makeLatest = (canRun && !a.isLatest)
+            ? `<button class="btn btn-sm btn-secondary" title="Make this the version that &quot;latest&quot; means"
+                       onclick="makeLatest('${esc(a.artifactId)}','${esc(a.version)}')">Make latest</button>`
+            : '';
         // The name is what a person chose; the id is how the orchestrator addresses it. Artifacts
         // published before the name was stored have none, and show the id on its own.
         const nameCell = a.name
@@ -174,18 +182,37 @@ async function loadArtifacts() {
         return `
         <tr>
             <td>${nameCell}</td>
-            <td><code>${esc(a.version)}</code></td>
+            <td><code>${esc(a.version)}</code>${latestBadge}</td>
             <td>${esc(a.schemaVersion)}</td>
             <td><code title="${a.contentHash}">${a.contentHash.substring(0, 14)}…</code></td>
             <td>${fmtDate(a.storedAt)}</td>
             <td>${delBadge}</td>
             <td class="row-actions">${canRun
                 ? `<button class="btn btn-sm btn-primary" onclick="promptRun('${esc(a.artifactId)}','${esc(a.version)}')">▶ Run</button>
+                   ${makeLatest}
                    <button class="btn btn-sm btn-icon btn-danger" title="Delete this script"
                            onclick="promptDelete('${esc(a.artifactId)}','${esc(a.version)}','${esc(a.name || a.artifactId)}')">🗑</button>`
                 : '—'}</td>
         </tr>`;
     }).join('');
+}
+
+// ── Make a version the "latest" ───────────────────────────────────────────────
+// Moves the tag. Scripts that ask for "latest" use this version from the next run on; runs already
+// started keep the version they began with. Moving it back is the same action on the older version.
+async function makeLatest(artifactId, version) {
+    if (!window.confirm(`Make version ${version} of "${artifactId}" the latest?\n\n` +
+        `Scripts that ask for "latest" will run it from now on.`)) return;
+    try {
+        await api(`/artifacts/${encodeURIComponent(artifactId)}/aliases/latest`, {
+            method: 'PUT',
+            body: JSON.stringify({ version, updatedBy: 'console' }),
+        });
+        toast(`"latest" of ${artifactId} is now ${version}`);
+        loadArtifacts();
+    } catch (e) {
+        toast('Could not move latest: ' + e.message, true);
+    }
 }
 
 // ── Delete artifact modal ─────────────────────────────────────────────────────

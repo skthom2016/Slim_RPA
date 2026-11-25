@@ -24,6 +24,7 @@ import (
 type submitted struct {
 	Params                 map[string]string
 	BusinessJobID, EventID string
+	Version                string // the scriptVersion the job was queued with
 }
 
 // behaviour says how a child ends, decided from the params it was queued with.
@@ -42,6 +43,9 @@ type fakeOrch struct {
 	decide      func(params map[string]string) behaviour
 	rejectJobs  bool
 	unpublished bool // the child script is not on the Orchestrator
+	latest      string // the version the tag "latest" points at; "" means the tag is not set
+	// afterSubmit runs inside the job handler, with the lock held, after each job is recorded.
+	afterSubmit func(n int)
 }
 
 func newFakeOrch(t *testing.T, decide func(map[string]string) behaviour) *fakeOrch {
@@ -59,12 +63,16 @@ func newFakeOrch(t *testing.T, decide func(map[string]string) behaviour) *fakeOr
 			Params        map[string]string `json:"params"`
 			BusinessJobID string            `json:"businessJobId"`
 			EventID       string            `json:"eventId"`
+			ScriptVersion string            `json:"scriptVersion"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		s := submitted{Params: body.Params, BusinessJobID: body.BusinessJobID, EventID: body.EventID}
+		s := submitted{Params: body.Params, BusinessJobID: body.BusinessJobID, EventID: body.EventID, Version: body.ScriptVersion}
 		id := fmt.Sprintf("run-%d", len(f.submits)+1)
 		f.runs[id] = s
 		f.submits = append(f.submits, s)
+		if f.afterSubmit != nil {
+			f.afterSubmit(len(f.submits))
+		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"runId": id, "state": "RUNNING"})
 	})
 	mux.HandleFunc("GET /artifacts/{id}/versions/{version}", func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +84,16 @@ func newFakeOrch(t *testing.T, decide func(map[string]string) behaviour) *fakeOr
 			return
 		}
 		_, _ = w.Write([]byte("{}"))
+	})
+	mux.HandleFunc("GET /artifacts/{id}/aliases", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		latest := f.latest
+		f.mu.Unlock()
+		aliases := map[string]any{}
+		if latest != "" {
+			aliases["latest"] = map[string]any{"version": latest}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"artifactId": r.PathValue("id"), "aliases": aliases})
 	})
 	mux.HandleFunc("GET /jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -422,6 +440,130 @@ func TestStart_RefusesAChildScriptThatIsNotPublished(t *testing.T) {
 	// The refused start must not leave the sheet reserved or any batch behind.
 	f.unpublished = false
 	start(t, m, request(path))
+}
+
+// ── the child version: a number, or the tag "latest" ────────────────────────
+
+func versionsSubmitted(f *fakeOrch) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.submits))
+	for i, s := range f.submits {
+		out[i] = s.Version
+	}
+	return out
+}
+
+func TestStart_AVersionNumberIsPassedThroughUnchanged(t *testing.T) {
+	path := workbook(t, ids("111", "222")...)
+	f := newFakeOrch(t, succeeds)
+	f.latest = "9.9.9" // a tag that must not matter when a number is asked for
+	m := manager(t, f)
+
+	res := start(t, m, request(path))
+	b := finished(t, m, res.BatchID)
+	if res.ChildVersion != "1.0.0" || b.Child != "acme-child@1.0.0" {
+		t.Fatalf("result %+v, batch child %q", res, b.Child)
+	}
+	for _, v := range versionsSubmitted(f) {
+		if v != "1.0.0" {
+			t.Fatalf("a job was queued as %q, want 1.0.0", v)
+		}
+	}
+}
+
+func TestStart_LatestRunsTheVersionTheTagPointsAt(t *testing.T) {
+	path := workbook(t, ids("111", "222", "333")...)
+	f := newFakeOrch(t, succeeds)
+	f.latest = "1.0.2"
+	m := manager(t, f)
+
+	r := request(path)
+	r.Child.Version = "latest"
+	res := start(t, m, r)
+	b := finished(t, m, res.BatchID)
+
+	if res.ChildVersion != "1.0.2" || b.Child != "acme-child@1.0.2" {
+		t.Fatalf("result %+v, batch child %q: the number, not the word latest, must be recorded", res, b.Child)
+	}
+	got := versionsSubmitted(f)
+	if len(got) != 3 {
+		t.Fatalf("want 3 jobs, got %v", got)
+	}
+	for _, v := range got {
+		if v != "1.0.2" {
+			t.Fatalf("a job was queued as %q, want 1.0.2 (jobs: %v)", v, got)
+		}
+	}
+}
+
+// The tag is read once, when the batch starts. Moving it while rows are still being processed
+// must not make later rows run a different version.
+func TestStart_MovingTheTagMidBatchDoesNotChangeTheRemainingRows(t *testing.T) {
+	path := workbook(t, ids("111", "222", "333", "444")...)
+	f := newFakeOrch(t, succeeds)
+	f.latest = "1.0.2"
+	f.afterSubmit = func(n int) {
+		if n == 1 {
+			f.latest = "1.0.3" // the lock is held by the handler running this
+		}
+	}
+	m := manager(t, f)
+
+	r := request(path)
+	r.Child.Version = "latest"
+	res := start(t, m, r)
+	finished(t, m, res.BatchID)
+
+	f.mu.Lock()
+	moved := f.latest
+	f.mu.Unlock()
+	if moved != "1.0.3" {
+		t.Fatalf("the test did not move the tag (it is %q)", moved)
+	}
+	for i, v := range versionsSubmitted(f) {
+		if v != "1.0.2" {
+			t.Fatalf("row %d ran %q after the tag moved, want 1.0.2", i+1, v)
+		}
+	}
+}
+
+func TestStart_LatestIsRefusedUntilTheTagIsSet(t *testing.T) {
+	path := workbook(t, ids("111", "222")...)
+	f := newFakeOrch(t, succeeds) // latest is not set
+	m := manager(t, f)
+
+	r := request(path)
+	r.Child.Version = "latest"
+	_, err := m.Start(context.Background(), r)
+	if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "'latest' tag") {
+		t.Fatalf("got %v, want ErrInvalid saying the latest tag is not set", err)
+	}
+	if f.submitCount() != 0 {
+		t.Error("no row may be started when the tag is not set")
+	}
+	// The refused start must not leave the sheet reserved, and works once the tag is set.
+	f.mu.Lock()
+	f.latest = "1.0.0"
+	f.mu.Unlock()
+	start(t, m, r)
+}
+
+func TestStart_LatestPointingAtAVersionThatIsGoneIsRefused(t *testing.T) {
+	path := workbook(t, ids("111")...)
+	f := newFakeOrch(t, succeeds)
+	f.latest = "1.0.2"
+	f.unpublished = true // the version the tag names is not there
+	m := manager(t, f)
+
+	r := request(path)
+	r.Child.Version = "latest"
+	if _, err := m.Start(context.Background(), r); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("got %v, want ErrInvalid", err)
+	}
+	if f.submitCount() != 0 {
+		t.Error("no row may be started")
+	}
 }
 
 func TestStart_WithNothingPendingCompletesAtOnce(t *testing.T) {

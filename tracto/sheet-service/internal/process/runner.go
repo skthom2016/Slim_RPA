@@ -113,6 +113,9 @@ type StartResult struct {
 	BatchID string `json:"batchId"`
 	State   string `json:"state"`
 	Total   int    `json:"total"`
+	// ChildVersion is the version number every row of the batch runs. When the request asked for
+	// "latest", this is the number it meant at the moment the batch started.
+	ChildVersion string `json:"childVersion"`
 }
 
 func (r *StartRequest) applyDefaults() {
@@ -264,15 +267,24 @@ func (m *Manager) Start(ctx context.Context, req StartRequest) (*StartResult, er
 
 	// A script that is not published would fail every row one by one in the background. Say so
 	// now, to whoever started the batch.
-	published, err := m.orch.ArtifactPublished(ctx, req.Child.ArtifactID, req.Child.Version)
+	//
+	// "latest" is turned into a version number here, once. Every row of this batch then runs that
+	// number, so moving the tag while the batch is running cannot make rows run different versions.
+	asked := req.Child.Version
+	concrete, published, err := m.orch.ResolveArtifact(ctx, req.Child.ArtifactID, asked)
 	if err != nil {
 		release()
 		return nil, &OrchestratorError{Err: err}
 	}
 	if !published {
 		release()
-		return nil, invalid("child script %s version %s is not published on the Orchestrator", req.Child.ArtifactID, req.Child.Version)
+		if asked == LatestTag {
+			return nil, invalid("child script %s has no '%s' tag set on the Orchestrator (or the version it points at is not published): publish a version and move the tag to it",
+				req.Child.ArtifactID, LatestTag)
+		}
+		return nil, invalid("child script %s version %s is not published on the Orchestrator", req.Child.ArtifactID, asked)
 	}
+	req.Child.Version = concrete
 
 	items := make([]ItemRecord, len(rows))
 	for i, r := range rows {
@@ -290,7 +302,7 @@ func (m *Manager) Start(ctx context.Context, req StartRequest) (*StartResult, er
 	if len(rows) == 0 {
 		_ = m.store.SetBatchState(id, BatchCompleted, "nothing to do: every row is already done")
 		release()
-		return &StartResult{BatchID: id, State: BatchCompleted, Total: 0}, nil
+		return &StartResult{BatchID: id, State: BatchCompleted, Total: 0, ChildVersion: req.Child.Version}, nil
 	}
 
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -302,7 +314,7 @@ func (m *Manager) Start(ctx context.Context, req StartRequest) (*StartResult, er
 		defer cancel()
 		m.run(runCtx, id, req, rows)
 	}()
-	return &StartResult{BatchID: id, State: BatchRunning, Total: len(rows)}, nil
+	return &StartResult{BatchID: id, State: BatchRunning, Total: len(rows), ChildVersion: req.Child.Version}, nil
 }
 
 // label is what identifies a row to a person reading the batch: its param values, by name.

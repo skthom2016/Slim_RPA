@@ -30,10 +30,18 @@ func enqueueRun(db *sql.DB, spec runSpec) (runID, state string, segments int, er
 	return runID, "QUEUED", 0, nil
 }
 
-// ArtifactPublished reports whether a script version exists and is not deleted.
+// ArtifactPublished reports whether a script version exists and is not deleted. The version may be
+// "latest", which counts as published when the tag has been set and its version is published.
 func ArtifactPublished(db *sql.DB, artifactID, version string) (bool, error) {
+	version, found, err := ResolveVersion(db, artifactID, version)
+	if err != nil {
+		return false, err
+	}
+	if !found {
+		return false, nil
+	}
 	var isDeleted bool
-	err := db.QueryRow(
+	err = db.QueryRow(
 		`SELECT IsDeleted FROM ArtifactRecords WHERE ArtifactId=$1 AND Version=$2`,
 		artifactID, version).Scan(&isDeleted)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -58,7 +66,16 @@ type ScheduledRun struct {
 // path POST /jobs takes once a request is accepted. It returns ErrArtifactNotFound when the
 // script version is not published.
 func EnqueueScheduled(db *sql.DB, r ScheduledRun) (string, error) {
-	ok, err := ArtifactPublished(db, r.ArtifactID, r.Version)
+	// A schedule may name "latest". It is turned into a version number now, so the run records the
+	// version it actually used.
+	version, found, err := ResolveVersion(db, r.ArtifactID, r.Version)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", ErrArtifactNotFound
+	}
+	ok, err := ArtifactPublished(db, r.ArtifactID, version)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +85,7 @@ func EnqueueScheduled(db *sql.DB, r ScheduledRun) (string, error) {
 	eventID := r.EventID
 	runID, _, _, err := enqueueRun(db, runSpec{
 		ArtifactId:    r.ArtifactID,
-		Version:       r.Version,
+		Version:       version,
 		SchemaVersion: "1",
 		TriggerType:   "Schedule",
 		Params:        r.Params,

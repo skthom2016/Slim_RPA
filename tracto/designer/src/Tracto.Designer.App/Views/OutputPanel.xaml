@@ -25,6 +25,9 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <CheckBox Content="Set as latest" IsChecked="{Binding Publication.SetAsLatest}"
+                          VerticalAlignment="Center" Margin="0,0,16,0"
+                          ToolTip="Also make this version the one that scripts asking for &quot;latest&quot; use. Leave it off to publish a version for testing. It switches itself off after each publish."/>
                 <TextBlock Text="Publish to" Style="{StaticResource FieldLabel}"
                            VerticalAlignment="Center" Margin="0,0,7,0"/>
                 <TextBox Text="{Binding Publication.OutputDirectory, UpdateSourceTrigger=PropertyChanged}"

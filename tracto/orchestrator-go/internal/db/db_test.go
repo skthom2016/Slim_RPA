@@ -3,6 +3,7 @@ package db_test
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"sync"
@@ -17,7 +18,8 @@ func TestMigrate_BuildsEveryTable(t *testing.T) {
 	d := dbtest.Open(t)
 	want := []string{"runrecords", "workerrecords", "journalentries", "leaserecords", "artifactrecords", "artifactcontents",
 		"schedulerecords", "finalresultrecords", "runoutputs", "callbackrecords", "continuationmappings",
-		"continuationrunrecords", "telemetryevents", "runlogs", "securityevents", "resolutionrecords", "schema_migrations"}
+		"continuationrunrecords", "telemetryevents", "runlogs", "securityevents", "resolutionrecords", "artifactaliases",
+		"schema_migrations"}
 	for _, tbl := range want {
 		var found bool
 		if err := d.QueryRow(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = $1)`, tbl).Scan(&found); err != nil || !found {
@@ -33,6 +35,25 @@ func TestMigrate_BuildsEveryTable(t *testing.T) {
 	}
 }
 
+// migrationFiles is how many migration files the binary carries.
+func migrationFiles(t *testing.T) int {
+	t.Helper()
+	entries, err := fs.ReadDir(db.Migrations(), "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			n++
+		}
+	}
+	if n == 0 {
+		t.Fatal("no migration files found")
+	}
+	return n
+}
+
 func TestMigrate_IsRepeatable(t *testing.T) {
 	d := dbtest.Open(t)
 	if err := db.Migrate(context.Background(), d, db.Migrations(), "migrations"); err != nil {
@@ -40,8 +61,8 @@ func TestMigrate_IsRepeatable(t *testing.T) {
 	}
 	var n int
 	_ = d.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&n)
-	if n != 1 {
-		t.Fatalf("expected one recorded migration, got %d", n)
+	if want := migrationFiles(t); n != want {
+		t.Fatalf("expected %d recorded migrations (one per file), got %d", want, n)
 	}
 }
 
@@ -82,8 +103,8 @@ func TestMigrate_ConcurrentStartsApplyOnce(t *testing.T) {
 	}
 	var n int
 	_ = first.QueryRow(`SELECT count(*) FROM schema_migrations`).Scan(&n)
-	if n != 1 {
-		t.Fatalf("expected one recorded migration, got %d", n)
+	if want := migrationFiles(t); n != want {
+		t.Fatalf("expected %d recorded migrations (one per file), got %d", want, n)
 	}
 }
 

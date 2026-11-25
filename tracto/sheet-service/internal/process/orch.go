@@ -140,18 +140,44 @@ func (o *Orchestrator) Get(ctx context.Context, runID string) (RunInfo, error) {
 	return RunInfo{State: strings.ToUpper(resp.State), Outputs: merged}, nil
 }
 
-// ArtifactPublished reports whether a script version is published and not deleted. Any answer
-// other than a plain yes or no is an error, so an unreachable Orchestrator is not mistaken for a
-// missing script.
-func (o *Orchestrator) ArtifactPublished(ctx context.Context, id, version string) (bool, error) {
-	err := o.do(ctx, http.MethodGet, "/artifacts/"+url.PathEscape(id)+"/versions/"+url.PathEscape(version), nil, nil)
+// LatestTag is the movable tag a request can name instead of a version number.
+const LatestTag = "latest"
+
+// ResolveArtifact finds a published script version and returns its version number. The version may
+// be "latest": the Orchestrator then says which version the tag points at, and that number is
+// returned, so the caller can use one version for everything it does next. Any other version is
+// returned as asked.
+//
+// found is false when the version is not published or deleted, or when "latest" has not been set.
+// Any answer other than a plain yes or no is an error, so an unreachable Orchestrator is not
+// mistaken for a missing script.
+func (o *Orchestrator) ResolveArtifact(ctx context.Context, id, version string) (concrete string, found bool, err error) {
+	concrete = version
+	if version == LatestTag {
+		var resp struct {
+			Aliases map[string]struct {
+				Version string `json:"version"`
+			} `json:"aliases"`
+		}
+		if err := o.do(ctx, http.MethodGet, "/artifacts/"+url.PathEscape(id)+"/aliases", nil, &resp); err != nil {
+			if strings.Contains(err.Error(), " returned 404:") {
+				return "", false, nil
+			}
+			return "", false, err
+		}
+		concrete = resp.Aliases[LatestTag].Version
+		if concrete == "" {
+			return "", false, nil
+		}
+	}
+	err = o.do(ctx, http.MethodGet, "/artifacts/"+url.PathEscape(id)+"/versions/"+url.PathEscape(concrete), nil, nil)
 	if err == nil {
-		return true, nil
+		return concrete, true, nil
 	}
 	if strings.Contains(err.Error(), " returned 404:") {
-		return false, nil
+		return "", false, nil
 	}
-	return false, err
+	return "", false, err
 }
 
 // Cancel asks the Orchestrator to stop a run. Failing to is not worth failing anything else for.

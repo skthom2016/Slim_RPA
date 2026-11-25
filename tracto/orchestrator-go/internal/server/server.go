@@ -74,6 +74,8 @@ func NewRouter(database *sql.DB, logger *slog.Logger, cfg Config) http.Handler {
 	r.Put("/artifacts/{id}/versions/{version}", ah.Publish)
 	r.Get("/artifacts/{id}/versions/{version}", ah.Get)
 	r.Delete("/artifacts/{id}/versions/{version}", ah.Delete)
+	r.Get("/artifacts/{id}/aliases", ah.GetAliases)
+	r.Put("/artifacts/{id}/aliases/{alias}", ah.SetAlias)
 
 	// Callbacks
 	cbh := handlers.NewCallbackHandler(database, cfg.HmacKeys)

@@ -131,6 +131,18 @@ CREATE TABLE ArtifactContents (
     PRIMARY KEY (ArtifactId, Version)
 );
 
+-- Movable version tags (migration 002). The tag "latest" says which version of a script a request
+-- for "latest" means. Versions themselves never change; moving a tag replaces one row here.
+CREATE TABLE ArtifactAliases (
+    ArtifactId      TEXT        NOT NULL,
+    Alias           TEXT        NOT NULL,
+    Version         TEXT        NOT NULL,
+    PreviousVersion TEXT,
+    UpdatedAt       TIMESTAMPTZ NOT NULL,
+    UpdatedBy       TEXT,
+    PRIMARY KEY (ArtifactId, Alias)
+);
+
 CREATE TABLE ScheduleRecords (
     ScheduleId     TEXT        PRIMARY KEY,
     CronExpression TEXT        NOT NULL,
