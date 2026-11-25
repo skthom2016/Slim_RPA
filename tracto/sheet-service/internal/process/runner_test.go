@@ -44,6 +44,8 @@ type fakeOrch struct {
 	rejectJobs  bool
 	unpublished bool // the child script is not on the Orchestrator
 	latest      string // the version the tag "latest" points at; "" means the tag is not set
+	logs        map[string][]string // run id -> "Level: message" lines the batch wrote to that run
+	rejectLogs  bool                // answer log requests with an error
 	// afterSubmit runs inside the job handler, with the lock held, after each job is recorded.
 	afterSubmit func(n int)
 }
@@ -84,6 +86,29 @@ func newFakeOrch(t *testing.T, decide func(map[string]string) behaviour) *fakeOr
 			return
 		}
 		_, _ = w.Write([]byte("{}"))
+	})
+	mux.HandleFunc("POST /jobs/{id}/logs", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if f.rejectLogs {
+			http.Error(w, "no logs today", http.StatusServiceUnavailable)
+			return
+		}
+		var body struct {
+			Runtime string `json:"runtime"`
+			Entries []struct {
+				Level   string `json:"level"`
+				Message string `json:"message"`
+			} `json:"entries"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if f.logs == nil {
+			f.logs = map[string][]string{}
+		}
+		for _, e := range body.Entries {
+			f.logs[r.PathValue("id")] = append(f.logs[r.PathValue("id")], body.Runtime+"/"+e.Level+": "+e.Message)
+		}
+		w.WriteHeader(http.StatusAccepted)
 	})
 	mux.HandleFunc("GET /artifacts/{id}/aliases", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -563,6 +588,107 @@ func TestStart_LatestPointingAtAVersionThatIsGoneIsRefused(t *testing.T) {
 	}
 	if f.submitCount() != 0 {
 		t.Error("no row may be started")
+	}
+}
+
+// ── what a developer can read afterwards ─────────────────────────────────────
+
+func runLines(f *fakeOrch, runID string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.logs[runID]...)
+}
+
+// The start reply says in a sentence what the batch will do. A flow that started the batch shows
+// it in its own log, which is how "main succeeded, nothing ran" gets explained.
+func TestStart_ReplyExplainsWhatTheBatchWillDo(t *testing.T) {
+	f := newFakeOrch(t, succeeds)
+	f.latest = "1.0.2"
+	m := manager(t, f)
+
+	r := request(workbook(t, ids("111", "222", "333")...))
+	r.Child.Version = "latest"
+	res := start(t, m, r)
+	finished(t, m, res.BatchID)
+	if res.Message != "3 row(s) to process with acme-child@1.0.2 (asked for latest)" {
+		t.Errorf("message = %q", res.Message)
+	}
+
+	// Asked for by number: no mention of latest.
+	res = start(t, m, request(workbook(t, ids("444")...)))
+	finished(t, m, res.BatchID)
+	if res.Message != "1 row(s) to process with acme-child@1.0.0" {
+		t.Errorf("message = %q", res.Message)
+	}
+}
+
+func TestStart_ReplySaysWhyNothingRan(t *testing.T) {
+	f := newFakeOrch(t, succeeds)
+	m := manager(t, f)
+
+	res := start(t, m, request(workbook(t, []any{"111", "a", "b", "c", "Done"})))
+
+	if res.Total != 0 || res.State != BatchCompleted || res.Message != "nothing to do: every row is already done" {
+		t.Fatalf("got %+v", res)
+	}
+	if f.submitCount() != 0 {
+		t.Error("no child may be started")
+	}
+}
+
+// Each child run says where it came from and how its row ended, so opening that run in the console
+// tells the whole story. Only the row number is written, never the row's values.
+func TestBatch_WritesWhatHappenedOntoEachChildRun(t *testing.T) {
+	f := newFakeOrch(t, func(p map[string]string) behaviour {
+		if p["invoiceId"] == "222" {
+			return behaviour{State: "FAILED", ErrLog: "invoice not found"}
+		}
+		return succeeds(p)
+	})
+	m := manager(t, f)
+
+	res := start(t, m, request(workbook(t, ids("111", "222")...)))
+	finished(t, m, res.BatchID)
+
+	ok := runLines(f, "run-1")
+	if len(ok) != 2 ||
+		!strings.Contains(ok[0], "sheet-service/Info: Queued by batch "+res.BatchID+" for row 2.") ||
+		!strings.Contains(ok[1], "sheet-service/Info: Batch "+res.BatchID+" row 2: result written to the sheet and the row marked Done.") {
+		t.Fatalf("lines on the first child run: %v", ok)
+	}
+
+	bad := runLines(f, "run-2")
+	if len(bad) != 2 ||
+		!strings.Contains(bad[0], "Queued by batch "+res.BatchID+" for row 3.") ||
+		!strings.HasPrefix(bad[1], "sheet-service/Warning: Batch "+res.BatchID+" row 3 failed:") ||
+		!strings.Contains(bad[1], "invoice not found") {
+		t.Fatalf("lines on the failed child run: %v", bad)
+	}
+
+	for _, line := range append(ok, bad...) {
+		for _, secret := range []string{"111", "222"} {
+			if strings.Contains(line, secret) {
+				t.Errorf("a row value reached a log line: %q", line)
+			}
+		}
+	}
+}
+
+// A log line that cannot be stored must never cost a row, or the batch.
+func TestBatch_CarriesOnWhenTheOrchestratorRefusesLogLines(t *testing.T) {
+	path := workbook(t, ids("111", "222")...)
+	f := newFakeOrch(t, succeeds)
+	f.rejectLogs = true
+	m := manager(t, f)
+
+	res := start(t, m, request(path))
+	b := finished(t, m, res.BatchID)
+
+	if b.State != BatchCompleted {
+		t.Fatalf("batch ended %s: %s", b.State, b.Message)
+	}
+	if cell(t, path, "E2") != "Done" || cell(t, path, "E3") != "Done" {
+		t.Error("both rows must still be written back")
 	}
 }
 

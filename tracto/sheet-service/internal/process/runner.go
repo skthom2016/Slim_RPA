@@ -116,6 +116,9 @@ type StartResult struct {
 	// ChildVersion is the version number every row of the batch runs. When the request asked for
 	// "latest", this is the number it meant at the moment the batch started.
 	ChildVersion string `json:"childVersion"`
+	// Message says in a sentence what the batch is going to do, or why it does nothing, so a flow
+	// that started it can show that in its own log.
+	Message string `json:"message"`
 }
 
 func (r *StartRequest) applyDefaults() {
@@ -300,9 +303,10 @@ func (m *Manager) Start(ctx context.Context, req StartRequest) (*StartResult, er
 	}
 
 	if len(rows) == 0 {
-		_ = m.store.SetBatchState(id, BatchCompleted, "nothing to do: every row is already done")
+		const nothing = "nothing to do: every row is already done"
+		_ = m.store.SetBatchState(id, BatchCompleted, nothing)
 		release()
-		return &StartResult{BatchID: id, State: BatchCompleted, Total: 0, ChildVersion: req.Child.Version}, nil
+		return &StartResult{BatchID: id, State: BatchCompleted, Total: 0, ChildVersion: req.Child.Version, Message: nothing}, nil
 	}
 
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -314,7 +318,11 @@ func (m *Manager) Start(ctx context.Context, req StartRequest) (*StartResult, er
 		defer cancel()
 		m.run(runCtx, id, req, rows)
 	}()
-	return &StartResult{BatchID: id, State: BatchRunning, Total: len(rows), ChildVersion: req.Child.Version}, nil
+	started := fmt.Sprintf("%d row(s) to process with %s@%s", len(rows), req.Child.ArtifactID, req.Child.Version)
+	if asked == LatestTag {
+		started += " (asked for latest)"
+	}
+	return &StartResult{BatchID: id, State: BatchRunning, Total: len(rows), ChildVersion: req.Child.Version, Message: started}, nil
 }
 
 // label is what identifies a row to a person reading the batch: its param values, by name.
@@ -432,6 +440,9 @@ func (m *Manager) processRow(ctx context.Context, batchID string, req StartReque
 		return rowOrchestratorDown, err.Error()
 	}
 	_ = m.store.SetItem(batchID, row.Number, ItemRunning, runID, "")
+	// Said on the child's own run, so someone who opens that run knows where it came from. Only the
+	// row number is written, never the row's values: they may be addresses or message text.
+	m.orch.Log(runID, "Info", fmt.Sprintf("Queued by batch %s for row %d.", batchID, row.Number))
 
 	info, how := m.wait(ctx, runID, time.Duration(req.TimeoutSeconds)*m.TimeoutUnit)
 	switch how {
@@ -475,6 +486,7 @@ func (m *Manager) processRow(ctx context.Context, batchID string, req StartReque
 		return rowFatal, msg
 	}
 	_ = m.store.SetItem(batchID, row.Number, ItemDone, runID, "")
+	m.orch.Log(runID, "Info", fmt.Sprintf("Batch %s row %d: result written to the sheet and the row marked %s.", batchID, row.Number, statusDone))
 	return rowDone, ""
 }
 
@@ -487,6 +499,9 @@ func (m *Manager) fail(batchID string, req StartRequest, row sheet.Row, runID, m
 		cells = append(cells, sheet.CellUpdate{Row: row.Number, Column: req.MessageColumn, Value: msg})
 	}
 	_ = m.store.SetItem(batchID, row.Number, ItemFailed, runID, msg)
+	if runID != "" {
+		m.orch.Log(runID, "Warning", fmt.Sprintf("Batch %s row %d failed: %s", batchID, row.Number, msg))
+	}
 	if err := m.write(req.Source, cells); err != nil {
 		return rowFatal, fmt.Sprintf("row %d failed (%s) and the sheet could not be updated: %v", row.Number, msg, err)
 	}

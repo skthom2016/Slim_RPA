@@ -180,6 +180,24 @@ func (o *Orchestrator) ResolveArtifact(ctx context.Context, id, version string) 
 	return "", false, err
 }
 
+// Log adds one line to a run's log on the Orchestrator, so the person reading that run can see
+// what the batch did around it: which batch queued it, and how its row ended. Level is "Info",
+// "Warning" or "Error". A line that cannot be stored is not worth failing a batch for, so errors
+// are not returned.
+func (o *Orchestrator) Log(runID, level, message string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	body := map[string]any{
+		"runtime": "sheet-service",
+		"entries": []map[string]string{{
+			"level":      level,
+			"message":    message,
+			"occurredAt": time.Now().UTC().Format(time.RFC3339Nano),
+		}},
+	}
+	_ = o.do(ctx, http.MethodPost, "/jobs/"+url.PathEscape(runID)+"/logs", body, nil)
+}
+
 // Cancel asks the Orchestrator to stop a run. Failing to is not worth failing anything else for.
 func (o *Orchestrator) Cancel(ctx context.Context, runID, requestedBy string) error {
 	return o.do(ctx, http.MethodPost, "/jobs/"+url.PathEscape(runID)+"/cancel",

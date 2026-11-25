@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 namespace TractoRuntime.Browser.Diagnostics;
 
 /// <summary>One line a runtime logged while it was running a job.</summary>
-/// <param name="Level">"Warning" or "Error" — the only levels kept.</param>
+/// <param name="Level">"Info", "Warning" or "Error" — the only levels kept.</param>
 /// <param name="StepId">The step being run when it was logged, when one was.</param>
 public sealed record RunLogEntry(string Level, string? StepId, string Message, DateTimeOffset OccurredAt);
 
@@ -12,10 +12,12 @@ public sealed record RunLogEntry(string Level, string? StepId, string Message, D
 /// failure can be explained afterwards from the console rather than guessed at.
 /// </summary>
 /// <remarks>
-/// Only Warning and above is collected: Info is the worker's running commentary and would bury
-/// the two lines that matter. The buffer is capped, so a step that fails in a loop cannot fill
-/// memory or the database — once full, further entries are counted and dropped, and the count
-/// is reported in place of them.
+/// Warnings and errors are always collected. Info is collected only from the step engine (see
+/// <see cref="IsKept"/>): which step ran and how long it took, so a run that succeeds can still be
+/// followed. Info from everything else the worker logs (the host, polling, the browser launcher)
+/// stays in the console, where it would only bury the lines that explain a failure. The buffer is
+/// capped, so a step that fails in a loop cannot fill memory or the database — once full, further
+/// entries are counted and dropped, and the count is reported in place of them.
 /// <para>
 /// A worker runs one job at a time, so a single current run is all this tracks. Entries logged
 /// while no run is active are ignored: they belong to the worker, not to a job.
@@ -43,8 +45,8 @@ public sealed class RunLogSink(int capacity = 500)
     }
 
     /// <summary>
-    /// Records one line if a run is active and the level is worth keeping. Returns whether it
-    /// was kept, which the tests assert on and callers may ignore.
+    /// Records one line if a run is active and the level is worth keeping (Debug and Trace are
+    /// not). Returns whether it was kept, which the tests assert on and callers may ignore.
     /// </summary>
     public bool Add(LogLevel level, string message, string? stepId = null)
     {
@@ -86,9 +88,24 @@ public sealed class RunLogSink(int capacity = 500)
         }
     }
 
+    /// <summary>The logger category of the class that runs a job's steps.</summary>
+    public const string StepEngineCategory = "BrowserRunEngine";
+
+    /// <summary>
+    /// Whether a line logged at <paramref name="level"/> by <paramref name="category"/> belongs in
+    /// the run's log: warnings and errors from anywhere, Info only from the step engine.
+    /// </summary>
+    public static bool IsKept(LogLevel level, string category)
+    {
+        if (LevelName(level) is null) return false;
+        if (level != LogLevel.Information) return true;
+        return category == StepEngineCategory || category.EndsWith("." + StepEngineCategory, StringComparison.Ordinal);
+    }
+
     /// <summary>The name the Orchestrator stores, or null for a level that is not kept.</summary>
     public static string? LevelName(LogLevel level) => level switch
     {
+        LogLevel.Information => "Info",
         LogLevel.Warning => "Warning",
         LogLevel.Error or LogLevel.Critical => "Error",
         _ => null,

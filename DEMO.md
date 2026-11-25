@@ -203,7 +203,7 @@ Invoke-RestMethod -Method PUT -ContentType "application/json" -Body $body `
 
 ### Main and child flows: versions and the `latest` tag
 
-A main flow starts a batch that runs a child flow once per row. The main names the child by id and version. Instead of a number it can say `latest`, a tag that points at one version of the child. Then a new child version never needs a new main.
+A main flow starts a batch that runs a child flow once per row. The main names the child by id and version. Instead of a number it says `latest`, a tag that points at one version of the child, so a new child version never needs a new main. Every main flow in `tracto/demo` names its child as `latest` and never a number.
 
 - **Version numbers never change.** A published version is fixed; publishing the same number with different content is refused.
 - **`latest` is a pointer you move.** Publishing a version does not move it. Move it when you are ready, with **Set as latest** in the Designer's publish bar (unticked by default, and it unticks itself after each publish) or the **Make latest** button in the Orchestrator UI's Artifacts tab. Move it back the same way to roll back.
@@ -214,10 +214,12 @@ A main flow starts a batch that runs a child flow once per row. The main names t
 Developer routine for a changed child:
 
 1. Edit the child, raise its version (for example 1.0.2) and publish it. Nothing live changes.
-2. Test it by number: publish a main whose child version is `1.0.2`, or run the child on its own.
+2. Test it by number without touching `latest`: run the child on its own, or start a batch by hand with the child's version set to `1.0.2` in the `/process/start` body.
 3. When it works, move `latest` to 1.0.2 (Designer **Set as latest** when publishing, or **Make latest** in the UI). To undo, move `latest` back.
 
-To use the tag from a flow, write the child as `"version":"latest"` in the main's `/process/start` body. Publish the child first and set its `latest` once; the main flows named `_1.1.0` below do this.
+To use the tag from a flow, write the child as `"version":"latest"` in the main's `/process/start` body. Publish the child first and set its `latest` once; the main flows below do this.
+
+**A child that starts a sub-child** follows the same rule: it names the sub-child as `"version":"latest"` too, so the whole chain follows the tags. Publish the sub-child first and set its `latest`, then the child, then the main. No flow in `tracto/demo` has a sub-child yet.
 
 ### ACME invoice batch (`tracto/demo/acme-batch`)
 
@@ -226,7 +228,7 @@ To use the tag from a flow, write the child as `"version":"latest"` in the main'
 | 1 | `acme-child-fetch-invoice_1.0.0.json` | looks up one invoice on the ACME site |
 | 2 | `acme-main-start-batch_1.1.0.json` | starts the batch over `acme-batch-invoices.xlsx`, using the child's `latest` |
 
-`acme-main-start-batch_1.0.0.json` is the earlier main; it names child 1.0.0 directly. After publishing the child, set its `latest` to 1.0.0 (Designer **Set as latest**, or **Make latest** in the UI).
+After publishing the child, set its `latest` to 1.0.0 once (Designer **Set as latest**, or **Make latest** in the UI). The main then always runs the child's `latest`.
 
 The browser profile must be signed in to ACME first (step 6). Run the main flow. It ends within seconds, once the batch has started, and the sheet service then runs the child once per row and writes the results into the workbook. Keep the workbook closed in Excel while it runs. Rows that already have `Status` = `Done` are skipped. Details: `tracto/demo/acme-batch/README.md`.
 
@@ -237,7 +239,7 @@ The browser profile must be signed in to ACME first (step 6). Run the main flow.
 | 1 | `email-child-send-one_1.0.1.json` | sends one email in Outlook on the web |
 | 2 | `email-batch-send_1.1.0.json` | sends one email per row of `email-content.xlsx`, using the child's `latest` |
 
-Set the child's `latest` to 1.0.1 after publishing it. `email-batch-send_1.0.1.json` is the earlier main; it names child 1.0.1 directly.
+After publishing the child, set its `latest` to 1.0.1 once. The main then always runs the child's `latest`. (`email-child-send-one_1.0.0.json` is an earlier child version, kept for reference.)
 
 These flows send real email. Before running, change the addresses in the `To` column of `email-content.xlsx` and the `to` default in the child flow. Rows whose `Status` is already `Done` are skipped, so clear `Status` and `Result` to send them again.
 
@@ -246,6 +248,29 @@ These flows send real email. Before running, change the addresses in the `To` co
 `notepad-to-bing`, `topic-to-bing-results`, `acme-invoice-excel` and the `items-*` flows are single flows. They read the input files that sit beside them in `tracto/demo`.
 
 While a desktop flow runs, do not use the keyboard or mouse. The desktop runtime types into whichever window has focus.
+
+## Reading a run's logs
+
+In the Orchestrator UI, open **Jobs** and click **Logs** on a run, or open the **Logs** tab and paste a run id. The page lists what the workers and services reported while the run was going, oldest first, and below it the run's lifecycle.
+
+| Level | What it holds |
+|---|---|
+| Info (blue) | What each step did and how long it took. For a step that called a service, what came back: status, state, counts and message. For a batch's child run, which batch and row queued it and how the row ended. |
+| Warning (amber) | Something odd that did not stop the run. |
+| Error (red) | What went wrong, with the step it happened in. |
+
+The **Show** box filters: everything (the default), warnings and errors, errors only, warnings only, or Info only. Choose "Warnings and errors" to find a failure quickly.
+
+Only the lines the step engine writes on purpose are kept as Info, not every line the runtimes print, so the log stays short. Step lines show the step in their own column. Only `http.get` and `http.post` steps add what the service answered; the values of other steps (clipboard text, file contents) are never copied into a log, and the orchestrator blanks anything that looks like a password or key before it stores a line.
+
+Example, the main flow of the ACME batch when every row was already `Done`:
+
+```
+INFO  step.1  [step.1] OK (31ms) - statusCode=202; batchId=b-...; state=Completed; total=0;
+              childVersion=1.0.0; message=nothing to do: every row is already done
+```
+
+A main flow that "succeeded" but started no child usually reads like this. Runs made before the workers were restarted on this version have no Info lines; restart the desktop and browser runtimes once to get them.
 
 ## Clearing the data
 
@@ -303,6 +328,7 @@ Close the Windows Terminal window, or press `Ctrl+C` in a tab. The database cont
 | "Port already in use" | An earlier run is still going. Close its Windows Terminal window, or stop the process using ports 5080, 5090 or 4000. |
 | Clearing refuses with "the orchestrator is running" | Stop the orchestrator and sheet service first. |
 | A flow fails with "file not found" on `H:\...` | Step 5 was skipped. |
+| The main flow succeeded but no child ran | The batch had nothing to do: every row's `Status` is already `Done`, or the workbook path in the main's `excelPath` is not the file you meant. Open the main run's **Logs** and read the `message=` and `total=` in its last step line. Clear the `Status` cells to run the rows again. |
 | A browser flow fails on the first step | The profile is signed out or its sign-in window is still open. Close it, or repeat step 6. |
 | `wt.exe` not found | Install Windows Terminal from the Microsoft Store. |
 

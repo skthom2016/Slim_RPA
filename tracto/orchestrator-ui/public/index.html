@@ -208,9 +208,11 @@
         <input type="text" id="logs-run-id" placeholder="Paste Run ID (UUID)…">
         <label>Show</label>
         <select id="logs-level-filter">
-          <option value="">Warnings and errors</option>
+          <option value="">Everything (info, warnings, errors)</option>
+          <option value="Warning,Error">Warnings and errors</option>
           <option value="Error">Errors only</option>
           <option value="Warning">Warnings only</option>
+          <option value="Info">Info only</option>
         </select>
         <button class="btn btn-primary" id="btn-logs-load">Load Logs</button>
         <button class="btn btn-secondary" id="btn-logs-clear">Clear</button>

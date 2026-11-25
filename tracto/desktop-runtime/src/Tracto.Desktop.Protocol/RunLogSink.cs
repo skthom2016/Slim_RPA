@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Tracto.Desktop.Protocol;
 
 /// <summary>One line the runtime logged while it was running a job.</summary>
-/// <param name="Level">"Warning" or "Error" — the only levels kept.</param>
+/// <param name="Level">"Info", "Warning" or "Error" — the only levels kept.</param>
 /// <param name="StepId">The step being run when it was logged, when one was.</param>
 /// <param name="Message">The line as it appeared in the worker's console.</param>
 /// <param name="OccurredAt">When it was logged, in UTC.</param>
@@ -16,10 +16,13 @@ public sealed record RunLogEntry(string Level, string? StepId, string Message, D
 /// failure can be explained afterwards from the console rather than guessed at.
 /// </summary>
 /// <remarks>
-/// Only Warning and above is collected: Info is the worker's running commentary and would bury
-/// the lines that explain a failure, which is what these are for. The buffer is capped, so a
-/// step that fails in a loop cannot fill memory or the database — once full, further entries
-/// are counted and dropped, and the count is reported in place of them.
+/// Warnings and errors are always collected. Info is collected only from the step engine (see
+/// <see cref="IsKept"/>): what each step did and what a service answered, so a run that
+/// succeeds can still be followed. Info from everything else the worker logs (the HTTP client,
+/// the host, polling) stays in the console, where it would only bury the lines that explain a
+/// failure. The buffer is capped, so a step that fails in a loop cannot fill memory or the
+/// database — once full, further entries are counted and dropped, and the count is reported in
+/// place of them.
 /// <para>
 /// A worker runs one job at a time, so a single current run is all this tracks. Entries logged
 /// while no run is active are ignored: they belong to the worker, not to a job.
@@ -56,7 +59,7 @@ public sealed class RunLogSink
     /// <summary>
     /// Records one line if a run is active and the level is worth keeping.
     /// </summary>
-    /// <param name="level">The level it was logged at; Info and below are ignored.</param>
+    /// <param name="level">The level it was logged at; Debug and Trace are ignored.</param>
     /// <param name="message">The line to keep.</param>
     /// <param name="stepId">The step being run at the time, when one is known.</param>
     /// <returns>Whether the line was kept.</returns>
@@ -101,11 +104,29 @@ public sealed class RunLogSink
         }
     }
 
+    /// <summary>The logger category of the class that runs a job's steps.</summary>
+    public const string StepEngineCategory = "ScriptExecutionEngine";
+
+    /// <summary>
+    /// Whether a line logged at <paramref name="level"/> by <paramref name="category"/> belongs in
+    /// the run's log: warnings and errors from anywhere, Info only from the step engine.
+    /// </summary>
+    /// <param name="level">The level the line was logged at.</param>
+    /// <param name="category">The logger category, with or without its namespace.</param>
+    /// <returns>True when the line should be collected.</returns>
+    public static bool IsKept(LogLevel level, string category)
+    {
+        if (LevelName(level) is null) return false;
+        if (level != LogLevel.Information) return true;
+        return category == StepEngineCategory || category.EndsWith("." + StepEngineCategory, StringComparison.Ordinal);
+    }
+
     /// <summary>The name the Orchestrator stores, or null for a level that is not kept.</summary>
     /// <param name="level">The level to name.</param>
-    /// <returns>"Warning", "Error", or null.</returns>
+    /// <returns>"Info", "Warning", "Error", or null.</returns>
     public static string? LevelName(LogLevel level) => level switch
     {
+        LogLevel.Information => "Info",
         LogLevel.Warning => "Warning",
         LogLevel.Error or LogLevel.Critical => "Error",
         _ => null,

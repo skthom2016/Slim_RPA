@@ -21,14 +21,15 @@ public sealed class RunLogSinkTests
     }
 
     [Theory]
+    [InlineData(LogLevel.Information, "Info")]
     [InlineData(LogLevel.Warning, "Warning")]
     [InlineData(LogLevel.Error, "Error")]
     [InlineData(LogLevel.Critical, "Error")]
-    public void Add_KeepsWarningAndAbove(LogLevel level, string expected)
+    public void Add_KeepsInformationAndAbove(LogLevel level, string expected)
     {
         var sink = Started();
 
-        sink.Add(level, "something went wrong").Should().BeTrue();
+        sink.Add(level, "something happened").Should().BeTrue();
 
         sink.EndRunAndDrain().Should().ContainSingle().Which.Level.Should().Be(expected);
     }
@@ -36,14 +37,32 @@ public sealed class RunLogSinkTests
     [Theory]
     [InlineData(LogLevel.Trace)]
     [InlineData(LogLevel.Debug)]
-    [InlineData(LogLevel.Information)]
-    public void Add_DropsInformationAndBelow(LogLevel level)
+    public void Add_DropsDebugAndTrace(LogLevel level)
     {
         var sink = Started();
 
         sink.Add(level, "just so you know").Should().BeFalse();
 
         sink.EndRunAndDrain().Should().BeEmpty();
+    }
+
+    // Info is wanted from the step engine only: what a step did. The HTTP client, the host and the
+    // polling loop log Info all the time, and none of it says anything about the job.
+    [Theory]
+    [InlineData(LogLevel.Information, "ScriptExecutionEngine", true)]
+    [InlineData(LogLevel.Information, "Tracto.Desktop.Host.ScriptExecutionEngine", true)]
+    [InlineData(LogLevel.Information, "System.Net.Http.HttpClient.Default.LogicalHandler", false)]
+    [InlineData(LogLevel.Information, "Tracto.Desktop.Host.JobWorker", false)]
+    [InlineData(LogLevel.Information, "MyScriptExecutionEngine", false)]   // a different class that merely ends the same way
+    [InlineData(LogLevel.Warning, "System.Net.Http.HttpClient.Default.LogicalHandler", true)]
+    [InlineData(LogLevel.Error, "Anything.At.All", true)]
+    [InlineData(LogLevel.Critical, "Anything.At.All", true)]
+    [InlineData(LogLevel.Debug, "ScriptExecutionEngine", false)]
+    [InlineData(LogLevel.Trace, "ScriptExecutionEngine", false)]
+    [InlineData(LogLevel.None, "ScriptExecutionEngine", false)]
+    public void IsKept_WantsInfoFromTheStepEngineOnly(LogLevel level, string category, bool expected)
+    {
+        RunLogSink.IsKept(level, category).Should().Be(expected);
     }
 
     [Fact]
@@ -128,6 +147,8 @@ public sealed class RunLogSinkTests
         RunLogSink.LevelName(LogLevel.Warning).Should().Be("Warning");
         RunLogSink.LevelName(LogLevel.Error).Should().Be("Error");
         RunLogSink.LevelName(LogLevel.Critical).Should().Be("Error");
-        RunLogSink.LevelName(LogLevel.Information).Should().BeNull();
+        RunLogSink.LevelName(LogLevel.Information).Should().Be("Info");
+        RunLogSink.LevelName(LogLevel.Debug).Should().BeNull();
+        RunLogSink.LevelName(LogLevel.Trace).Should().BeNull();
     }
 }

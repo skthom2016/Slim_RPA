@@ -264,7 +264,13 @@ internal sealed class ScriptExecutionEngine
                 return (RunState.Failed, steps);
             }
 
-            _log.LogInformation("[{StepId}] OK ({Ms}ms)", stepId, durationMs);
+            // For a step that called a service, say what came back (status, state, counts, message), so
+            // a run that succeeded can still be understood from its log.
+            var reply = StepLogSummary.Describe(step.Action, result.Outputs);
+            if (reply is null)
+                _log.LogInformation("[{StepId}] OK ({Ms}ms)", stepId, durationMs);
+            else
+                _log.LogInformation("[{StepId}] OK ({Ms}ms) — {Reply}", stepId, durationMs, reply);
         }
 
         return (RunState.Succeeded, steps);

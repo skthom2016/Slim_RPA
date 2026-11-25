@@ -190,8 +190,8 @@ async function loadArtifacts() {
             <td class="row-actions">${canRun
                 ? `<button class="btn btn-sm btn-primary" onclick="promptRun('${esc(a.artifactId)}','${esc(a.version)}')">▶ Run</button>
                    ${makeLatest}
-                   <button class="btn btn-sm btn-icon btn-danger" title="Delete this script"
-                           onclick="promptDelete('${esc(a.artifactId)}','${esc(a.version)}','${esc(a.name || a.artifactId)}')">🗑</button>`
+                   <button class="btn btn-sm btn-outline-danger" title="Delete this script version"
+                           onclick="promptDelete('${esc(a.artifactId)}','${esc(a.version)}','${esc(a.name || a.artifactId)}')">Delete</button>`
                 : '—'}</td>
         </tr>`;
     }).join('');
@@ -304,18 +304,21 @@ function tlDotClass(eventType) {
     return 'tl-gray';
 }
 
-// What the desktop and browser runtimes warned or failed about, newest run first. These are the
-// lines that say why a run failed; the timeline below only says that it did.
+// What the desktop and browser runtimes and the services reported while the run was going: what
+// each step did (info), and what went wrong (warnings, errors). The warnings and errors say why a
+// run failed; the timeline below only says that it did.
 function renderRunLogs(logs) {
     if (!logs || logs.length === 0) {
+        const level = document.getElementById('logs-level-filter').value;
         return `<div class="notice notice-info">
-            No warnings or errors were recorded for this run.
-            ${''/* A clean run is the normal case and worth saying plainly. */}
+            ${level
+                ? 'Nothing at this level was recorded for this run. Choose "Everything" to see all of it.'
+                : 'Nothing was recorded for this run. Runs made before step logging was added have no entries.'}
         </div>`;
     }
 
     return `<div class="log-list">` + logs.map(l => {
-        const cls     = l.level === 'Error' ? 'log-error' : 'log-warn';
+        const cls     = l.level === 'Error' ? 'log-error' : l.level === 'Info' ? 'log-info' : 'log-warn';
         const where   = [l.runtime, l.workerId].filter(Boolean).map(esc).join(' · ');
         const segment = l.segmentRunId ? ` · segment ${esc(shortId(l.segmentRunId))}` : '';
         return `
@@ -542,8 +545,8 @@ async function loadSchedules() {
             <td>${last}</td>
             <td class="row-actions">
                 <button class="btn btn-sm btn-secondary" onclick="openScheduleModal('${esc(s.scheduleId)}')">Edit</button>
-                <button class="btn btn-sm btn-icon btn-danger" title="Delete this schedule"
-                        onclick="promptDeleteSchedule('${esc(s.scheduleId)}')">🗑</button>
+                <button class="btn btn-sm btn-outline-danger" title="Delete this schedule"
+                        onclick="promptDeleteSchedule('${esc(s.scheduleId)}')">Delete</button>
             </td>
         </tr>`;
     }).join('');

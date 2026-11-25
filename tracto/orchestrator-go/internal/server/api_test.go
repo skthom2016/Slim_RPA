@@ -234,7 +234,7 @@ func TestCallbacks_DeduplicateByEventId(t *testing.T) {
 	}
 }
 
-func TestLogs_StoreWarningsAndErrorsOnly(t *testing.T) {
+func TestLogs_StoreInfoWarningsAndErrorsButNotDebug(t *testing.T) {
 	e := newEnv(t)
 	e.publish("s1", "1.0.0", flatScript("s1", "1.0.0"))
 	runID := e.create("s1", "1.0.0", nil)
@@ -244,21 +244,31 @@ func TestLogs_StoreWarningsAndErrorsOnly(t *testing.T) {
 		"entries": []map[string]any{
 			{"level": "Error", "message": "boom", "occurredAt": "not a time"}, // bad time: stored with the receive time
 			{"level": "Warning", "message": "careful password=hunter2", "occurredAt": "2026-11-20T10:00:00Z"},
-			{"level": "Info", "message": "chatter"},
+			{"level": "Info", "message": "step 1 ok"},
+			{"level": "Information", "message": "batch started"}, // the .NET name for the same level
+			{"level": "Debug", "message": "chatter"},
+			{"level": "Trace", "message": "more chatter"},
 		},
 	})
-	if out["received"] != float64(3) || out["stored"] != float64(2) {
+	if out["received"] != float64(6) || out["stored"] != float64(4) {
 		t.Fatalf("got %v", out)
 	}
 	e.must(http.StatusNotFound, "POST", "/jobs/nope/logs", map[string]any{"entries": []any{}})
 
 	all := e.must(http.StatusOK, "GET", "/admin/logs/"+runID, nil)
-	if all["count"] != float64(2) {
+	if all["count"] != float64(4) {
 		t.Fatalf("run logs: %v", all)
 	}
 	_, raw := e.raw("GET", "/admin/logs/"+runID, nil)
 	if contains(string(raw), "hunter2") {
 		t.Fatalf("a credential reached the log: %s", raw)
+	}
+	if contains(string(raw), "chatter") {
+		t.Fatalf("debug or trace output was stored: %s", raw)
+	}
+	// Both spellings of Info are stored under one name.
+	if got := e.must(http.StatusOK, "GET", "/admin/logs/"+runID+"?level=Info", nil); got["count"] != float64(2) {
+		t.Errorf("info filter: %v", got)
 	}
 	if got := e.must(http.StatusOK, "GET", "/admin/logs/"+runID+"?level=Error", nil); got["count"] != float64(1) {
 		t.Errorf("level filter: %v", got)
@@ -266,8 +276,53 @@ func TestLogs_StoreWarningsAndErrorsOnly(t *testing.T) {
 	if got := e.must(http.StatusOK, "GET", "/admin/logs?level=Warning&limit=5", nil); got["count"] != float64(1) {
 		t.Errorf("recent warnings: %v", got)
 	}
-	if got := e.must(http.StatusOK, "GET", "/admin/logs", nil); got["count"] != float64(2) {
+	if got := e.must(http.StatusOK, "GET", "/admin/logs", nil); got["count"] != float64(4) {
 		t.Errorf("recent logs: %v", got)
+	}
+}
+
+// The console can ask for several levels at once, for example "warnings and errors", without
+// asking for Info.
+func TestLogs_LevelFilterTakesAListOfLevels(t *testing.T) {
+	e := newEnv(t)
+	e.publish("s1", "1.0.0", flatScript("s1", "1.0.0"))
+	runID := e.create("s1", "1.0.0", nil)
+	e.must(http.StatusAccepted, "POST", "/jobs/"+runID+"/logs", map[string]any{
+		"entries": []map[string]any{
+			{"level": "Info", "message": "one"},
+			{"level": "Info", "message": "two"},
+			{"level": "Warning", "message": "three"},
+			{"level": "Error", "message": "four"},
+		},
+	})
+
+	count := func(query string) float64 {
+		t.Helper()
+		got := e.must(http.StatusOK, "GET", "/admin/logs/"+runID+query, nil)
+		n, _ := got["count"].(float64)
+		return n
+	}
+	cases := []struct {
+		query string
+		want  float64
+	}{
+		{"", 4},                    // no filter: every stored level
+		{"?level=Warning,Error", 2}, // what the console's "warnings and errors" sends
+		{"?level=warn,ERR", 2},      // names are case-insensitive, aliases understood
+		{"?level=Info,Error", 3},
+		{"?level=Info", 2},
+		{"?level=Error,Error", 1},   // a repeated level is not counted twice
+		{"?level=Bogus", 0},         // not a level: matches nothing, as before
+		{"?level=,", 4},             // only separators: no filter
+	}
+	for _, c := range cases {
+		if got := count(c.query); got != c.want {
+			t.Errorf("GET /admin/logs/{run}%s: %v entries, want %v", c.query, got, c.want)
+		}
+	}
+	// The same filter works on the list across runs.
+	if got := e.must(http.StatusOK, "GET", "/admin/logs?level=Warning,Error&limit=10", nil); got["count"] != float64(2) {
+		t.Errorf("recent warnings and errors: %v", got)
 	}
 }
 

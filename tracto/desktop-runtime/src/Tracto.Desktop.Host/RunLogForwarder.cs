@@ -6,10 +6,11 @@ using Tracto.Desktop.Protocol;
 namespace Tracto.Desktop.Host;
 
 /// <summary>
-/// Copies everything the host logs at Warning or above into the <see cref="RunLogSink"/>, so
-/// the same lines a person reads in the worker's console are kept against the run that caused
-/// them. Attaching to the logging pipeline rather than calling the sink by hand means a warning
-/// added anywhere in the runtime is captured without anyone remembering to.
+/// Copies what the host logs into the <see cref="RunLogSink"/>, so the same lines a person reads
+/// in the worker's console are kept against the run that caused them: every warning and error, and
+/// the Info lines of the step engine (see <see cref="RunLogSink.IsKept"/>). Attaching to the
+/// logging pipeline rather than calling the sink by hand means a warning added anywhere in the
+/// runtime is captured without anyone remembering to.
 /// </summary>
 internal sealed class RunLogForwarder : ILoggerProvider
 {
@@ -37,7 +38,7 @@ internal sealed class RunLogForwarder : ILoggerProvider
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => RunLogSink.LevelName(logLevel) is not null;
+        public bool IsEnabled(LogLevel logLevel) => RunLogSink.IsKept(logLevel, _shortCategory);
 
         public void Log<TState>(
             LogLevel logLevel, EventId eventId, TState state, Exception? exception,
@@ -49,7 +50,13 @@ internal sealed class RunLogForwarder : ILoggerProvider
             if (exception is not null)
                 message = $"{message} — {exception.GetType().Name}: {exception.Message}";
 
-            _sink.Add(logLevel, $"[{_shortCategory}] {message}");
+            // The step engine's own lines already say which step they are about ("[step.3] OK"):
+            // that goes in the step column, and the logger name would only repeat itself.
+            var step = System.Text.RegularExpressions.Regex.Match(message, @"^\[(step\.[0-9]+)\]");
+            var stepId = step.Success ? step.Groups[1].Value : null;
+            var text = _shortCategory == RunLogSink.StepEngineCategory ? message : $"[{_shortCategory}] {message}";
+
+            _sink.Add(logLevel, text, stepId);
         }
     }
 }

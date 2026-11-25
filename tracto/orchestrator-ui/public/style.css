@@ -234,6 +234,9 @@ tbody tr:hover td { background: #fafbff; }
 .btn-secondary:hover { background: #f9fafb; }
 .btn-danger    { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn-danger:hover { background: var(--danger-hover); }
+/* A delete that stays visible without shouting: red outline and text on white, filled on hover. */
+.btn-outline-danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+.btn-outline-danger:hover { background: var(--danger); color: #fff; }
 .btn-sm { padding: 3px 10px; font-size: 12px; }
 
 /* ── Form controls ────────────────────────────────────────────────────────── */
@@ -457,6 +460,7 @@ code {
 }
 .log-row.log-error { border-left-color: var(--danger); }
 .log-row.log-warn  { border-left-color: var(--warning); }
+.log-row.log-info  { border-left-color: #93c5fd; }
 
 .log-meta {
     display: flex;
@@ -473,6 +477,7 @@ code {
 }
 .log-error .log-level { color: var(--danger); }
 .log-warn  .log-level { color: var(--warning); }
+.log-info  .log-level { color: #2563eb; }
 
 .log-step {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

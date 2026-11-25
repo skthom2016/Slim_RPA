@@ -8,16 +8,24 @@ using Microsoft.Win32;
 using Tracto.Designer.App.Commands;
 using Tracto.Designer.Core.Scripting;
 using Tracto.Designer.Infrastructure.Serialization;
+using Tracto.Designer.Infrastructure.Settings;
 
 public sealed class ExportImportViewModel : INotifyPropertyChanged
 {
     private readonly ScriptEditorViewModel _editor;
+    private readonly LastFolderStore _folders;
     private string _selectedFormat = ".json";
     private string? _lastMessage;
 
-    public ExportImportViewModel(ScriptEditorViewModel editor)
+    /// <param name="editor">The editor that owns the script being exported or replaced by an import.</param>
+    /// <param name="folders">
+    /// Remembers the folder the dialogs were last used in. Left out, the Designer's own settings
+    /// file is used.
+    /// </param>
+    public ExportImportViewModel(ScriptEditorViewModel editor, LastFolderStore? folders = null)
     {
         _editor = editor;
+        _folders = folders ?? new LastFolderStore();
         ExportCommand = new RelayCommand(_ => Export(), _ => _editor.Script is not null);
         ImportCommand = new RelayCommand(_ => Import());
     }
@@ -47,8 +55,9 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
             FileName   = $"{_editor.Script.Id}_{_editor.Script.Version}{_selectedFormat}",
             DefaultExt = _selectedFormat.TrimStart('.')
         };
-        if (ScriptsFolder() is { } folder) dlg.InitialDirectory = folder;
+        if (_folders.Get() is { } folder) dlg.InitialDirectory = folder;
         if (dlg.ShowDialog() != true) return;
+        _folders.RememberFolderOf(dlg.FileName);
         try
         {
             IScriptSerializer ser = dlg.FileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
@@ -67,8 +76,9 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
             Title  = "Import Script",
             Filter = "Script Files|*.json;*.yaml|JSON Script|*.json|YAML Script|*.yaml"
         };
-        if (ScriptsFolder() is { } folder) dlg.InitialDirectory = folder;
+        if (_folders.Get() is { } folder) dlg.InitialDirectory = folder;
         if (dlg.ShowDialog() != true) return;
+        _folders.RememberFolderOf(dlg.FileName);
         try
         {
             IScriptSerializer ser = dlg.FileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
@@ -82,13 +92,6 @@ public sealed class ExportImportViewModel : INotifyPropertyChanged
                 : $"Imported '{imported.Name}' ({imported.Steps.Count} steps)";
         }
         catch (Exception ex) { LastMessage = $"Import failed: {ex.Message}"; }
-    }
-
-    // The folder the dialogs open in: Downloads\rpa-scripts when it exists.
-    private static string? ScriptsFolder()
-    {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "rpa-scripts");
-        return Directory.Exists(dir) ? dir : null;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

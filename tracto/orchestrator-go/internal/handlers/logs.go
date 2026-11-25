@@ -23,12 +23,49 @@ const (
 	maxLogMessageChars      = 4000
 )
 
-// storedLevels are the only levels kept. A worker's Info output is its own console business:
-// keeping it would bury the two lines that explain a failure, which is what these are for.
+// storedLevels are the levels kept. Debug and trace output stays in the worker's own console.
+//
+// Info is kept so that a run that succeeds can still be followed: what a step did, and what a
+// service answered. The runtimes send only the lines their step engine writes on purpose, not
+// everything they log, and the console can show errors alone, so the lines that explain a
+// failure stay easy to find.
 var storedLevels = map[string]string{
+	"info": "Info", "information": "Info",
 	"warn": "Warning", "warning": "Warning",
 	"error": "Error", "err": "Error",
 	"critical": "Error", "fatal": "Error",
+}
+
+// levelFilter turns a level query such as "Error" or "warning,error" into a SQL condition on the
+// Level column. Names are case-insensitive and the same aliases that are stored are understood.
+// A name that is not a level matches nothing, as it did when only one exact level was accepted.
+// With no level given there is no condition and every stored level is returned.
+func levelFilter(raw string, args []any) (cond string, out []any) {
+	var wanted []string
+	seen := map[string]bool{}
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		name, ok := storedLevels[strings.ToLower(part)]
+		if !ok {
+			name = part // not a level: kept as written, so it matches no row
+		}
+		if !seen[name] {
+			seen[name] = true
+			wanted = append(wanted, name)
+		}
+	}
+	if len(wanted) == 0 {
+		return "", args
+	}
+	marks := make([]string, len(wanted))
+	for i, w := range wanted {
+		marks[i] = argN(args)
+		args = append(args, w)
+	}
+	return "Level IN (" + strings.Join(marks, ",") + ")", args
 }
 
 // redactSecrets blanks anything that looks like a credential before it is stored. A log line
@@ -42,8 +79,8 @@ func redactSecrets(s string) string {
 }
 
 // POST /jobs/{runId}/logs
-// A runtime posts what it logged while running a job. Entries at Info or below are dropped
-// rather than refused, so a worker can send its whole buffer without filtering first.
+// A runtime posts what it logged while running a job. Entries below Info (debug, trace) are
+// dropped rather than refused, so a worker can send its whole buffer without filtering first.
 func (h *LogHandler) Append(w http.ResponseWriter, r *http.Request) {
 	runID := chi.URLParam(r, "runId")
 
@@ -180,9 +217,9 @@ func (h *LogHandler) GetByRun(w http.ResponseWriter, r *http.Request) {
 		WHERE (RunId=$1 OR RunId IN (SELECT Id FROM RunRecords WHERE ParentRunId=$2))`
 	args := []any{runID, runID}
 
-	if lvl := r.URL.Query().Get("level"); lvl != "" {
-		query += ` AND Level=` + argN(args)
-		args = append(args, lvl)
+	if cond, a := levelFilter(r.URL.Query().Get("level"), args); cond != "" {
+		query += ` AND ` + cond
+		args = a
 	}
 	query += ` ORDER BY OccurredAt ASC`
 
@@ -217,9 +254,9 @@ func (h *LogHandler) List(w http.ResponseWriter, r *http.Request) {
 		SELECT Id,RunId,AttemptId,WorkerId,Runtime,Level,StepId,Message,OccurredAt
 		FROM RunLogs`
 	args := []any{}
-	if lvl := r.URL.Query().Get("level"); lvl != "" {
-		query += ` WHERE Level=` + argN(args)
-		args = append(args, lvl)
+	if cond, a := levelFilter(r.URL.Query().Get("level"), args); cond != "" {
+		query += ` WHERE ` + cond
+		args = a
 	}
 	query += ` ORDER BY OccurredAt DESC LIMIT ` + argN(args)
 	args = append(args, limit)
