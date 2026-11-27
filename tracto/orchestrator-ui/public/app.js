@@ -7,6 +7,8 @@ async function api(path, opts = {}) {
         ...opts,
     });
     const body = await res.json().catch(() => ({}));
+    // The session ended (or was never there): back to the sign-in page.
+    if (res.status === 401 && !opts.keepOnUnauthorized) { window.location.href = '/login.html'; }
     if (!res.ok) throw Object.assign(new Error(body.message || res.statusText), { status: res.status, body });
     return body;
 }
@@ -749,7 +751,8 @@ async function confirmDeleteSchedule() {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 const TAB_TITLES = {
-    overview: 'Overview', jobs: 'Jobs', schedules: 'Schedules', artifacts: 'Artifacts', workers: 'Workers', logs: 'Logs'
+    overview: 'Overview', jobs: 'Jobs', schedules: 'Schedules', artifacts: 'Artifacts', workers: 'Workers', logs: 'Logs',
+    credentials: 'Credentials', settings: 'Settings', users: 'Users', password: 'Change password'
 };
 let currentTab = 'overview';
 
@@ -778,6 +781,9 @@ function refreshTab(tab) {
         case 'schedules': loadSchedules(); break;
         case 'artifacts': loadArtifacts(); break;
         case 'workers':   loadWorkers();   break;
+        case 'credentials': loadCredentialsPage(); break;
+        case 'settings':  loadSettings();  break;
+        case 'users':     loadUsers();     break;
     }
 }
 
@@ -794,7 +800,8 @@ function esc(s) {
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(() => {
     checkConn();
-    if (currentTab !== 'logs') refreshTab(currentTab);
+    // These pages hold form input or a password the user asked to see: not redrawn on a timer.
+    if (!['logs', 'credentials', 'settings', 'users', 'password'].includes(currentTab)) refreshTab(currentTab);
 }, 5000);
 
 // ── Wire up buttons ───────────────────────────────────────────────────────────

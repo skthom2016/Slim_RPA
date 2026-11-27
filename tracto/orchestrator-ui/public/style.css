@@ -523,3 +523,75 @@ code {
 .sched-when { font-weight: 600; white-space: nowrap; }
 .sched-sub  { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .sched-cron { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+
+/* ── Sign-in, secrets pages ───────────────────────────────────────────────── */
+[hidden] { display: none !important; }
+
+.login-body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--sidebar-bg); }
+.login-card {
+    width: 340px; background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    padding: 28px 28px 24px; display: flex; flex-direction: column; gap: 6px;
+}
+.login-brand { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.login-sub   { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+.login-card label { font-size: 12px; font-weight: 600; margin-top: 8px; }
+.login-card input[type="text"], .login-card input[type="password"] { width: 100%; }
+.login-btn { margin-top: 14px; justify-content: center; padding: 8px 12px; }
+
+.pw-field { position: relative; display: flex; }
+.pw-field input { width: 100%; padding-right: 36px; }
+.eye {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: none; background: transparent; cursor: pointer; font-size: 15px; padding: 4px 6px; line-height: 1;
+}
+.eye:hover { background: #f3f4f6; border-radius: 4px; }
+
+.form-ok { color: #065f46; font-size: 13px; min-height: 18px; }
+.card-form {
+    max-width: 420px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow);
+}
+.card-form .form-row input { width: 100%; }
+
+.user-chip { font-size: 12px; color: var(--text-muted); }
+.nav-section {
+    padding: 14px 18px 4px; font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--sidebar-text); opacity: 0.7;
+}
+
+.toolbar-spacer { flex: 1; }
+.toolbar input[type="search"] { min-width: 240px; }
+.muted { color: var(--text-muted); }
+.subtabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); }
+.subtab {
+    border: none; background: transparent; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.cred-summary { margin-left: auto; font-size: 12px; }
+.link-btn { border: none; background: transparent; color: var(--warning); font-weight: 600; cursor: pointer; font-size: 12px; text-decoration: underline; }
+.link-btn.active { color: var(--danger); }
+
+.pw-cell { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.pw { font-family: var(--mono); letter-spacing: 1px; }
+.pw.shown { letter-spacing: 0; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 0 6px; user-select: all; }
+.icon-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+.icon-btn:hover { background: #f3f4f6; }
+.exp-soon    { color: var(--warning); font-weight: 600; }
+.exp-expired { color: var(--danger);  font-weight: 600; }
+.radio-row { display: flex; align-items: center; gap: 16px; }
+.radio-row label.check { margin-top: 0; }
+.row-error td { background: #fef2f2; }
+.import-preview { max-height: 260px; overflow-y: auto; margin-top: 10px; }
+.history-list { max-height: 360px; overflow-y: auto; }
+/* inputs added with the secrets pages share the look of the existing ones */
+input[type="search"], input[type="password"], input[type="date"] {
+    padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff;
+    font-family: var(--font); font-size: 13px; color: var(--text); outline: none;
+}
+input[type="search"]:focus, input[type="password"]:focus, input[type="date"]:focus { border-color: var(--accent); }
+.toolbar input[type="search"] { width: 280px; }
+.form-row input[type="password"], .form-row input[type="date"] { width: 100%; box-sizing: border-box; }
+.radio-row input[type="date"] { width: 170px; }
+td.actions { white-space: nowrap; }
+.table-wrap td.actions .btn-sm { padding: 3px 8px; }

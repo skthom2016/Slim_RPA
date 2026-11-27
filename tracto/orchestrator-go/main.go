@@ -13,10 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"tracto/orchestrator/internal/auth"
 	"tracto/orchestrator/internal/db"
 	"tracto/orchestrator/internal/envfile"
+	"tracto/orchestrator/internal/handlers"
 	"tracto/orchestrator/internal/server"
 	"tracto/orchestrator/internal/services"
+	"tracto/orchestrator/internal/vault"
 )
 
 // loadEnv reads the .env file next to the executable, then the one in the working directory.
@@ -79,12 +82,39 @@ func main() {
 	defer database.Close()
 	logger.Info("database ready", "target", describe(databaseURL))
 
+	// ── Credential store: master key, first administrator ─────────────────────
+	credVault, err := vault.New(os.Getenv(vault.EnvKey), os.Getenv(vault.EnvKeyID),
+		os.Getenv(vault.EnvOldKey), os.Getenv(vault.EnvOldKeyID))
+	if err != nil {
+		logger.Error("master key is not usable", "err", err)
+		os.Exit(1)
+	}
+	if len(os.Args) > 1 && os.Args[1] == "rekey" {
+		n, err := handlers.Rekey(database, credVault)
+		if err != nil {
+			logger.Error("rekey failed; nothing was changed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("rekey done", "credentialsResealed", n, "keyId", credVault.KeyID())
+		return
+	}
+	if credVault.IsLocked() {
+		logger.Warn(vault.EnvKey + " is not set: the credential store is locked (jobs still run)")
+	} else if err := handlers.VerifyAll(database, credVault); err != nil {
+		logger.Error("the master key does not open the stored credentials", "err", err)
+		os.Exit(1)
+	}
+	if err := auth.EnsureFirstAdmin(database, logger); err != nil {
+		logger.Error("could not create the first administrator", "err", err)
+		os.Exit(1)
+	}
+
 	// ── Startup: restart recovery ─────────────────────────────────────────────
 	services.RestartRecovery(database, logger)
 
 	// ── Router and background services ────────────────────────────────────────
 	router := server.NewRouter(database, logger, server.Config{
-		JWTSecret: jwtSecret, AdminCIDR: adminCIDR, HmacKeys: hmacKeys,
+		JWTSecret: jwtSecret, AdminCIDR: adminCIDR, HmacKeys: hmacKeys, Vault: credVault,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

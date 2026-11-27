@@ -17,7 +17,7 @@ import (
 
 var (
 	secretRefPattern = regexp.MustCompile(`(?i)"secretRefs"\s*:\s*\[([^\]]*)\]`)
-	passwordPattern  = regexp.MustCompile(`(?i)"password"\s*:\s*"[^"]*"`)
+	passwordPattern  = regexp.MustCompile(`(?i)"(\w*password\w*|totpkey)"\s*:\s*"[^"]*"`)
 )
 
 type responseWriter struct {
@@ -38,7 +38,7 @@ func AuditLogging(db *sql.DB, logger *slog.Logger) func(http.Handler) http.Handl
 			traceID := uuid.NewString()
 
 			var bodySnippet string
-			if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 4096 {
+			if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 4096 && !bodyNeverLogged(r.URL.Path) {
 				raw, _ := io.ReadAll(r.Body)
 				r.Body = io.NopCloser(bytes.NewReader(raw))
 				bodySnippet = redactBody(string(raw))
@@ -87,10 +87,16 @@ func redactBody(body string) string {
 	body = secretRefPattern.ReplaceAllStringFunc(body, func(m string) string {
 		return `"secretRefs":["***"]`
 	})
-	body = passwordPattern.ReplaceAllStringFunc(body, func(m string) string {
-		return `"password":"***"`
-	})
+	body = passwordPattern.ReplaceAllString(body, `"$1":"***"`)
 	return body
+}
+
+// bodyNeverLogged reports whether a request body must not be logged at all, even redacted: sign-in
+// and password changes, users, credentials (including a whole import), and what a run reads.
+func bodyNeverLogged(path string) bool {
+	return strings.HasPrefix(path, "/auth/") || strings.HasPrefix(path, "/admin/users") ||
+		strings.HasPrefix(path, "/admin/credentials") ||
+		(strings.HasPrefix(path, "/jobs/") && (strings.HasSuffix(path, "/credentials") || strings.HasSuffix(path, "/settings")))
 }
 
 func writeSecurityEvent(db *sql.DB, eventType, sourceIP, details string) {

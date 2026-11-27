@@ -19,7 +19,7 @@ func JWTAuth(signingKey string, db *sql.DB, logger *slog.Logger) func(http.Handl
 			protected := strings.HasPrefix(path, "/jobs") ||
 				strings.HasPrefix(path, "/workers") ||
 				strings.HasPrefix(path, "/admin")
-			if !protected {
+			if !protected || usesSession(path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -61,6 +61,19 @@ func JWTAuth(signingKey string, db *sql.DB, logger *slog.Logger) func(http.Handl
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// sessionPaths are the routes that check a signed-in user (a session token) themselves, so the
+// worker token check leaves them alone.
+var sessionPaths = []string{"/admin/users", "/admin/credentials", "/admin/credential-groups", "/admin/settings"}
+
+func usesSession(path string) bool {
+	for _, p := range sessionPaths {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // AdminIPAllowlist blocks /admin paths from IPs outside allowedCIDR.

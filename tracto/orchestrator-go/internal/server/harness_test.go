@@ -19,9 +19,10 @@ import (
 
 // env is the real router over an empty PostgreSQL schema.
 type env struct {
-	t  *testing.T
-	h  http.Handler
-	db *sql.DB
+	t     *testing.T
+	h     http.Handler
+	db    *sql.DB
+	token string // when set, every request carries it as a bearer token
 }
 
 func newEnv(t *testing.T) *env {
@@ -52,6 +53,9 @@ func (e *env) raw(method, path string, body any) (int, []byte) {
 	req := httptest.NewRequest(method, path, rd)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if e.token != "" {
+		req.Header.Set("Authorization", "Bearer "+e.token)
 	}
 	rec := httptest.NewRecorder()
 	e.h.ServeHTTP(rec, req)

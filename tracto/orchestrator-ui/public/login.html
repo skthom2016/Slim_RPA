@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in · Tracto Orchestrator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body">
+
+<form class="login-card" id="login-form" autocomplete="on">
+  <div class="login-brand">⚙ Tracto</div>
+  <div class="login-sub">Orchestrator Console</div>
+
+  <label for="login-user">Username</label>
+  <input type="text" id="login-user" name="username" autocomplete="username" autofocus required>
+
+  <label for="login-pass">Password</label>
+  <div class="pw-field">
+    <input type="password" id="login-pass" name="password" autocomplete="current-password" required>
+    <button type="button" class="eye" id="login-eye" title="Show the password" aria-label="Show the password">👁</button>
+  </div>
+
+  <div class="form-error" id="login-error" role="alert"></div>
+  <button class="btn btn-primary login-btn" id="login-submit" type="submit">Sign in</button>
+</form>
+
+<script src="login.js"></script>
+</body>
+</html>
