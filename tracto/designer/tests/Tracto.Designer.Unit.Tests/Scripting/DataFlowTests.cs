@@ -114,6 +114,16 @@ public class DataFlowTests
     }
 
     [Fact]
+    public void Credential_And_Setting_References_Always_Resolve()
+    {
+        var script = BingToNotepad();
+        script.Segments[1].Steps[0].Parameters["text"] =
+            "${credential:givewell-portal.username} ${credential:${param.site}.password} ${setting:portal-url}";
+
+        DataFlow.UnresolvedIn(script, script.Segments[1], script.Segments[1].Steps[0]).Should().BeEmpty();
+    }
+
+    [Fact]
     public void An_Action_Outside_The_Catalogue_Has_Its_Fields_Trusted()
     {
         var script = new Script { Id = "s", Name = "S", Version = "1.0.0", TargetRuntime = "desktop" };

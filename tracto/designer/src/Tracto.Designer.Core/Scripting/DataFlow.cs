@@ -124,7 +124,10 @@ public static class DataFlow
 
         foreach (var name in ReferencesIn(step))
         {
-            if (name.StartsWith("secret:", StringComparison.Ordinal)) continue;
+            // Kept outside the script: a worker secret, or a credential or setting from the Orchestrator.
+            if (name.StartsWith("secret:", StringComparison.Ordinal) ||
+                name.StartsWith("credential:", StringComparison.Ordinal) ||
+                name.StartsWith("setting:", StringComparison.Ordinal)) continue;
             if (Builtins.Contains(name, StringComparer.Ordinal)) continue;
             // An action outside the catalogue has outputs we cannot know, so a reference below
             // a name that is produced counts as resolved.
