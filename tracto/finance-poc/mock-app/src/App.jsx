@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // ---------- helpers ----------
 
@@ -234,6 +234,67 @@ function BillLines({ bill }) {
   );
 }
 
+// Create payment file: asks NeeliRPA to run A2 for one payment date, then follows the run.
+function PayRun({ approved, notify, onDone }) {
+  const dates = [...new Set(approved.map((x) => x.paymentDate))].sort();
+  const [date, setDate] = useState('');
+  const [run, setRun] = useState(null);
+  const chosen = dates.includes(date) ? date : dates[0] || '';
+  const due = approved.filter((x) => x.paymentDate === chosen);
+  const cb = useRef({ notify, onDone });
+  cb.current = { notify, onDone };
+
+  useEffect(() => {
+    if (!run) return undefined;
+    const t = setInterval(async () => {
+      try {
+        const r = await api(`/payruns/${encodeURIComponent(run.runId)}`);
+        if (!r.done) return setRun((x) => (x ? { ...x, state: r.state } : x));
+        clearInterval(t);
+        setRun(null);
+        const ok = r.state === 'SUCCEEDED';
+        cb.current.notify(ok ? (r.message || `Payment file run for ${run.paymentDate} finished.`)
+          : `Payment file run for ${run.paymentDate} ended ${r.state}. See its log in the NeeliRPA console.`, !ok);
+        cb.current.onDone();
+      } catch (err) {
+        clearInterval(t);
+        setRun(null);
+        cb.current.notify(err.message, true);
+      }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [run?.runId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const create = async () => {
+    try {
+      const r = await api('/payruns', { method: 'POST', body: JSON.stringify({ paymentDate: chosen }) });
+      setRun(r);
+      notify(`NeeliRPA is creating the payment file for ${chosen} (${r.bills} bill(s)).`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  };
+
+  if (dates.length === 0) return null;
+  return (
+    <div className="payrun" data-testid="payrun">
+      <label>
+        Payment date{' '}
+        <select value={chosen} disabled={!!run} onChange={(e) => setDate(e.target.value)}>
+          {dates.map((d) => {
+            const list = approved.filter((x) => x.paymentDate === d);
+            return <option key={d} value={d}>{d}: {list.length} bill(s), {money(sum(list.map((x) => ({ amount: x.total }))))}</option>;
+          })}
+        </select>
+      </label>
+      <button className="primary" disabled={!!run || due.length === 0} onClick={create}>
+        {run ? 'Creating payment file…' : 'Create payment file'}
+      </button>
+      {run && <span className="muted">NeeliRPA run {run.runId.slice(0, 8)}: {run.state}</span>}
+    </div>
+  );
+}
+
 function BillsPage({ notify }) {
   const load = useCallback(() => api('/bills'), []);
   const [bills, refresh] = usePoll(load);
@@ -264,6 +325,7 @@ function BillsPage({ notify }) {
           </button>
         ))}
       </div>
+      {tab === 'approved' && <PayRun approved={b.approved} notify={notify} onDone={refresh} />}
       {list.length === 0 ? <p className="muted">No {tab} bills.</p> : (
         <table className="grid">
           <thead>

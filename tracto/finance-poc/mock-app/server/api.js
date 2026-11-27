@@ -3,6 +3,7 @@
 // system (bills). No database: the folders are the state.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const FOLDERS = [
   'claims/submitted', 'claims/approved', 'claims/processed',
@@ -12,7 +13,33 @@ const FOLDERS = [
 const SAFE_ID = /^[A-Za-z0-9_.-]+$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function financeApi({ dataDir, seedDir }) {
+// A2 is started in NeeliRPA as an Event run: this app asks the Orchestrator to queue the A2 main job.
+const A2_SCRIPT = 'finance-a2-payment-file';
+const TERMINAL = ['SUCCEEDED', 'FAILED', 'CANCELLED', 'TIMEDOUT', 'HANDEDOFF', 'UNKNOWN'];
+
+export function financeApi({ dataDir, seedDir, orchestratorUrl }) {
+  const orch = String(orchestratorUrl || 'http://127.0.0.1:5080').replace(/\/+$/, '');
+  const orchCall = async (method, pathname, payload) => {
+    let res;
+    try {
+      res = await fetch(orch + pathname, {
+        method,
+        headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      throw Object.assign(new Error(`NeeliRPA is not reachable at ${orch}. Start the Orchestrator and try again.`), { status: 502 });
+    }
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { /* not JSON */ }
+    if (!res.ok) {
+      const why = data.message || data.error || text || res.statusText;
+      throw Object.assign(new Error(`NeeliRPA refused the request (${res.status}): ${why}`), { status: 502 });
+    }
+    return data;
+  };
   const p = (...parts) => path.join(dataDir, ...parts);
 
   const ensure = () => FOLDERS.forEach((f) => fs.mkdirSync(p(f), { recursive: true }));
@@ -187,6 +214,34 @@ export function financeApi({ dataDir, seedDir }) {
       return send(res, 404, { error: 'No such payment file.' });
     }
 
+    // Create payment file: queue A2 for one payment date.
+    if (m === 'POST' && parts[0] === 'payruns' && parts.length === 1) {
+      const { paymentDate } = await body(req);
+      if (!DATE.test(String(paymentDate || ''))) return send(res, 400, { error: 'Pick a payment date.' });
+      const due = bills().approved.filter((x) => x.paymentDate === paymentDate);
+      if (due.length === 0) return send(res, 409, { error: `No approved bills to pay on ${paymentDate}.` });
+      // The same bills for the same date make the same event, so a second click does not start a second run.
+      const hash = crypto.createHash('sha1').update(due.map((x) => x.billId).sort().join(',')).digest('hex').slice(0, 12);
+      const job = await orchCall('POST', '/jobs', {
+        schemaVersion: '1',
+        scriptArtifactId: A2_SCRIPT,
+        scriptVersion: 'latest',
+        triggerType: 'Event',
+        eventId: `payrun-${paymentDate}-${hash}`,
+        params: { paymentDate },
+      });
+      return send(res, 202, { runId: job.runId, state: job.state, paymentDate, bills: due.length });
+    }
+
+    // Progress of a Create payment file run, and its summary once finished.
+    if (m === 'GET' && parts[0] === 'payruns' && parts.length === 2) {
+      const job = await orchCall('GET', '/jobs/' + encodeURIComponent(parts[1]));
+      const state = String(job.state || '').toUpperCase();
+      const outputs = [job.outputs, ...(job.segments || []).map((x) => x.outputs)].filter(Boolean);
+      const found = outputs.map((o) => o['a2.message'] ?? o.message).find((x) => x);
+      return send(res, 200, { runId: parts[1], state, done: TERMINAL.includes(state), message: found || '' });
+    }
+
     if (m === 'POST' && parts[0] === 'reset') {
       reset();
       return send(res, 200, { message: 'Demo data reset: folders emptied, seeded claims restored.' });
@@ -204,7 +259,7 @@ export function financeApi({ dataDir, seedDir }) {
       ensure();
       server.middlewares.use('/api', (req, res) => {
         req.url = '/api' + req.url;
-        handle(req, res).catch((e) => send(res, 500, { error: e.message }));
+        handle(req, res).catch((e) => send(res, e.status || 500, { error: e.message }));
       });
     },
   };

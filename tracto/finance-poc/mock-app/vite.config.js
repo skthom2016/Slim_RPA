@@ -13,6 +13,7 @@ export default defineConfig({
     financeApi({
       dataDir: path.resolve(here, process.env.FINANCE_DATA_DIR || '../poc-data'),
       seedDir: path.resolve(here, process.env.FINANCE_SEED_DIR || '../seed'),
+      orchestratorUrl: process.env.FINANCE_ORCHESTRATOR_URL || 'http://127.0.0.1:5080',
     }),
   ],
   server: {

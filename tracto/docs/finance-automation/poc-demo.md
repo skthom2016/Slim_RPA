@@ -131,10 +131,12 @@ Keep a File Explorer window open on `tracto\finance-poc\poc-data` to show the fo
 
 ### Part 5: A2 runs in NeeliRPA
 
-1. In the console, open **Artifacts**. On **Finance A2: Approved Bills to Bank Payment File**, click **▶ Run**, then **Submit Job**.
-   - With no parameter, A2 takes every approved bill.
-   - Submitted through the API with `params.paymentDate` (for example `2026-11-28`), it takes only the bills for that date.
-2. The run reaches **SUCCEEDED**. Click **Logs** on it. The log shows:
+1. In the app, open **Bills**, **Approved** tab. Above the list, **Payment date** shows each date with its number of bills and total. Choose **2026-11-28** and click **Create payment file**.
+   - The app asks NeeliRPA to run A2 for that date. In the console, **Jobs** shows the run with the trigger **Event**.
+   - While it runs, the button reads **Creating payment file…** with the run's state next to it. When it ends, a message shows the run's summary.
+   - Clicking again with the same bills for the same date does not start a second run.
+   - A2 can also be started from the console: on **Artifacts**, **Finance A2: Approved Bills to Bank Payment File**, click **▶ Run**, then **Submit Job**. With no payment date it takes every approved bill.
+2. In the console, open **Jobs**. The run reaches **SUCCEEDED**. Click **Logs** on it. The log shows:
    - **Warning:** `Sara Lim (E1090): left out of the payment file for 2026-11-28: no account number on record. 1 bill(s), 268.20, stay in bills/approved.`
    - Info: `Priya Nair (E1042): 234.40 from 2 bill(s) (BILL-CLM-0001, BILL-CLM-0005) in PAY_20261128_1.csv.` Two bills for the same payee become one payment.
    - Info: `Tom Reed (E1077): 50.10 from 1 bill(s) (BILL-CLM-0004) in PAY_20261128_1.csv.`
@@ -162,7 +164,7 @@ Keep a File Explorer window open on `tracto\finance-poc\poc-data` to show the fo
    NeeliRPA writes the file, reads it back, and checks it against this count and total before saving.
 5. Click **Download**. This is the file the officer checks and uploads to the bank. NeeliRPA never signs in to the bank.
 6. **Bills**, **Paid** tab: the three bills with their payment date and payment file.
-7. Optional: click **▶ Run** on A2 again. No new file is written. The log says Sara is still left out, and nothing already paid is paid again.
+7. Optional: on the **Approved** tab, click **Create payment file** again for Sara's bill. No new file is written. The log says Sara is still left out, and nothing already paid is paid again.
 
 ## Exceptions at a glance
 
@@ -181,4 +183,6 @@ Keep a File Explorer window open on `tracto\finance-poc\poc-data` to show the fo
 | A run stays QUEUED | No desktop runtime is available. Check the Workers tab and start tab **5 Desktop runtime** |
 | Run logs have no finance-service lines | The finance service could not reach the Orchestrator. Its tab shows why. The lines are still in that tab |
 | The app shows no claims after a fresh start | Click **Reset demo data** |
+| **Create payment file** says NeeliRPA is not reachable | The Orchestrator is not running. Start tab **2 Orchestrator**. The app calls it at `http://127.0.0.1:5080` (set `FINANCE_ORCHESTRATOR_URL` before `npm run dev` to change it) |
+| **Create payment file** reports a refused request mentioning `latest` | A2 is not published. Run `scripts\publish.ps1` |
 | Artifacts tab has no finance scripts | Run `scripts\publish.ps1` (see "Starting everything") |

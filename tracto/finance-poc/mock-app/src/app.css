@@ -70,3 +70,5 @@ pre.file { background: #10202f; color: #d7e3ef; padding: 12px 14px; border-radiu
 .signin-card h1 { margin: 0; font-size: 22px; }
 .signin-card p { margin: 0; }
 .signin-card label { display: flex; flex-direction: column; gap: 4px; color: #4a5768; }
+.payrun { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 12px; background: #f3f6fa; border: 1px solid #dde2e9; border-radius: 6px; }
+.payrun select { margin-left: 6px; }
