@@ -113,6 +113,20 @@ func parseExpiry(v any) (sql.NullTime, error) {
 
 // ── Groups ───────────────────────────────────────────────────────────────────
 
+// groupNameOK is the rule for a group name: any text up to 100 characters, no commas (a user's group
+// limit is a comma-separated list) and no control characters. Group names are never written in a script.
+func groupNameOK(s string) bool {
+	if strings.TrimSpace(s) == "" || len(s) > 100 || strings.Contains(s, ",") {
+		return false
+	}
+	for _, r := range s {
+		if r < 32 || r == 127 {
+			return false
+		}
+	}
+	return true
+}
+
 func validScriptID(s string) bool {
 	return s != "" && len(s) <= 200 && !strings.ContainsAny(s, " \t\r\n,")
 }
@@ -179,8 +193,9 @@ func (h *CredentialHandler) CreateGroup(w http.ResponseWriter, r *http.Request) 
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if !nameRE.MatchString(req.Name) {
-		errResp(w, http.StatusUnprocessableEntity, "INVALID_NAME", nameRule)
+	req.Name = strings.TrimSpace(req.Name)
+	if !groupNameOK(req.Name) {
+		errResp(w, http.StatusUnprocessableEntity, "INVALID_NAME", "A group name is any text up to 100 characters, without commas")
 		return
 	}
 	for _, s := range req.Scripts {
@@ -292,8 +307,8 @@ func (c *credIn) check(h *CredentialHandler) (sql.NullTime, string) {
 	if !nameRE.MatchString(c.Name) {
 		return sql.NullTime{}, nameRule
 	}
-	if !nameRE.MatchString(c.Group) {
-		return sql.NullTime{}, "The group name is missing or breaks the name rule"
+	if !groupNameOK(c.Group) {
+		return sql.NullTime{}, "The group name is missing or invalid"
 	}
 	var ok bool
 	_ = h.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM CredentialGroups WHERE GroupName=$1)`, c.Group).Scan(&ok)
@@ -509,8 +524,8 @@ func (h *CredentialHandler) Update(w http.ResponseWriter, r *http.Request) {
 		bad("group")
 		return
 	} else if present {
-		if !nameRE.MatchString(s) {
-			errResp(w, http.StatusUnprocessableEntity, "INVALID_CREDENTIAL", "The group name breaks the name rule")
+		if !groupNameOK(s) {
+			errResp(w, http.StatusUnprocessableEntity, "INVALID_CREDENTIAL", "The group name is invalid")
 			return
 		}
 		var ex bool

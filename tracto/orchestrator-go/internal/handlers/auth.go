@@ -187,7 +187,7 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 func validGroupList(groups []string) bool {
 	for _, g := range groups {
-		if !nameRE.MatchString(g) {
+		if !groupNameOK(g) {
 			return false
 		}
 	}

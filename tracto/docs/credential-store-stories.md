@@ -266,8 +266,8 @@ else.
 2. Given a group, then scripts are allowed by `artifactId`, or all scripts by `*`.
 3. Given the Groups tab, then it lists each group with its number of credentials and allowed
    scripts.
-4. Given group names, then the naming rules of section 1 apply (small letters, digits, `-` and `.`);
-   a duplicate is refused.
+4. Given group names, then any text up to 100 characters without a comma is accepted; an empty
+   name or a duplicate is refused.
 
 **Tasks.**
 | ID | Task | Notes |

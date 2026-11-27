@@ -300,8 +300,8 @@ func TestAWrongMasterKeyIsNoticedAtStartAndRekeyMovesEveryRow(t *testing.T) {
 
 func TestGroupsHaveNamesScriptsAndRefuseDeleteWhenNotEmpty(t *testing.T) {
 	e := newAuthEnv(t)
-	e.must(http.StatusUnprocessableEntity, "POST", "/admin/credential-groups", map[string]any{"name": "Finance"})
-	e.must(http.StatusUnprocessableEntity, "POST", "/admin/credential-groups", map[string]any{"name": "has space"})
+	e.must(http.StatusUnprocessableEntity, "POST", "/admin/credential-groups", map[string]any{"name": "   "})
+	e.must(http.StatusUnprocessableEntity, "POST", "/admin/credential-groups", map[string]any{"name": "has,comma"})
 	e.must(http.StatusUnprocessableEntity, "POST", "/admin/credential-groups", map[string]any{"name": "g", "scripts": []string{"two words"}})
 	e.group("finance-portals", "login-script")
 	e.must(http.StatusConflict, "POST", "/admin/credential-groups", map[string]any{"name": "finance-portals"})

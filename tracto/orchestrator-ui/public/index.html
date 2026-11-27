@@ -570,9 +570,9 @@
         <input type="text" id="group-desc" autocomplete="off">
       </div>
       <div class="form-row">
-        <label for="group-scripts">Scripts allowed to read the credentials</label>
-        <input type="text" id="group-scripts" spellcheck="false" autocomplete="off" placeholder="login-script, other-script  (or * for every script)">
-        <div class="form-hint">Script ids separated by commas.</div>
+        <label>Scripts allowed to read the credentials</label>
+        <div id="group-scripts-list" class="script-rows"></div>
+        <div class="form-hint">Type to search or pick a main or child script (name, id and versions are listed). Access covers every version of the script. Use + to add another and − to remove one. * means every script.</div>
       </div>
     </div>
     <div class="form-error" id="group-error" role="alert"></div>

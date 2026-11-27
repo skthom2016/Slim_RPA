@@ -336,7 +336,7 @@ func TestAddingAUserChecksTheNameRoleAndPassword(t *testing.T) {
 	e.must(http.StatusUnprocessableEntity, "POST", "/admin/users", map[string]any{"username": "bad name", "role": "Viewer", "password": "Start#Pass1"})
 	e.must(http.StatusUnprocessableEntity, "POST", "/admin/users", map[string]any{"username": "ok", "role": "Boss", "password": "Start#Pass1"})
 	e.must(http.StatusUnprocessableEntity, "POST", "/admin/users", map[string]any{"username": "ok", "role": "Viewer", "password": "weak"})
-	e.must(http.StatusUnprocessableEntity, "POST", "/admin/users", map[string]any{"username": "ok", "role": "Viewer", "password": "Start#Pass1", "allowedGroups": []string{"Bad Group"}})
+	e.must(http.StatusUnprocessableEntity, "POST", "/admin/users", map[string]any{"username": "ok", "role": "Viewer", "password": "Start#Pass1", "allowedGroups": []string{"bad,group"}})
 	e.must(http.StatusCreated, "POST", "/admin/users", map[string]any{"username": "ok", "role": "Viewer", "password": "Start#Pass1"})
 }
 

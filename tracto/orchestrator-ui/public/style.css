@@ -595,3 +595,5 @@ input[type="search"]:focus, input[type="password"]:focus, input[type="date"]:foc
 .radio-row input[type="date"] { width: 170px; }
 td.actions { white-space: nowrap; }
 .table-wrap td.actions .btn-sm { padding: 3px 8px; }
+.script-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.script-row select { flex: 1; min-width: 0; }

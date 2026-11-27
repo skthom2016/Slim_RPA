@@ -323,6 +323,67 @@ async function openHistory(name) {
 }
 $('history-dismiss').addEventListener('click', () => hideModal('history-overlay'));
 
+// Script picker for a group: one drop-down per script, + adds a row, - removes it.
+let scriptChoices = [];
+
+async function loadScriptChoices() {
+    try {
+        const d = await api('/artifacts');
+        const byId = new Map();
+        for (const a of d.artifacts || []) {
+            if (!byId.has(a.artifactId)) byId.set(a.artifactId, { id: a.artifactId, name: a.name || a.artifactId, versions: [] });
+            byId.get(a.artifactId).versions.push(a.version);
+        }
+        scriptChoices = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+    } catch (_) { scriptChoices = []; }
+}
+
+function scriptLabel(c) {
+    return `${c.name} (${c.id}) — version ${c.versions.join(', ')}`;
+}
+
+function scriptRow(selected) {
+    const row = document.createElement('div');
+    row.className = 'script-row';
+    row.innerHTML = '<input type="text" list="group-script-options" spellcheck="false" autocomplete="off" placeholder="Type to search, or pick a script">' +
+        '<button type="button" class="btn btn-secondary btn-sm script-minus" title="Remove this script">−</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm script-plus" title="Add another script">+</button>';
+    row.querySelector('input').value = selected || '';
+    return row;
+}
+
+function fillScriptOptions() {
+    let dl = document.getElementById('group-script-options');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'group-script-options'; document.body.appendChild(dl); }
+    dl.innerHTML = '<option value="*" label="Every script"></option>' +
+        scriptChoices.map(c => `<option value="${esc(c.id)}" label="${esc(scriptLabel(c))}"></option>`).join('');
+}
+
+function refreshScriptButtons() {
+    const rows = [...document.querySelectorAll('#group-scripts-list .script-row')];
+    rows.forEach((r, i) => {
+        r.querySelector('.script-minus').style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+        r.querySelector('.script-plus').style.visibility = i === rows.length - 1 ? 'visible' : 'hidden';
+    });
+}
+
+function setScriptRows(list) {
+    const box = $('group-scripts-list');
+    box.innerHTML = '';
+    (list.length ? list : ['']).forEach(s => box.appendChild(scriptRow(s)));
+    refreshScriptButtons();
+}
+
+$('group-scripts-list').addEventListener('click', e => {
+    const box = $('group-scripts-list');
+    if (e.target.closest('.script-plus')) box.appendChild(scriptRow(''));
+    else if (e.target.closest('.script-minus')) {
+        e.target.closest('.script-row').remove();
+        if (!box.children.length) box.appendChild(scriptRow(''));
+    } else return;
+    refreshScriptButtons();
+});
+
 // ── groups ────────────────────────────────────────────────────────────────────
 let editingGroup = null;
 
@@ -347,7 +408,7 @@ function openGroupModal(g) {
     $('group-name').value = g ? g.name : '';
     $('group-name').disabled = !!g;
     $('group-desc').value = g ? g.description : '';
-    $('group-scripts').value = g ? g.scripts.join(', ') : '';
+    loadScriptChoices().then(() => { fillScriptOptions(); setScriptRows(g ? g.scripts : []); });
     showModal('group-overlay');
     (g ? $('group-desc') : $('group-name')).focus();
 }
@@ -357,7 +418,7 @@ $('btn-group-refresh').addEventListener('click', loadCredentialsPage);
 $('group-dismiss').addEventListener('click', () => hideModal('group-overlay'));
 $('group-save').addEventListener('click', async () => {
     setErr('group-error', '');
-    const scripts = csvList($('group-scripts').value);
+    const scripts = [...new Set([...document.querySelectorAll('#group-scripts-list input')].map(x => x.value.trim()).filter(Boolean))];
     try {
         if (editingGroup) {
             await api(`/admin/credential-groups/${encodeURIComponent(editingGroup.name)}`, {

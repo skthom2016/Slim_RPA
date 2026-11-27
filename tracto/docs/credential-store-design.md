@@ -28,9 +28,10 @@ The stories that build this are in [credential-store-stories.md](credential-stor
 | **User** | A person who signs in to the Orchestrator UI, with a role | Users page |
 
 ### Names
-- Credential, group and setting names use small letters, digits, `-` and `.`, start with a
-  letter or digit, and are at most 100 characters: `givewell-portal`, `bank.hdfc`,
-  `finance-portals`. A name with a capital letter is refused.
+- Credential and setting names use small letters, digits, `-` and `.`, start with a letter or
+  digit, and are at most 100 characters: `givewell-portal`, `bank.hdfc`. A name with a capital
+  letter is refused. A group name is any text up to 100 characters without a comma: `acme with
+  login`, `finance-portals`.
 - In a script, the name in `${credential:NAME.field}` is written out, or built only from job
   parameters: `${credential:${param.site}.password}`. No other variable may form a credential
   name, so the orchestrator can check which credentials a run is entitled to.
