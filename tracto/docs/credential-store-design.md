@@ -59,10 +59,13 @@ The stories that build this are in [credential-store-stories.md](credential-stor
 - A wrong username or password gives one message, "Username or password is wrong", without
   saying which. Every failed and successful sign-in is written to `SecurityEvents`.
 - **Sign out** in the header ends the session.
-- The token check runs on `/admin`, `/auth/me` and `/auth/password` whenever users exist,
-  whatever `ORCHESTRATOR_JWT_SECRET` says; the session signing key is `ORCHESTRATOR_JWT_SECRET`,
-  or, when that is empty, a random key made at start-up (sessions then end when the
-  orchestrator restarts).
+- A session is required on `/auth/me`, `/auth/logout`, `/auth/password`, `/admin/users`,
+  `/admin/credentials`, `/admin/credential-groups` and `/admin/settings`, whatever
+  `ORCHESTRATOR_JWT_SECRET` says. The other `/admin` calls (runs, logs, schedules, telemetry) keep
+  the token check they had, and the UI server asks for a sign-in before it forwards any call.
+- The session signing key is derived from `ORCHESTRATOR_JWT_SECRET` (so a session is never valid
+  as a worker token, nor the other way round), or, when that is empty, from a random key made at
+  start-up (sessions then end when the orchestrator restarts).
 
 ### Password change page
 - **Change password** in the header opens a page with: current password, new password, new
@@ -116,7 +119,7 @@ CREATE TABLE Users (
     Username        TEXT        PRIMARY KEY,          -- compared ignoring capitals
     PasswordHash    TEXT        NOT NULL,             -- bcrypt
     Role            TEXT        NOT NULL,             -- Viewer, Operator, CredentialAdmin, Administrator
-    AllowedGroups   TEXT[],                           -- NULL = every group
+    AllowedGroups   TEXT,                             -- comma separated group names; NULL = every group
     Disabled        BOOLEAN     NOT NULL DEFAULT FALSE,
     SessionVersion  INTEGER     NOT NULL DEFAULT 1,   -- raised on password change: old sessions end
     LastSignInAt    TIMESTAMPTZ,
@@ -140,7 +143,7 @@ CREATE TABLE CredentialGroupAccess (
 
 CREATE TABLE Credentials (
     Name             TEXT        PRIMARY KEY,
-    GroupName        TEXT        NOT NULL REFERENCES CredentialGroups(GroupName),
+    GroupName        TEXT        NOT NULL,   -- a group that exists; a group that holds credentials cannot be deleted
     Username         TEXT        NOT NULL,
     PasswordCipher   TEXT        NOT NULL,   -- sealed value, see section 5
     TotpCipher       TEXT,                   -- optional authenticator key, sealed the same way
@@ -198,9 +201,10 @@ it is not enough on its own to sign in. Only the password and the TOTP key are e
   printing any value.
 - **Key id and replacing the key:** each row records the `KeyId` it was sealed with
   (`CREDENTIAL_MASTER_KEY_ID`, default `1`). To replace the key: put the old key in
-  `CREDENTIAL_MASTER_KEY_OLD`, the new key in `CREDENTIAL_MASTER_KEY` with a new
-  `CREDENTIAL_MASTER_KEY_ID`, run `tracto-orchestrator rekey`, which re-seals every row, then
-  remove `CREDENTIAL_MASTER_KEY_OLD`.
+  `CREDENTIAL_MASTER_KEY_OLD` (its id in `CREDENTIAL_MASTER_KEY_OLD_ID`, default `1`), the new key
+  in `CREDENTIAL_MASTER_KEY` with a new `CREDENTIAL_MASTER_KEY_ID`, run the orchestrator with the
+  argument `rekey` (`go run . rekey`), which re-seals every row, then remove
+  `CREDENTIAL_MASTER_KEY_OLD`. Rows sealed with either key open while both are set.
 - **What a database copy reveals:** names, usernames, URLs and notes. Not passwords or TOTP keys.
 - **Backup:** the master key is backed up separately from database backups. Losing it loses every
   password, which then have to be entered again.
@@ -268,7 +272,7 @@ and pass the admin address allowlist and the audit log. The audit log already bl
 | `PUT /admin/credentials/{name}` | Change; an omitted `password` keeps the old one; `expiresOn: null` sets no expiry |
 | `DELETE /admin/credentials/{name}` | Delete (the event history stays) |
 | `POST /admin/credentials/{name}/reveal` | Return the password to a user with `credentials.reveal`; records `REVEALED` or `COPIED` (`{"purpose":"copy"}`) |
-| `POST /admin/credentials/import` | Many at once, all or nothing |
+| `POST /admin/credentials/import` | Many at once, all or nothing: `{rows, replaceExisting, dryRun}`; `dryRun` checks every row and saves nothing; errors name the row |
 | `GET /admin/credentials/{name}/events` | History |
 | `GET/POST/PUT/DELETE /admin/credential-groups...` | Groups and their script access |
 | `GET/PUT/DELETE /admin/settings/{name}` | Settings |
@@ -281,7 +285,7 @@ in a link.
 ```
 POST /jobs/{runId}/credentials
 { "workerId": "browser-runtime-001", "names": ["givewell-portal"] }
-→ { "givewell-portal": { "username": "...", "password": "...", "totp": "123456" } }
+→ { "credentials": { "givewell-portal": { "username": "...", "password": "...", "totp": "123456" } } }
 ```
 
 The orchestrator answers only when all of these hold, and records `READ_BY_RUN` or
@@ -322,12 +326,15 @@ Settings for a run: `POST /jobs/{runId}/settings` with the same leased-run check
    name in the script (after parameters) and asks for them in one call each. A refusal fails the
    run before a browser or window opens, naming the credential.
 2. Values are held in memory for that run only, never written to disk.
-3. Every credential value is added to the run's mask list: any log line, error message, run
-   output or telemetry containing it has the value replaced by `●●●●` before it leaves the
-   worker. This covers a page that echoes the username or an error that quotes a field.
+3. Every credential value is added to the run's mask list: any console line, run-log line, step
+   error message, run output or result containing it has the value replaced by `●●●●` before it
+   leaves the worker. This covers a page that echoes the username or an error that quotes a
+   field. A value shorter than 4 characters is not masked (it would blank out ordinary words), and
+   usernames are masked as well as passwords.
 4. A step whose `storeAs` output would contain a credential password or TOTP code fails, so
    neither can become a run output.
-5. Failure screenshots stay as they are: password fields show dots in the page itself.
+5. Failure screenshots stay as they are: password fields show dots in the page itself, but a
+   username shown on a page is visible in the picture.
 
 ---
 

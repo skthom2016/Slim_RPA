@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Charlie Donors portal - Sign in</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:40px}label{display:block;margin:10px 0 4px}input{padding:6px}</style></head>
+<body>
+<h1 id="title">Charlie Donors portal</h1>
+<label for="user">User ID</label><input id="user" autocomplete="off">
+<label for="pw">Password</label><input id="pw" type="password" autocomplete="off">
+<p><button id="go">Sign in</button></p>
+<p id="status"></p><p id="welcome"></p>
+<script>
+// Each portal accepts one account. These are demo accounts, not real ones.
+const ACCOUNT = { user: 'carol.c', password: 'Charlie#Secret-333', name: 'Charlie Donors' };
+document.getElementById('go').addEventListener('click', () => {
+  const ok = document.getElementById('user').value === ACCOUNT.user && document.getElementById('pw').value === ACCOUNT.password;
+  document.getElementById('status').textContent = ok ? 'Signed in' : 'Sign-in failed';
+  document.getElementById('welcome').textContent = ok ? 'Welcome ' + ACCOUNT.name : '';
+});
+</script></body></html>

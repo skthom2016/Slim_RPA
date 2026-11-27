@@ -1,0 +1,28 @@
+{
+  "id": "many-sites-main",
+  "name": "Many Sites Main: Start The Sign-in Batch",
+  "version": "1.0.0",
+  "params": {
+    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/many-sites/many-sites.xlsx",
+    "sheetName": "Sites",
+    "sheetServiceUrl": "http://localhost:5090"
+  },
+  "segments": [
+    {
+      "name": "Start the batch and finish",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Ask sheet-service to run portal-login-child once for every site that is not Done. It replies at once with a batch id; this job then ends.",
+          "parameters": {
+            "url": "${param.sheetServiceUrl}/process/start",
+            "body": "{\"source\":{\"path\":\"${param.excelPath}\",\"sheet\":\"${param.sheetName}\"},\"child\":{\"artifactId\":\"portal-login-child\",\"version\":\"latest\"},\"params\":{\"site\":\"site\",\"url\":\"url\"},\"outputs\":{\"welcome.value\":\"Welcome\"},\"statusColumn\":\"Status\",\"messageColumn\":\"Message\",\"timeoutSeconds\":120}",
+            "storeAs": "batch"
+          }
+        }
+      ]
+    }
+  ]
+}

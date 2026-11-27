@@ -1,9 +1,11 @@
 ---
 name: tracto-desktop-rpa
-description: Use when asked to create, edit, clean, review or validate a Tracto desktop RPA script (the JSON flow the Desktop Runtime executes on Windows): opening apps, typing, keyboard shortcuts, clicks, saving files, copying/moving/deleting files, calling APIs, reading Excel/Google/SharePoint sheets, moving data between apps. Covers a flow built from several desktop segments that hand values to each other, and a single-segment flow. Contains everything needed to write a correct script without reading the project's code or schema. Use it for the desktop segments of a flow. A flow may also contain browser segments; this skill covers only how they join on, and the tracto-browser-rpa skill covers the browser segment itself. Not terminal runtimes; not for publishing or running.
+description: Use when asked to create, edit, clean, review or validate a Tracto desktop RPA script (the JSON flow the Desktop Runtime executes on Windows): opening apps, typing, keyboard shortcuts, clicks, saving files, copying/moving/deleting files, calling APIs, reading Excel/Google/SharePoint sheets, moving data between apps, and typing or sending a stored password without putting it in the script. Covers a flow built from several desktop segments that hand values to each other, and a single-segment flow. Contains everything needed to write a correct script without reading the project's code or schema. Use it for the desktop segments of a flow. A flow may also contain browser segments; this skill covers only how they join on, and the tracto-browser-rpa skill covers the browser segment itself. Not terminal runtimes; not for publishing or running.
 ---
 
 # Tracto desktop RPA scripts
+
+Created: 2026-11-02 | Last updated: 2026-11-27
 
 A script is one JSON file. It holds an ordered list of **segments**, and each segment holds an
 ordered list of **steps**. The Desktop Runtime (Windows) runs a desktop segment's steps top to
@@ -369,6 +371,7 @@ with the files checked on disk afterwards. Templates for each are in `references
   that") are done in Tracto: not in the script, but by sheet-service running a child job per row
   from a main job that ends at once. The request, the rules, what is verified and what is not built.
 - `references/scheduling.md`: what can start a run (a person, an Orchestrator schedule, a continuation, an event that is not built) and when the scheduler is the right choice; the schedule request, what it guarantees and what it does not, and how to write a script that runs unattended.
+- `references/credentials.md`: typing or sending a password without putting it in the script: `${credential:NAME.password}` and `${setting:NAME}`, the name rule, masking.
 - `references/limits.md`: what the runtime cannot do, workarounds, and what to ask the core team
   to add.
 - `references/templates/*.json`: working scripts to copy. The verified ones from the table

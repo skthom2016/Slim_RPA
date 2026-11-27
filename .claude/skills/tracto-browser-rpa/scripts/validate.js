@@ -294,11 +294,12 @@ function checkBrowserStep(step, where, ctx) {
   for (const k of ['value', 'key']) {
     const v = p[k];
     if (typeof v !== 'string' || v.trim() === '') continue;
-    if (v.includes('${secret:') || v.includes('${param.')) continue;
+    if (v.includes('${secret:') || v.includes('${credential:') || v.includes('${param.')) continue;
     if (looksLikeSecretField || SECRETISH.test(k))
       report.error(`${where}: "${k}" puts a literal value into what looks like a secret field ` +
         `(${fieldNames.filter(f => SECRETISH.test(f)).join(', ') || k}). A script is stored and readable: ` +
-        `use "\${secret:NAME}" with TRACTO_SECRET_NAME set on the worker, or sign the browser profile in once.`);
+        `use "\${credential:NAME.password}" (a credential kept in the Orchestrator), "\${secret:NAME}" with ` +
+        `TRACTO_SECRET_NAME set on the worker, or sign the browser profile in once.`);
   }
 }
 
@@ -337,8 +338,44 @@ function defineStoreAs(storeAs, outputs, where, ctx) {
   ctx.produced.set(storeAs, { segment: ctx.segmentIndex, outputs: outputs || [] });
 }
 
-/** Every ${...} reference must be a builtin, a param, a secret, or something published earlier. */
+// ── credential and setting references ───────────────────────────────────────────────────────
+// ${credential:NAME.username|password|totp} and ${setting:NAME}: kept in the Orchestrator's
+// credential store. A name is written out, or built from job parameters only, so that the
+// Orchestrator can check what a run is entitled to before it starts.
+const NAMED_REF = /\$\{(credential|setting):((?:[^${}]|\$\{[^}]*\})*)\}/gi;
+const CRED_FIELDS = ['username', 'password', 'totp'];
+const NAME_RULE = /^[a-z0-9][a-z0-9.-]{0,99}$/;
+
+/** Checks each credential and setting reference and returns the text without them. */
+function checkNamedRefs(value, where, ctx, checkPart) {
+  return value.replace(NAMED_REF, (whole, kind, inner) => {
+    kind = kind.toLowerCase();
+    let name = inner;
+    if (kind === 'credential') {
+      const dot = inner.lastIndexOf('.');
+      const field = dot < 0 ? '' : inner.slice(dot + 1);
+      name = dot < 0 ? inner : inner.slice(0, dot);
+      if (!CRED_FIELDS.includes(field))
+        ctx.report.error(`${where}: "${whole}" must end in .username, .password or .totp`);
+    }
+    let fromElsewhere = false;
+    const plain = name.replace(/\$\{([^}]*)\}/g, (part, ref) => {
+      ref = ref.trim();
+      if (/^param\.[^.]+/.test(ref)) { if (checkPart) checkPart(ref); } else fromElsewhere = true;
+      return 'x';
+    });
+    if (fromElsewhere)
+      ctx.report.error(`${where}: "${whole}" builds its name from something other than a job parameter. ` +
+        `Write the name out, or use \${param.NAME}.`);
+    else if (!NAME_RULE.test(plain))
+      ctx.report.error(`${where}: "${whole}": a ${kind} name uses small letters, digits, "-" and ".", ` +
+        `starts with a letter or digit and is at most 100 characters (no capital letters, no "_").`);
+    return '';
+  });
+}
+/** Every ${...} reference must be a builtin, a param, a secret, a credential or setting, or something published earlier. */
 function checkRefs(value, where, ctx) {
+  value = checkNamedRefs(value, where, ctx, ref => checkRefs('${' + ref + '}', where, ctx));
   const re = /\$\{([^}]*)\}/g;
   let m;
   while ((m = re.exec(value)) !== null) {

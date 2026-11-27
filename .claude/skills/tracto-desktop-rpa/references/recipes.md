@@ -323,6 +323,24 @@ skill), and its full path reaches the desktop segment as `${param.<storeAs>.path
 
 ---
 
+## 18. Use a stored credential
+
+**Verified end to end** (a desktop worker sent a stored user id and password to a local listener;
+a run that tried to store the echoed password as an output was refused).
+
+```json
+{ "stepNumber": 1, "action": "http.post", "description": "Sign in to the API",
+  "parameters": { "url": "https://erp.example.com/login",
+                  "body": "user=${credential:erp-login.username}&pw=${credential:erp-login.password}",
+                  "storeAs": "reply" } }
+```
+
+The credential `erp-login` is on the Orchestrator's Credentials page, in a group that lists this
+script. Do not put the password in the script, a parameter or a sheet. `references/credentials.md`
+has the rules (the name, masking, why `reply` cannot hold the password). Files:
+`tracto/demo/many-sites/desktop-credential-check_1.0.0.json`.
+
+---
 ## When a script misbehaves
 
 | Symptom | Likely cause |

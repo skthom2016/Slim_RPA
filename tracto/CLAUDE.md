@@ -190,6 +190,37 @@ Invoke-RestMethod "http://localhost:5080/jobs/<runId>/telemetry"
 ```
 A segment that has not started is `PENDING`. When a segment fails or is cancelled the parent takes that state and later segments stay `PENDING`. `POST /jobs/{runId}/cancel` on the parent cancels the active segment.
 
+## Orchestrator sign-in and the credential store
+
+The Orchestrator UI needs a sign-in. On its first start, with no users, the orchestrator creates the
+user `admin` with the password `Admin@123#`; change it on the **Change password** page. Users, roles
+(Viewer, Operator, Credential admin, Administrator) and the permissions behind them are on the
+**Users** page. Design: `docs/credential-store-design.md`; stories: `docs/credential-store-stories.md`.
+
+**Never put a password in a script.** Passwords live in the credential store (**Credentials** page),
+sealed with `CREDENTIAL_MASTER_KEY` (set in the orchestrator's environment or `.env`; see
+`orchestrator-go/.env.example`). A script names them:
+
+```json
+{ "action": "fill", "parameters": { "label": "Password", "value": "${credential:givewell-portal.password}" } }
+{ "action": "navigate", "parameters": { "url": "${setting:givewell-url}" } }
+```
+
+- Fields: `username`, `password`, `totp` (the current code of a one-time-code key). Names use small
+  letters, digits, `-` and `.`, written out or built from job parameters only
+  (`${credential:${param.site}.password}`).
+- A credential belongs to a **group**; the group lists the scripts allowed to read it. A run is
+  refused, naming the credential, when its script may not read it.
+- Browser and desktop workers fetch them after accepting the job, hold them in memory for the run
+  and mask them in every log, error and output. A password cannot be stored as an output
+  (`CREDENTIAL_IN_OUTPUT`).
+- Plain values (a URL, a folder) are **settings**, shown in clear.
+- 200 sites are one child script run once per row of a sheet (`demo/many-sites/`).
+- `${secret:NAME}` (an environment variable on the worker) still works for one-off use.
+
+The routes for users, credentials, groups and settings check a signed-in user's session (a bearer
+token from `POST /auth/login`), not a worker token. The UI server keeps the session in a cookie the
+page's scripts cannot read and adds it to every call it forwards.
 ---
 
 ## Starting All Services

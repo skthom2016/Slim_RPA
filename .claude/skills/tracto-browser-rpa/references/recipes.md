@@ -340,6 +340,39 @@ whole.
 
 ---
 
+## 15. Sign in to many sites with one script (**verified**)
+
+Two hundred portals are one child script and a list, not two hundred scripts. The sites are rows
+of a sheet (`site`, `url`); each `site` is the name of a credential in the store, all in one group
+whose list of allowed scripts holds the child.
+
+```json
+{ "name": "Sign in to one portal", "runtime": "browser", "steps": [
+  { "stepNumber": 1, "action": "navigate", "parameters": { "url": "${param.url}" } },
+  { "stepNumber": 2, "action": "fill",
+    "parameters": { "label": "User ID", "value": "${credential:${param.site}.username}" } },
+  { "stepNumber": 3, "action": "fill",
+    "parameters": { "label": "Password", "value": "${credential:${param.site}.password}" } },
+  { "stepNumber": 4, "action": "click", "parameters": { "role": "button", "name": "Sign in" } },
+  { "stepNumber": 5, "action": "assert",
+    "parameters": { "kind": "textEquals", "css": "#status", "expected": "Signed in" } }
+] }
+```
+
+A main job starts the batch (`loops-and-conditions.md`): `"params": {"site": "site", "url": "url"}`
+maps the sheet's columns to the child's parameters, so each row is one run with its own
+credential. The child does the work after signing in (a download, a read); add those steps.
+
+- **A row whose credential is missing, or not readable by the script, fails on its own** with a
+  message naming the credential; the other rows go on.
+- Sites that differ in layout need their own child script; the credential names work the same way.
+- Sites with a code by SMS or e-mail, or a CAPTCHA, cannot be done this way (`credentials.md`).
+
+**Verified:** three local portals with different accounts, one child script, one group; all three
+rows signed in with their own credential, and no password was found in any log, output or
+database table. Files: `tracto/demo/many-sites/`. Template: `templates/many-sites-child.json`.
+
+---
 ## When a script misbehaves
 
 | Symptom | Likely cause |

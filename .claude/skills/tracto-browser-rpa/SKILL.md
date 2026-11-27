@@ -1,6 +1,6 @@
 ---
 name: tracto-browser-rpa
-description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, reading text, values or attributes off a page, and downloading a file from a page or uploading one into a file field. Covers signing in without putting a password in the script, through a signed-in browser profile or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
+description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, reading text, values or attributes off a page, and downloading a file from a page or uploading one into a file field. Covers signing in without putting a password in the script: a credential kept in the Orchestrator (one site or hundreds), a signed-in browser profile, or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
 ---
 
 # Tracto browser RPA scripts
@@ -137,13 +137,19 @@ desktop segment after it typed `${param.headline.value}` into Notepad and saved 
 
 ## Signing in
 
-**Never put a password in a script.** Two supported ways, both in
+**Never put a password in a script.** Three supported ways, all in
 `references/credentials.md`:
 
-1. **A signed-in profile** — a person signs in once with `dotnet run -- --login <profile>`, and
+1. **A credential in the Orchestrator's store** — for a site with a user id and a password
+   (one site or hundreds). People add it on the Credentials page; the script writes
+   `${credential:NAME.username}` and `${credential:NAME.password}` (and `.totp` for a one-time
+   code), and `${setting:NAME}` for a plain value. The name is written out or built from job
+   parameters only. The run fails at once, naming the credential, if the script may not read it.
+   Values are masked in every log and output, and a password cannot be stored as an output.
+2. **A signed-in profile** — a person signs in once with `dotnet run -- --login <profile>`, and
    the segment names that `profile`. The script holds no password. One run at a time per
    profile, and sign-ins expire.
-2. **`${secret:NAME}`** — read from the environment variable `TRACTO_SECRET_NAME` on the worker
+3. **`${secret:NAME}`** — read from the environment variable `TRACTO_SECRET_NAME` on the worker
    machine, never logged, and the run is refused before a browser opens if it is not set. For
    sites that keep no cookie and demand a login every visit.
 
@@ -204,6 +210,7 @@ choice for a search or any public page and lets several runs go at once.
 | Wait a fixed time | `delay` |
 | Save a file the page offers (report, export, invoice) | `download` (the button or link, optional `folder`, `storeAs`) |
 | Put a file into an upload or import field | `upload` (the field or its button, `path`), then `click` the page's submit |
+| Sign in with a stored user id and password | `${credential:NAME.username}`, `${credential:NAME.password}` in `fill` |
 | Use a value in a later desktop segment | `storeAs`, then `${param.name.value}` there |
 
 ## Files in this skill
@@ -219,7 +226,7 @@ choice for a search or any public page and lets several runs go at once.
   from a main job that ends at once. Includes a verified browser child. What is verified and what
   is not built.
 - `references/scheduling.md`: what can start a run (a person, an Orchestrator schedule, a continuation, an event that is not built) and when the scheduler is the right choice; the schedule request, what it guarantees and what it does not, and how to write a script that runs unattended.
-- `references/credentials.md`: signing in without a password in the script.
+- `references/credentials.md`: signing in without a password in the script: the credential store, a signed-in profile, a worker secret.
 - `references/limits.md`: what the runtime cannot do, and what to ask for.
 - `references/templates/*.json`: scripts to copy.
 - `scripts/validate.js`: offline validator (needs only Node) for flat and segmented files.

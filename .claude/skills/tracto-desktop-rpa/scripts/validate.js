@@ -289,7 +289,43 @@ function defineStoreAs(name, step, sheetRoute, where, ctx) {
 }
 
 // ── variable references ─────────────────────────────────────────────────────────────────────
+// ── credential and setting references ───────────────────────────────────────────────────────
+// ${credential:NAME.username|password|totp} and ${setting:NAME}: kept in the Orchestrator's
+// credential store. A name is written out, or built from job parameters only, so that the
+// Orchestrator can check what a run is entitled to before it starts.
+const NAMED_REF = /\$\{(credential|setting):((?:[^${}]|\$\{[^}]*\})*)\}/gi;
+const CRED_FIELDS = ['username', 'password', 'totp'];
+const NAME_RULE = /^[a-z0-9][a-z0-9.-]{0,99}$/;
+
+/** Checks each credential and setting reference and returns the text without them. */
+function checkNamedRefs(value, where, ctx, checkPart) {
+  return value.replace(NAMED_REF, (whole, kind, inner) => {
+    kind = kind.toLowerCase();
+    let name = inner;
+    if (kind === 'credential') {
+      const dot = inner.lastIndexOf('.');
+      const field = dot < 0 ? '' : inner.slice(dot + 1);
+      name = dot < 0 ? inner : inner.slice(0, dot);
+      if (!CRED_FIELDS.includes(field))
+        ctx.report.error(`${where}: "${whole}" must end in .username, .password or .totp`);
+    }
+    let fromElsewhere = false;
+    const plain = name.replace(/\$\{([^}]*)\}/g, (part, ref) => {
+      ref = ref.trim();
+      if (/^param\.[^.]+/.test(ref)) { if (checkPart) checkPart(ref); } else fromElsewhere = true;
+      return 'x';
+    });
+    if (fromElsewhere)
+      ctx.report.error(`${where}: "${whole}" builds its name from something other than a job parameter. ` +
+        `Write the name out, or use \${param.NAME}.`);
+    else if (!NAME_RULE.test(plain))
+      ctx.report.error(`${where}: "${whole}": a ${kind} name uses small letters, digits, "-" and ".", ` +
+        `starts with a letter or digit and is at most 100 characters (no capital letters, no "_").`);
+    return '';
+  });
+}
 function checkRefs(value, where, ctx) {
+  value = checkNamedRefs(value, where, ctx, ref => checkRef(ref, where, ctx));
   for (const m of value.matchAll(/\$\{([^}]+)\}/g)) checkRef(m[1], where, ctx);
 }
 
