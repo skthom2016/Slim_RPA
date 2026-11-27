@@ -7,7 +7,8 @@
 #   ./start-demo.sh sheet-service        open only that service's tab, in your existing demo window
 #   ./start-demo.sh orchestrator-ui designer        several services, in the order given
 #
-# Services: database, orchestrator, sheet-service, orchestrator-ui, desktop-runtime, browser-runtime, designer.
+# Services: database, orchestrator, sheet-service, orchestrator-ui, desktop-runtime, browser-runtime, designer,
+# finance-service, finance-app.
 # Each tab also waits for what it depends on (the database, then the orchestrator) before it starts.
 #
 # To restart a service whose tab is still open, you do not need this script: stop it with Ctrl+C in its
@@ -16,8 +17,8 @@
 set -e
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-SERVICES=(database orchestrator sheet-service orchestrator-ui desktop-runtime browser-runtime designer)
-TITLES=("1 Database" "2 Orchestrator" "3 Sheet service" "4 Orchestrator UI" "5 Desktop runtime" "6 Browser runtime" "7 Designer")
+SERVICES=(database orchestrator sheet-service orchestrator-ui desktop-runtime browser-runtime designer finance-service finance-app)
+TITLES=("1 Database" "2 Orchestrator" "3 Sheet service" "4 Orchestrator UI" "5 Desktop runtime" "6 Browser runtime" "7 Designer" "8 Finance service" "9 Finance app")
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   # Print the comment block at the top of this file.
@@ -136,7 +137,7 @@ if [ "${#ONLY[@]}" -eq 0 ]; then
     [ "$i" -eq 0 ] && flag="$DB_FLAG"
     open_tab "$WINDOW" "${TITLES[$i]}" "${SERVICES[$i]}" "$delay" "$flag"
   done
-  echo "Opened Windows Terminal with ${#SERVICES[@]} tabs. Orchestrator UI: http://localhost:4000"
+  echo "Opened Windows Terminal with ${#SERVICES[@]} tabs. Orchestrator UI: http://localhost:4000  Finance app: http://localhost:5173"
 else
   # Window 0 is the Windows Terminal window used last, normally the demo window.
   for name in "${ONLY[@]}"; do

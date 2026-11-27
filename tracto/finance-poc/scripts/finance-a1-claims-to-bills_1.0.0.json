@@ -1,0 +1,24 @@
+{
+  "id": "finance-a1-claims-to-bills",
+  "name": "Finance A1: Approved Claims to Draft Bills",
+  "version": "1.0.0",
+  "segments": [
+    {
+      "name": "Create draft bills from approved claims",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Ask the finance service to turn every claim in claims/approved into a draft bill (PDF and JSON in bills/draft). It replies with a message saying what was done or why nothing was done, and logs each claim to this run.",
+          "parameters": {
+            "url": "http://127.0.0.1:5095/claims/run/start",
+            "body": "{}",
+            "timeoutMs": "120000",
+            "storeAs": "a1"
+          }
+        }
+      ]
+    }
+  ]
+}

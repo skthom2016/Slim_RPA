@@ -1,6 +1,7 @@
 # Runs one Tracto service inside a Windows Terminal tab. Started by start-demo.sh at the repository root:
 #   powershell -NoExit -File tracto\scripts\demo-tab.ps1 <name>
-# Names: database, orchestrator, sheet-service, orchestrator-ui, desktop-runtime, browser-runtime, designer
+# Names: database, orchestrator, sheet-service, orchestrator-ui, desktop-runtime, browser-runtime, designer,
+#        finance-service, finance-app
 #
 # -Fresh (database tab only): clear the demo data first, with demo-tools\clear-demo-database.ps1 at the
 # repository root. That tool is separate from the application.
@@ -159,6 +160,23 @@ switch ($Name) {
         Wait-Orchestrator
         Show-Starting $cmd
         dotnet run --project designer/src/Tracto.Designer.App -p:Platform=x64
+    }
+    'finance-service' {
+        $svc = Join-Path $tracto 'finance-poc\finance-service'
+        Initialize-Tab $svc 'go run .'
+        Wait-Orchestrator
+        Show-Starting 'go run .'
+        go run .
+    }
+    'finance-app' {
+        $app = Join-Path $tracto 'finance-poc\mock-app'
+        Initialize-Tab $app 'npm run dev'
+        if (-not (Test-Path (Join-Path $app 'node_modules'))) {
+            Write-Host 'First start: installing the app''s packages ...' -ForegroundColor Yellow
+            npm install
+        }
+        Show-Starting 'npm run dev'
+        npm run dev
     }
     default {
         Write-Host "Unknown service '$Name'." -ForegroundColor Red

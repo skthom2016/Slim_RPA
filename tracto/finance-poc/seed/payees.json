@@ -1,0 +1,5 @@
+[
+  { "employeeId": "E1042", "name": "Priya Nair", "bankCode": "7171", "accountNumber": "0123456789" },
+  { "employeeId": "E1077", "name": "Tom Reed", "bankCode": "7339", "accountNumber": "5566778899" },
+  { "employeeId": "E1090", "name": "Sara Lim", "bankCode": "7171", "accountNumber": "" }
+]

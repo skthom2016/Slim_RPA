@@ -1,0 +1,7 @@
+[
+  { "name": "Local travel", "accountCode": "6410", "accountName": "Local travel" },
+  { "name": "Meals", "accountCode": "6420", "accountName": "Meals and refreshments" },
+  { "name": "Office supplies", "accountCode": "6110", "accountName": "Office supplies" },
+  { "name": "Training", "accountCode": "6510", "accountName": "Staff training" },
+  { "name": "Taxi (overseas)", "accountCode": "", "accountName": "" }
+]

@@ -1,0 +1,72 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; color: #1d2733; background: #f2f4f7; }
+button, input, select { font: inherit; }
+button, .button {
+  border: 1px solid #c5ccd6; background: #fff; color: #1d2733; border-radius: 6px; padding: 6px 12px;
+  cursor: pointer; text-decoration: none; display: inline-block;
+}
+button:hover, .button:hover { background: #f5f7fa; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: #1f5fbf; border-color: #1f5fbf; color: #fff; }
+button.primary:hover { background: #184e9f; }
+button.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
+button.link { border: 0; background: none; padding: 0; color: #1f5fbf; }
+button.link.light { color: #dfe8f5; }
+a { color: #1f5fbf; }
+input, select { border: 1px solid #c5ccd6; border-radius: 6px; padding: 5px 8px; background: #fff; width: 100%; }
+
+.app header {
+  display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: #17324f; color: #fff;
+}
+.brand { font-weight: 600; font-size: 16px; }
+.brand .muted { color: #9fb3c8; font-weight: 400; margin-left: 6px; }
+nav { display: flex; gap: 4px; margin-left: 16px; }
+.nav { background: none; border: 0; color: #c8d6e5; border-radius: 6px; }
+.nav:hover { background: #22436a; }
+.nav.active { background: #2b5486; color: #fff; }
+.user { color: #c8d6e5; }
+.confirm { display: flex; gap: 8px; align-items: center; color: #ffd8a8; }
+.spacer { flex: 1; }
+main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+
+.card { background: #fff; border: 1px solid #dde2e9; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+.card h2 { margin: 0 0 12px; font-size: 17px; }
+.card h3 { font-size: 15px; margin: 16px 0 8px; }
+.row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.muted { color: #6b7785; }
+.small { font-size: 12px; }
+.count { background: #e6ebf2; color: #3b4a5c; border-radius: 10px; padding: 0 8px; font-size: 12px; margin-left: 4px; }
+
+table.grid { width: 100%; border-collapse: collapse; }
+table.grid th { text-align: left; font-weight: 600; color: #4a5768; border-bottom: 1px solid #dde2e9; padding: 6px 8px; font-size: 13px; }
+table.grid td { border-bottom: 1px solid #eef1f5; padding: 6px 8px; vertical-align: top; }
+table.grid .num { text-align: right; white-space: nowrap; }
+table.grid tr.selected td { background: #f0f6ff; }
+table.grid tr.detail td { background: #fafbfc; }
+table.inner td { border: 0; padding: 3px 8px; color: #4a5768; }
+td.actions { white-space: nowrap; text-align: right; }
+td.actions > * { margin-left: 6px; }
+input.num { text-align: right; width: 110px; }
+
+.badge { display: inline-block; border-radius: 10px; padding: 1px 9px; font-size: 12px; font-weight: 600; }
+.badge-submitted { background: #e6ebf2; color: #3b4a5c; }
+.badge-approved { background: #e3f0ff; color: #1f5fbf; }
+.badge-processed, .badge-paid { background: #e2f5e9; color: #1e7a45; }
+.badge-draft { background: #fff3d6; color: #8a5a00; }
+.badge-exception { background: #fde4e1; color: #b03a2e; }
+.reason { color: #b03a2e; font-size: 12px; margin-top: 3px; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #dde2e9; }
+.tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; }
+.tab.active { border-bottom-color: #1f5fbf; color: #1f5fbf; font-weight: 600; }
+
+pre.file { background: #10202f; color: #d7e3ef; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+
+.toast { position: fixed; right: 24px; bottom: 24px; background: #1e7a45; color: #fff; padding: 10px 16px; border-radius: 8px; max-width: 520px; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+.toast.error { background: #b03a2e; }
+
+.signin { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.signin-card { width: 340px; display: flex; flex-direction: column; gap: 12px; }
+.signin-card h1 { margin: 0; font-size: 22px; }
+.signin-card p { margin: 0; }
+.signin-card label { display: flex; flex-direction: column; gap: 4px; color: #4a5768; }

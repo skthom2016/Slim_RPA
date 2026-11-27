@@ -1,0 +1,27 @@
+{
+  "id": "finance-a2-payment-file",
+  "name": "Finance A2: Approved Bills to Bank Payment File",
+  "version": "1.0.0",
+  "params": {
+    "paymentDate": ""
+  },
+  "segments": [
+    {
+      "name": "Build the bank payment file",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Ask the finance service to build the bank payment file from the bills in bills/approved (one line per payee, control count and total) and move the paid bills to bills/paid. paymentDate empty means every approved bill. It replies with a message and logs each payee to this run.",
+          "parameters": {
+            "url": "http://127.0.0.1:5095/payrun/start",
+            "body": "{\"paymentDate\":\"${param.paymentDate}\"}",
+            "timeoutMs": "120000",
+            "storeAs": "a2"
+          }
+        }
+      ]
+    }
+  ]
+}

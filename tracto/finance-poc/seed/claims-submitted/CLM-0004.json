@@ -1,0 +1,10 @@
+{
+  "claimId": "CLM-0004",
+  "employeeId": "E1077",
+  "employeeName": "Tom Reed",
+  "submittedAt": "2026-11-25T14:20:00+08:00",
+  "items": [
+    { "date": "2026-11-24", "category": "Local travel", "amount": 31.60, "description": "Train to partner meeting" },
+    { "date": "2026-11-24", "category": "Meals", "amount": 18.50, "description": "Lunch with partner" }
+  ]
+}

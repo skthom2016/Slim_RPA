@@ -1,0 +1,10 @@
+{
+  "claimId": "CLM-0002",
+  "employeeId": "E1077",
+  "employeeName": "Tom Reed",
+  "submittedAt": "2026-11-24T11:40:00+08:00",
+  "items": [
+    { "date": "2026-11-21", "category": "Local travel", "amount": 23.40, "description": "Train fare" },
+    { "date": "2026-11-22", "category": "Taxi (overseas)", "amount": 55.00, "description": "Taxi from airport" }
+  ]
+}

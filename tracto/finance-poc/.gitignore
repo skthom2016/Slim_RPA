@@ -1,0 +1,5 @@
+mock-app/node_modules/
+mock-app/dist/
+poc-data/
+finance-service/.env
+finance-service/*.exe

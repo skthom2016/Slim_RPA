@@ -1,0 +1,11 @@
+{
+  "claimId": "CLM-0001",
+  "employeeId": "E1042",
+  "employeeName": "Priya Nair",
+  "submittedAt": "2026-11-24T09:12:00+08:00",
+  "items": [
+    { "date": "2026-11-18", "category": "Local travel", "amount": 42.50, "description": "Taxi to client meeting" },
+    { "date": "2026-11-19", "category": "Meals", "amount": 86.00, "description": "Lunch with volunteers" },
+    { "date": "2026-11-20", "category": "Office supplies", "amount": 64.90, "description": "Printer cartridges" }
+  ]
+}
