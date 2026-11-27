@@ -37,7 +37,7 @@ if (args.Length > 0 && args[0].Equals("--login", StringComparison.OrdinalIgnoreC
 var runLogSink = new RunLogSink();
 
 builder.Logging.ClearProviders();
-// One line per entry, with the run's credential values masked wherever they would be printed.
+// One line per entry, with the run's secret values masked wherever they would be printed.
 builder.Logging.AddConsole(o => o.FormatterName = MaskingConsoleFormatter.FormatterName);
 builder.Logging.AddConsoleFormatter<MaskingConsoleFormatter, Microsoft.Extensions.Logging.Console.ConsoleFormatterOptions>();
 builder.Logging.AddProvider(new RunLogForwarder(runLogSink));

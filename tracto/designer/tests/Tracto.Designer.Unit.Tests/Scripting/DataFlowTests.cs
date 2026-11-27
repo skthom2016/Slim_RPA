@@ -114,11 +114,11 @@ public class DataFlowTests
     }
 
     [Fact]
-    public void Credential_And_Setting_References_Always_Resolve()
+    public void Env_References_Always_Resolve()
     {
         var script = BingToNotepad();
         script.Segments[1].Steps[0].Parameters["text"] =
-            "${credential:givewell-portal.username} ${credential:${param.site}.password} ${setting:portal-url}";
+            "${env:ACME_USERNAME} ${env:${param.site}_PASSWORD} ${env:PORTAL_URL}";
 
         DataFlow.UnresolvedIn(script, script.Segments[1], script.Segments[1].Steps[0]).Should().BeEmpty();
     }

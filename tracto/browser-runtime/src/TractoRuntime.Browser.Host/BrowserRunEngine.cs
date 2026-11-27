@@ -105,26 +105,20 @@ public sealed partial class BrowserRunEngine(
             return new RunOutcome("Failed", "VALIDATION", "Artifact is not valid JSON.", steps, outputs);
         }
 
-        // ── 2b. Credentials and settings the script reads ────────────────────
+        // ── 2b. Variables the script reads ────────────────────
         // Fetched before the browser opens, so a refused or missing one fails the run at once and
-        // names the credential. They live in memory for this run only.
+        // names the variable. They live in memory for this run only.
         var secrets = new RunSecrets();
         try
         {
             var paramVars = lease.Params.ToDictionary(p => "param." + p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
-            var (credNames, settingNames) = RunSecrets.CollectNames(
+            var envNames = RunSecrets.CollectNames(
                 plan.Select(p => (p.StepId, (IReadOnlyDictionary<string, string?>)p.Flat.Parameters)), paramVars);
-            if (credNames.Count > 0 || settingNames.Count > 0)
+            if (envNames.Count > 0)
             {
-                _log.LogInformation("Run {RunId}: reading {Credentials} credential(s) [{CredentialNames}] and {Settings} setting(s) [{SettingNames}] from the Orchestrator.",
-                    lease.RunId, credNames.Count, string.Join(", ", credNames), settingNames.Count, string.Join(", ", settingNames));
-                var creds = credNames.Count > 0
-                    ? await orchestrator.GetCredentialsAsync(lease, options.WorkerId, credNames, ct).ConfigureAwait(false)
-                    : new Dictionary<string, CredentialValues>();
-                var settings = settingNames.Count > 0
-                    ? await orchestrator.GetSettingsAsync(lease, options.WorkerId, settingNames, ct).ConfigureAwait(false)
-                    : new Dictionary<string, string>();
-                secrets.Load(creds, settings);
+                _log.LogInformation("Run {RunId}: reading {Count} variable(s) [{Names}] from the Orchestrator.",
+                    lease.RunId, envNames.Count, string.Join(", ", envNames));
+                secrets.Load(await orchestrator.GetEnvAsync(lease, options.WorkerId, envNames, ct).ConfigureAwait(false));
                 SecretMask.Set(secrets.MaskValues());
             }
         }
@@ -140,8 +134,8 @@ public sealed partial class BrowserRunEngine(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log.LogError(ex, "Run {RunId}: could not read credentials or settings.", lease.RunId);
-            return new RunOutcome("Failed", "ENVIRONMENT", "Could not read credentials or settings from the Orchestrator.", steps, outputs);
+            _log.LogError(ex, "Run {RunId}: could not read variables.", lease.RunId);
+            return new RunOutcome("Failed", "ENVIRONMENT", "Could not read variables from the Orchestrator.", steps, outputs);
         }
 
         // The script may set its own mode; otherwise the host's own setting applies. How long
@@ -250,7 +244,7 @@ public sealed partial class BrowserRunEngine(
                 ct.ThrowIfCancellationRequested();
                 SeedBuiltIns(vars);
 
-                // Credential and setting references become stand-ins first, so that expanding the
+                // Variable references become stand-ins first, so that expanding the
                 // other variables (and ${secret:...}) never touches the real values.
                 var secretValues = new List<string>();
                 var forExpansion = secrets.IsEmpty ? flat.Parameters : secrets.Protect(flat.Parameters, vars, secretValues);
@@ -288,7 +282,7 @@ public sealed partial class BrowserRunEngine(
                     result = new ActionResult
                     {
                         Succeeded = false, ErrorCategory = ErrorCategory.VALIDATION, DetailCode = "CREDENTIAL_IN_OUTPUT",
-                        ErrorMessage = "the step's output would hold a password or one-time code, so it is not stored"
+                        ErrorMessage = "the step's output would hold a secret value, so it is not stored"
                     };
                 }
 

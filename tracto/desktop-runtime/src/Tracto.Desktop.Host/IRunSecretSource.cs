@@ -3,17 +3,13 @@ using Tracto.Desktop.Protocol;
 
 namespace Tracto.Desktop.Host;
 
-/// <summary>Where a run gets the credentials and settings its script reads.</summary>
+/// <summary>Where a run gets the environment variables its script reads.</summary>
 internal interface IRunSecretSource
 {
     /// <summary>
-    /// The credentials a running job reads. Throws <see cref="CredentialRefusedException"/> when the
-    /// Orchestrator refuses (the message names the credential at fault).
+    /// The variables a running job reads, in one call. Throws <see cref="CredentialRefusedException"/>
+    /// when the Orchestrator refuses (the message names the variable at fault).
     /// </summary>
-    Task<IReadOnlyDictionary<string, CredentialValues>> GetCredentialsAsync(
-        string runId, IReadOnlyCollection<string> names, CancellationToken ct);
-
-    /// <summary>The settings a running job reads, under the same checks.</summary>
-    Task<IReadOnlyDictionary<string, string>> GetSettingsAsync(
+    Task<IReadOnlyDictionary<string, EnvValue>> GetEnvAsync(
         string runId, IReadOnlyCollection<string> names, CancellationToken ct);
 }

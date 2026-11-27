@@ -47,36 +47,23 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer, IRunSecretSo
         _workerId = workerId;
     }
 
-    // ── Credentials and settings for a run ────────────────────────────────────
+    // ── Environment variables for a run ────────────────────────────────────
 
-    public async Task<IReadOnlyDictionary<string, CredentialValues>> GetCredentialsAsync(
+    public async Task<IReadOnlyDictionary<string, EnvValue>> GetEnvAsync(
         string runId, IReadOnlyCollection<string> names, CancellationToken ct)
     {
-        var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/credentials", new { workerId = _workerId, names }, JsonOpts, ct);
-        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "credentials", ct);
+        var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/env", new { workerId = _workerId, names }, JsonOpts, ct);
+        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "variables", ct);
 
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        var result = new Dictionary<string, CredentialValues>(StringComparer.Ordinal);
-        if (doc.RootElement.TryGetProperty("credentials", out var creds))
-            foreach (var c in creds.EnumerateObject())
+        var result = new Dictionary<string, EnvValue>(StringComparer.Ordinal);
+        if (doc.RootElement.TryGetProperty("values", out var values))
+            foreach (var v in values.EnumerateObject())
             {
-                string? Field(string n) => c.Value.TryGetProperty(n, out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() : null;
-                result[c.Name] = new CredentialValues(Field("username") ?? "", Field("password") ?? "", Field("totp"));
+                var value = v.Value.TryGetProperty("value", out var x) && x.ValueKind == JsonValueKind.String ? x.GetString() : null;
+                var secret = v.Value.TryGetProperty("secret", out var sx) && sx.ValueKind == JsonValueKind.True;
+                result[v.Name] = new EnvValue(value ?? "", secret);
             }
-        return result;
-    }
-
-    public async Task<IReadOnlyDictionary<string, string>> GetSettingsAsync(
-        string runId, IReadOnlyCollection<string> names, CancellationToken ct)
-    {
-        var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/settings", new { workerId = _workerId, names }, JsonOpts, ct);
-        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "settings", ct);
-
-        using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (doc.RootElement.TryGetProperty("settings", out var settings))
-            foreach (var s in settings.EnumerateObject())
-                result[s.Name] = s.Value.GetString() ?? "";
         return result;
     }
 
@@ -87,6 +74,8 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer, IRunSecretSo
         {
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
             if (doc.RootElement.TryGetProperty("message", out var m)) message = m.GetString();
+            else if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.Object &&
+                     e.TryGetProperty("message", out var em)) message = em.GetString();
         }
         catch (JsonException) { /* not JSON */ }
         return new CredentialRefusedException(message ?? $"The Orchestrator refused the {what} ({(int)resp.StatusCode})");

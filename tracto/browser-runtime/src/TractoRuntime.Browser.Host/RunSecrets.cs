@@ -6,61 +6,42 @@ using Microsoft.Extensions.Logging.Console;
 
 namespace TractoRuntime.Browser.Host;
 
-/// <summary>One stored credential as the Orchestrator hands it to a run.</summary>
-public sealed record CredentialValues(string Username, string Password, string? Totp);
+/// <summary>One environment variable as the Orchestrator hands it to a run.</summary>
+public sealed record EnvValue(string Value, bool Secret);
 
-/// <summary>The Orchestrator refused to give a run a credential or setting.</summary>
+/// <summary>The Orchestrator refused to give a run a variable.</summary>
 public sealed class CredentialRefusedException(string message) : Exception(message);
 
 /// <summary>
-/// The credentials and settings one run reads: <c>${credential:NAME.username|password|totp}</c> and
-/// <c>${setting:NAME}</c>. They are fetched from the Orchestrator before the browser opens, held in
-/// memory for this run only, and never written to disk.
+/// The environment variables one run reads: <c>${env:NAME}</c>. They are fetched from the
+/// Orchestrator before the browser opens, held in memory for this run only, and never written to
+/// disk. A value flagged secret is masked and may not become an output.
 /// </summary>
 public sealed class RunSecrets
 {
     // A name may hold ${...} parts (a job parameter), so the pattern lets a name contain them.
-    private static readonly Regex CredRef = new(
-        @"\$\{credential:((?:[^${}]|\$\{[^}]*\})+)\.(username|password|totp)\}", RegexOptions.Compiled);
-    private static readonly Regex SettingRef = new(
-        @"\$\{setting:((?:[^${}]|\$\{[^}]*\})+)\}", RegexOptions.Compiled);
+    private static readonly Regex EnvRef = new(
+        @"\$\{env:((?:[^${}]|\$\{[^}]*\})+)\}", RegexOptions.Compiled);
     private static readonly Regex Part = new(@"\$\{([^}]*)\}", RegexOptions.Compiled);
 
-    // Stands in for a value while the rest of a parameter is expanded, so a password that happens to
+    // Stands in for a value while the rest of a parameter is expanded, so a value that happens to
     // contain ${...} is never expanded itself.
-    private const char Open = '', Close = '';
+    private const char Open = '\uE000', Close = '\uE001';
 
-    public IReadOnlyDictionary<string, CredentialValues> Credentials { get; private set; } =
-        new Dictionary<string, CredentialValues>();
-    public IReadOnlyDictionary<string, string> Settings { get; private set; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, EnvValue> Values { get; private set; } = new Dictionary<string, EnvValue>();
 
-    public bool IsEmpty => Credentials.Count == 0 && Settings.Count == 0;
+    public bool IsEmpty => Values.Count == 0;
 
-    public void Load(IReadOnlyDictionary<string, CredentialValues> credentials, IReadOnlyDictionary<string, string> settings)
-    {
-        Credentials = credentials;
-        Settings = settings;
-    }
+    public void Load(IReadOnlyDictionary<string, EnvValue> values) => Values = values;
 
-    /// <summary>Every value that must not reach a log, an output or a result.</summary>
-    public IEnumerable<string> MaskValues()
-    {
-        foreach (var c in Credentials.Values)
-        {
-            yield return c.Username;
-            yield return c.Password;
-            if (!string.IsNullOrEmpty(c.Totp)) yield return c.Totp;
-        }
-    }
+    /// <summary>Every value that must not reach a log, an output or a result (the secret ones).</summary>
+    public IEnumerable<string> MaskValues() => SecretOnly();
 
-    /// <summary>The passwords and codes only: what a stored output must never hold.</summary>
+    /// <summary>The secret values only: what a stored output must never hold.</summary>
     private IEnumerable<string> SecretOnly()
     {
-        foreach (var c in Credentials.Values)
-        {
-            yield return c.Password;
-            if (!string.IsNullOrEmpty(c.Totp)) yield return c.Totp;
-        }
+        foreach (var v in Values.Values)
+            if (v.Secret && !string.IsNullOrEmpty(v.Value)) yield return v.Value;
     }
 
     // ── names ────────────────────────────────────────────────────────────────
@@ -70,42 +51,39 @@ public sealed class RunSecrets
         Part.Replace(name, m => vars.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
 
     /// <summary>
-    /// The credential and setting names the script reads, after job parameters are filled in.
-    /// A name that still holds a ${...} part (an output of an earlier step) is refused: the
-    /// Orchestrator can only check names that are known when the run starts.
+    /// The variable names the script reads, after job parameters are filled in. A name that still
+    /// holds a ${...} part (an output of an earlier step) is refused: the Orchestrator can only
+    /// check names that are known when the run starts.
     /// </summary>
-    public static (SortedSet<string> Credentials, SortedSet<string> Settings) CollectNames(
+    public static SortedSet<string> CollectNames(
         IEnumerable<(string StepId, IReadOnlyDictionary<string, string?> Parameters)> steps,
         IReadOnlyDictionary<string, string> vars)
     {
-        var creds = new SortedSet<string>(StringComparer.Ordinal);
-        var settings = new SortedSet<string>(StringComparer.Ordinal);
+        var names = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var (stepId, parameters) in steps)
         {
             foreach (var value in parameters.Values)
             {
                 if (value is null || !value.Contains("${", StringComparison.Ordinal)) continue;
-                foreach (Match m in CredRef.Matches(value))
-                    creds.Add(Checked(stepId, ExpandName(m.Groups[1].Value, vars)));
-                foreach (Match m in SettingRef.Matches(value))
-                    settings.Add(Checked(stepId, ExpandName(m.Groups[1].Value, vars)));
+                foreach (Match m in EnvRef.Matches(value))
+                    names.Add(Checked(stepId, ExpandName(m.Groups[1].Value, vars)));
             }
         }
-        return (creds, settings);
+        return names;
     }
 
     private static string Checked(string stepId, string name)
     {
         if (name.Contains("${", StringComparison.Ordinal))
             throw new ScriptValidationException(
-                $"{stepId}: a credential or setting name can only be written out or built from job parameters, got '{name}'.");
+                $"{stepId}: a variable name can only be written out or built from job parameters, got '{name}'.");
         return name;
     }
 
     // ── substituting ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Step 1 of 2: replaces each credential and setting reference with a stand-in, so that the
+    /// Step 1 of 2: replaces each variable reference with a stand-in, so that the
     /// ordinary variable expansion that follows cannot touch the real values.
     /// </summary>
     public Dictionary<string, string?> Protect(
@@ -117,27 +95,12 @@ public sealed class RunSecrets
             var v = result[key];
             if (v is null || !v.Contains("${", StringComparison.Ordinal)) continue;
 
-            v = CredRef.Replace(v, m =>
+            v = EnvRef.Replace(v, m =>
             {
                 var name = ExpandName(m.Groups[1].Value, vars);
-                if (!Credentials.TryGetValue(name, out var c))
-                    throw new ScriptValidationException($"credential '{name}' was not given to this run");
-                var field = m.Groups[2].Value switch
-                {
-                    "username" => c.Username,
-                    "password" => c.Password,
-                    _ => c.Totp ?? throw new ScriptValidationException(
-                        $"credential '{name}' has no one-time-code key, so ${{credential:{name}.totp}} cannot be used")
-                };
-                values.Add(field);
-                return $"{Open}{values.Count - 1}{Close}";
-            });
-            v = SettingRef.Replace(v, m =>
-            {
-                var name = ExpandName(m.Groups[1].Value, vars);
-                if (!Settings.TryGetValue(name, out var s))
-                    throw new ScriptValidationException($"setting '{name}' was not given to this run");
-                values.Add(s);
+                if (!Values.TryGetValue(name, out var e))
+                    throw new ScriptValidationException($"variable '{name}' was not given to this run");
+                values.Add(e.Value);
                 return $"{Open}{values.Count - 1}{Close}";
             });
             result[key] = v;
@@ -160,7 +123,7 @@ public sealed class RunSecrets
     // ── outputs ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// True when text holds a credential's password or one-time code: such a value must not become
+    /// True when text holds a secret variable's value: such a value must not become
     /// a stored output of the run.
     /// </summary>
     public bool HoldsSecret(string? text)
@@ -173,7 +136,7 @@ public sealed class RunSecrets
 }
 
 /// <summary>
-/// The values of the current run's credentials, replaced by <c>●●●●</c> wherever the worker writes
+/// The secret values of the current run, replaced by <c>●●●●</c> wherever the worker writes
 /// text that leaves the run: its console, the run log, the outputs and the result. A run is the
 /// only thing the worker does at a time, so one set of values is enough.
 /// </summary>
@@ -183,7 +146,7 @@ public static class SecretMask
 
     /// <summary>
     /// Values shorter than this are not replaced: masking a two letter value would blank out
-    /// ordinary words. Credentials are expected to be longer.
+    /// ordinary words. Secrets are expected to be longer.
     /// </summary>
     public const int MinLength = 4;
 
@@ -213,7 +176,7 @@ public static class SecretMask
 }
 
 /// <summary>
-/// The console format the worker already used (one line per entry), with the run's credential
+/// The console format the worker already used (one line per entry), with the run's secret
 /// values masked.
 /// </summary>
 public sealed class MaskingConsoleFormatter() : ConsoleFormatter(FormatterName)

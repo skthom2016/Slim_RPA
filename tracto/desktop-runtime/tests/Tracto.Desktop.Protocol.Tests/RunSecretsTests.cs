@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Tracto.Desktop.Protocol.Tests;
 
-/// <summary>Which credential and setting names a script reads, how references are replaced, and the mask.</summary>
+/// <summary>Which variable names a script reads, how references are replaced, and the mask.</summary>
 [Collection("SecretMask")]
 public sealed class RunSecretsTests : IDisposable
 {
@@ -23,32 +23,36 @@ public sealed class RunSecretsTests : IDisposable
     private static RunSecrets Loaded(string password = Pass)
     {
         var s = new RunSecrets();
-        s.Load(new Dictionary<string, CredentialValues> { ["site-a"] = new(User, password, "123456") },
-               new Dictionary<string, string> { ["portal-url"] = "https://portal.example.com" });
+        s.Load(new Dictionary<string, EnvValue>
+        {
+            ["SITE_A_USERNAME"] = new(User, false),
+            ["SITE_A_PASSWORD"] = new(password, true),
+            ["SITE_A_CODE"] = new("123456", true),
+            ["PORTAL_URL"] = new("https://portal.example.com", false),
+        });
         return s;
     }
 
     [Fact]
     public void Names_written_out_and_names_built_from_job_parameters_are_collected()
     {
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "bank.hdfc" };
-        var (creds, settings) = RunSecrets.CollectNames(
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "SITE1" };
+        var names = RunSecrets.CollectNames(
         [
-            ("step.1", P(("value", "${credential:givewell-portal.username}"))),
-            ("step.2", P(("value", "${credential:givewell-portal.password}"))),
-            ("step.3", P(("value", "${credential:${param.site}.password}"), ("url", "${setting:portal-url}/x"))),
+            ("step.1", P(("value", "${env:ACME_USERNAME}"))),
+            ("step.2", P(("value", "${env:ACME_PASSWORD}"))),
+            ("step.3", P(("value", "${env:${param.site}_PASSWORD}"), ("url", "${env:PORTAL_URL}/x"))),
             ("step.4", P(("value", "plain text"))),
         ], vars);
 
-        creds.Should().Equal("bank.hdfc", "givewell-portal");
-        settings.Should().Equal("portal-url");
+        names.Should().Equal("ACME_PASSWORD", "ACME_USERNAME", "PORTAL_URL", "SITE1_PASSWORD");
     }
 
     [Fact]
     public void A_name_built_from_an_earlier_steps_output_is_refused()
     {
         var act = () => RunSecrets.CollectNames(
-            [("step.2", P(("value", "${credential:${first.value}.password}")))], new Dictionary<string, string>());
+            [("step.2", P(("value", "${env:${first.value}_PASSWORD}")))], new Dictionary<string, string>());
         act.Should().Throw<CredentialScriptException>().WithMessage("*step.2*job parameters*");
     }
 
@@ -58,10 +62,10 @@ public sealed class RunSecretsTests : IDisposable
         var secrets = Loaded();
         var values = new List<string>();
         var p = secrets.Protect(O(
-            ("a", "${credential:site-a.username}"),
-            ("b", "pw=${credential:site-a.password}!"),
-            ("c", "${credential:site-a.totp}"),
-            ("d", "${setting:portal-url}/login")), new Dictionary<string, string>(), values);
+            ("a", "${env:SITE_A_USERNAME}"),
+            ("b", "pw=${env:SITE_A_PASSWORD}!"),
+            ("c", "${env:SITE_A_CODE}"),
+            ("d", "${env:PORTAL_URL}/login")), new Dictionary<string, string>(), values);
 
         foreach (var v in p.Values.Cast<string>())
         {
@@ -81,7 +85,7 @@ public sealed class RunSecretsTests : IDisposable
     {
         const string tricky = "P${now.date}x${secret:Y}!";
         var values = new List<string>();
-        var p = Loaded(tricky).Protect(O(("v", "${credential:site-a.password}")), new Dictionary<string, string>(), values);
+        var p = Loaded(tricky).Protect(O(("v", "${env:SITE_A_PASSWORD}")), new Dictionary<string, string>(), values);
         p["v"]!.ToString().Should().NotContain("${");
         RunSecrets.Reveal(p, values);
         p["v"].Should().Be(tricky);
@@ -97,12 +101,10 @@ public sealed class RunSecretsTests : IDisposable
     }
 
     [Fact]
-    public void A_one_time_code_is_refused_when_the_credential_has_no_key()
+    public void A_variable_the_orchestrator_did_not_give_is_a_script_error()
     {
-        var s = new RunSecrets();
-        s.Load(new Dictionary<string, CredentialValues> { ["site-a"] = new(User, Pass, null) }, new Dictionary<string, string>());
-        var act = () => s.Protect(O(("v", "${credential:site-a.totp}")), new Dictionary<string, string>(), []);
-        act.Should().Throw<CredentialScriptException>().WithMessage("*no one-time-code key*");
+        var act = () => Loaded().Protect(O(("v", "${env:NOT_THERE}")), new Dictionary<string, string>(), []);
+        act.Should().Throw<CredentialScriptException>().WithMessage("*NOT_THERE*not given*");
     }
 
     [Fact]
@@ -124,12 +126,13 @@ public sealed class RunSecretsTests : IDisposable
     }
 
     [Fact]
-    public void Only_passwords_and_codes_count_as_secrets_for_outputs()
+    public void Only_secret_values_are_masked_and_only_they_count_for_outputs()
     {
         var s = Loaded();
         s.HoldsSecret("the password is " + Pass).Should().BeTrue();
         s.HoldsSecret("code 123456 here").Should().BeTrue();
-        s.HoldsSecret(User).Should().BeFalse("a username may be read from a page and kept");
+        s.HoldsSecret(User).Should().BeFalse("a plain value may be read from a page and kept");
+        s.MaskValues().Should().BeEquivalentTo(Pass, "123456");
         s.HoldsSecret("nothing").Should().BeFalse();
         s.HoldsSecret(null).Should().BeFalse();
     }

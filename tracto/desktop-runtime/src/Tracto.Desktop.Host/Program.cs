@@ -35,7 +35,7 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureLogging(b =>
     {
         // The default providers print to the console and the Windows event log as they are; the
-        // console here masks the run's credential values, and the event log is not used.
+        // console here masks the run's secret values, and the event log is not used.
         b.ClearProviders();
         b.SetMinimumLevel(LogLevel.Information);
         b.AddConsole(o => o.FormatterName = MaskingConsoleFormatter.FormatterName);
@@ -220,7 +220,7 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
                 try
                 {
-                    // Nothing a credential was used for may come back as an output.
+                    // Nothing a secret was used for may come back as an output.
                     foreach (var k in outputs.Keys.ToList()) outputs[k] = SecretMask.Apply(outputs[k]);
                     _orch.SetOutputs(job.LeaseId, outputs);
                     await submitter.SubmitAsync(
@@ -239,7 +239,7 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
             finally
             {
                 var entries = _logSink.EndRunAndDrain();
-                SecretMask.Clear(); // the run's credentials are forgotten
+                SecretMask.Clear(); // the run's secrets are forgotten
                 await _orch.SendRunLogsAsync(job.RunId, job.AttemptId, _cfg.WorkerId, entries,
                     CancellationToken.None);
             }

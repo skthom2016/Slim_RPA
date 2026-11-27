@@ -15,8 +15,8 @@ using Xunit;
 namespace Tracto.Desktop.Host.Tests;
 
 /// <summary>
-/// Credential and setting references in desktop steps: what the engine asks the Orchestrator for,
-/// what the handlers receive, and that no credential value leaves the run in a log, an error or an
+/// <c>${env:NAME}</c> references in desktop steps: what the engine asks the Orchestrator for,
+/// what the handlers receive, and that no secret value leaves the run in a log, an error or an
 /// output. The handlers here only record; nothing touches the desktop.
 /// </summary>
 public sealed class CredentialRunTests : IDisposable
@@ -41,26 +41,22 @@ public sealed class CredentialRunTests : IDisposable
 
     private sealed class FakeSource : IRunSecretSource
     {
-        public List<string[]> CredentialRequests { get; } = [];
-        public List<string[]> SettingRequests { get; } = [];
+        public List<string[]> EnvRequests { get; } = [];
         public string? Refusal { get; set; }
         public string Password { get; set; } = Pass;
 
-        public Task<IReadOnlyDictionary<string, CredentialValues>> GetCredentialsAsync(
-            string runId, IReadOnlyCollection<string> names, CancellationToken ct)
-        {
-            CredentialRequests.Add(names.ToArray());
-            if (Refusal is not null) throw new CredentialRefusedException(Refusal);
-            IReadOnlyDictionary<string, CredentialValues> r =
-                names.ToDictionary(n => n, _ => new CredentialValues(User, Password, "123456"));
-            return Task.FromResult(r);
-        }
+        private EnvValue Resolve(string name) =>
+            name.EndsWith("_PASSWORD", StringComparison.Ordinal) ? new EnvValue(Password, true)
+            : name.EndsWith("_CODE", StringComparison.Ordinal) ? new EnvValue("123456", true)
+            : name.EndsWith("_USERNAME", StringComparison.Ordinal) ? new EnvValue(User, false)
+            : new EnvValue("https://portal.example.com", false);
 
-        public Task<IReadOnlyDictionary<string, string>> GetSettingsAsync(
+        public Task<IReadOnlyDictionary<string, EnvValue>> GetEnvAsync(
             string runId, IReadOnlyCollection<string> names, CancellationToken ct)
         {
-            SettingRequests.Add(names.ToArray());
-            IReadOnlyDictionary<string, string> r = names.ToDictionary(n => n, _ => "https://portal.example.com");
+            EnvRequests.Add(names.ToArray());
+            if (Refusal is not null) throw new CredentialRefusedException(Refusal);
+            IReadOnlyDictionary<string, EnvValue> r = names.ToDictionary(n => n, Resolve);
             return Task.FromResult(r);
         }
     }
@@ -121,29 +117,29 @@ public sealed class CredentialRunTests : IDisposable
         var type = new Recording("type");
         var source = new FakeSource();
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.username}\"}",
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"pw=${credential:site-a.password}!\"}",
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.totp}\"}",
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${setting:portal-url}/login\"}"), source, [type]);
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_USERNAME}\"}",
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"pw=${env:SITE_A_PASSWORD}!\"}",
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_CODE}\"}",
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:PORTAL_URL}/login\"}"), source, [type]);
 
         r.State.Should().Be(RunState.Succeeded);
         type.Inputs.Select(i => i["value"]).Should().Equal(User, "pw=" + Pass + "!", "123456", "https://portal.example.com/login");
-        source.CredentialRequests.Should().ContainSingle().Which.Should().Equal("site-a");
-        source.SettingRequests.Should().ContainSingle().Which.Should().Equal("portal-url");
-        Everything(r).Should().NotContain(Pass).And.NotContain(User);
+        source.EnvRequests.Should().ContainSingle().Which.Should()
+            .Equal("PORTAL_URL", "SITE_A_CODE", "SITE_A_PASSWORD", "SITE_A_USERNAME");
+        Everything(r).Should().NotContain(Pass).And.NotContain("123456");
     }
 
     [Fact]
-    public async Task A_credential_name_can_be_built_from_a_job_parameter()
+    public async Task A_variable_name_can_be_built_from_a_job_parameter()
     {
         var type = new Recording("type");
         var source = new FakeSource();
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:${param.site}.username}\"}"),
-            source, [type], new Dictionary<string, string> { ["site"] = "bank.hdfc" });
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:${param.site}_USERNAME}\"}"),
+            source, [type], new Dictionary<string, string> { ["site"] = "SITE1" });
 
         r.State.Should().Be(RunState.Succeeded);
-        source.CredentialRequests.Should().ContainSingle().Which.Should().Equal("bank.hdfc");
+        source.EnvRequests.Should().ContainSingle().Which.Should().Equal("SITE1_USERNAME");
         type.Inputs.Single()["value"].Should().Be(User);
     }
 
@@ -153,7 +149,7 @@ public sealed class CredentialRunTests : IDisposable
         const string tricky = "P${now.date}x${param.site}!";
         var type = new Recording("type");
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.password}\"}"),
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_PASSWORD}\"}"),
             new FakeSource { Password = tricky }, [type], new Dictionary<string, string> { ["site"] = "zzz" });
 
         r.State.Should().Be(RunState.Succeeded);
@@ -161,12 +157,12 @@ public sealed class CredentialRunTests : IDisposable
     }
 
     [Fact]
-    public async Task A_step_that_would_store_a_password_as_an_output_fails()
+    public async Task A_step_that_would_store_a_secret_as_an_output_fails()
     {
         var source = new FakeSource();
         var echo = new Recording("clipboard.get", ctx => ActionResult.Ok(new Dictionary<string, object?> { ["text"] = ctx.GetString("echo") }));
         var r = await RunAsync(Envelope(
-            "\"Action\":\"clipboard.get\",\"Parameters\":{\"echo\":\"${credential:site-a.password}\",\"storeAs\":\"leak\"}"),
+            "\"Action\":\"clipboard.get\",\"Parameters\":{\"echo\":\"${env:SITE_A_PASSWORD}\",\"storeAs\":\"leak\"}"),
             source, [echo]);
 
         r.State.Should().Be(RunState.Failed);
@@ -176,11 +172,23 @@ public sealed class CredentialRunTests : IDisposable
     }
 
     [Fact]
+    public async Task A_plain_value_may_be_kept_as_an_output()
+    {
+        var echo = new Recording("clipboard.get", ctx => ActionResult.Ok(new Dictionary<string, object?> { ["text"] = ctx.GetString("echo") }));
+        var r = await RunAsync(Envelope(
+            "\"Action\":\"clipboard.get\",\"Parameters\":{\"echo\":\"${env:SITE_A_USERNAME}\",\"storeAs\":\"who\"}"),
+            new FakeSource(), [echo]);
+
+        r.State.Should().Be(RunState.Succeeded);
+        r.Outputs["who.text"].Should().Be(User);
+    }
+
+    [Fact]
     public async Task A_step_without_storeAs_may_pass_a_password_to_its_handler()
     {
         var echo = new Recording("clipboard.get", ctx => ActionResult.Ok(new Dictionary<string, object?> { ["text"] = ctx.GetString("echo") }));
         var r = await RunAsync(Envelope(
-            "\"Action\":\"clipboard.get\",\"Parameters\":{\"echo\":\"${credential:site-a.password}\"}"),
+            "\"Action\":\"clipboard.get\",\"Parameters\":{\"echo\":\"${env:SITE_A_PASSWORD}\"}"),
             new FakeSource(), [echo]);
 
         r.State.Should().Be(RunState.Succeeded);
@@ -188,19 +196,19 @@ public sealed class CredentialRunTests : IDisposable
     }
 
     [Fact]
-    public async Task A_refused_credential_stops_the_run_before_the_first_step()
+    public async Task A_refused_variable_stops_the_run_before_the_first_step()
     {
         var type = new Recording("type");
-        var source = new FakeSource { Refusal = "Credential site-a: the script may not read the credentials of group finance" };
+        var source = new FakeSource { Refusal = "Variable SITE_A_PASSWORD: the script may not read the variables of group finance" };
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.password}\"}"), source, [type]);
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_PASSWORD}\"}"), source, [type]);
 
         r.State.Should().Be(RunState.Failed);
         type.Inputs.Should().BeEmpty("no step ran");
         var step = r.Steps.Should().ContainSingle().Subject;
         step.StepId.Should().Be("credentials");
         step.ErrorCategory.Should().Be(ErrorCategory.PolicyDenied);
-        step.ErrorDetail.Should().Contain("site-a").And.Contain("finance");
+        step.ErrorDetail.Should().Contain("SITE_A_PASSWORD").And.Contain("finance");
     }
 
     [Fact]
@@ -209,10 +217,10 @@ public sealed class CredentialRunTests : IDisposable
         var type = new Recording("type");
         var source = new FakeSource();
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:${first.value}.password}\"}"), source, [type]);
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:${first.value}_PASSWORD}\"}"), source, [type]);
 
         r.State.Should().Be(RunState.Failed);
-        source.CredentialRequests.Should().BeEmpty();
+        source.EnvRequests.Should().BeEmpty();
         r.Steps.Single().ErrorDetail.Should().Contain("job parameters");
     }
 
@@ -221,7 +229,7 @@ public sealed class CredentialRunTests : IDisposable
     {
         var failing = new Recording("type", ctx => ActionResult.Fail("EXECUTION_FAILED", "window rejected '" + ctx.GetString("value") + "'"));
         var r = await RunAsync(Envelope(
-            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.password}\"}"), new FakeSource(), [failing]);
+            "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_PASSWORD}\"}"), new FakeSource(), [failing]);
 
         r.State.Should().Be(RunState.Failed);
         r.Steps.Single().ErrorDetail.Should().Contain("●●●●");
@@ -238,25 +246,24 @@ public sealed class CredentialRunTests : IDisposable
             new Dictionary<string, string> { ["x"] = "hello" });
 
         r.State.Should().Be(RunState.Succeeded);
-        source.CredentialRequests.Should().BeEmpty();
-        source.SettingRequests.Should().BeEmpty();
+        source.EnvRequests.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task A_reference_with_no_way_to_read_credentials_fails_clearly()
+    public async Task A_reference_with_no_way_to_read_variables_fails_clearly()
     {
         var sink = new RunLogSink();
         var engine = new ScriptExecutionEngine(
             new ActionDispatcher([new Recording("type")], NullLogger<ActionDispatcher>.Instance),
             new HttpClient(new ArtifactHandler(Envelope(
-                "\"Action\":\"type\",\"Parameters\":{\"value\":\"${credential:site-a.password}\"}"))) { BaseAddress = new Uri("http://o.test/") },
+                "\"Action\":\"type\",\"Parameters\":{\"value\":\"${env:SITE_A_PASSWORD}\"}"))) { BaseAddress = new Uri("http://o.test/") },
             NullLogger<ScriptExecutionEngine>.Instance);
         var job = new JobContext { LeaseId = "l", AttemptId = "a", RunId = "r", ArtifactUrl = "x", ArtifactDigest = "", LeaseDurationMs = 1 };
 
         var (state, steps) = await engine.RunAsync(job, new Dictionary<string, string>(), new Dictionary<string, string>(), CancellationToken.None);
 
         state.Should().Be(RunState.Failed);
-        steps.Single().ErrorDetail.Should().Contain("cannot read credentials");
+        steps.Single().ErrorDetail.Should().Contain("cannot read variables");
         _ = sink;
     }
 }

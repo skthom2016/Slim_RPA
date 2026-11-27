@@ -161,31 +161,25 @@ internal sealed class ScriptExecutionEngine
         if (parameters.Count > 0)
             _log.LogInformation("{Count} param(s): {Names}", parameters.Count, string.Join(", ", parameters.Keys));
 
-        // ── 3b. Credentials and settings the script reads ────────────────────
+        // ── 3b. Variables the script reads ────────────────────
         // Fetched before the first step, so a refused or missing one fails the run at once and names
-        // the credential. They live in memory for this run only.
+        // the variable. They live in memory for this run only.
         var paramVars = parameters.ToDictionary(p => "param." + p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
         var secrets = new RunSecrets();
         var started = DateTimeOffset.UtcNow;
         try
         {
-            var (credNames, settingNames) = RunSecrets.CollectNames(
+            var envNames = RunSecrets.CollectNames(
                 envelope.Script.Steps.Select(s => ($"step.{s.StepNumber}",
                     (IReadOnlyDictionary<string, string?>)(s.Parameters ?? new Dictionary<string, string?>()))),
                 paramVars);
-            if (credNames.Count > 0 || settingNames.Count > 0)
+            if (envNames.Count > 0)
             {
                 if (_secretSource is null)
-                    throw new CredentialScriptException("this worker cannot read credentials or settings from the Orchestrator");
-                _log.LogInformation("Reading {Credentials} credential(s) [{CredentialNames}] and {Settings} setting(s) [{SettingNames}] from the Orchestrator.",
-                    credNames.Count, string.Join(", ", credNames), settingNames.Count, string.Join(", ", settingNames));
-                var creds = credNames.Count > 0
-                    ? await _secretSource.GetCredentialsAsync(job.RunId, credNames, ct)
-                    : new Dictionary<string, CredentialValues>();
-                var settings = settingNames.Count > 0
-                    ? await _secretSource.GetSettingsAsync(job.RunId, settingNames, ct)
-                    : new Dictionary<string, string>();
-                secrets.Load(creds, settings);
+                    throw new CredentialScriptException("this worker cannot read variables from the Orchestrator");
+                _log.LogInformation("Reading {Count} variable(s) [{Names}] from the Orchestrator.",
+                    envNames.Count, string.Join(", ", envNames));
+                secrets.Load(await _secretSource.GetEnvAsync(job.RunId, envNames, ct));
                 SecretMask.Set(secrets.MaskValues());
             }
         }
@@ -199,10 +193,10 @@ internal sealed class ScriptExecutionEngine
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log.LogError(ex, "Could not read credentials or settings from the Orchestrator");
+            _log.LogError(ex, "Could not read variables from the Orchestrator");
             steps.Add(new StepResult("credentials", StepState.Failed, started, DateTimeOffset.UtcNow, 0,
                 ErrorCategory: ErrorCategory.Unknown,
-                ErrorDetail: "Could not read credentials or settings from the Orchestrator."));
+                ErrorDetail: "Could not read variables from the Orchestrator."));
             return (RunState.Failed, steps);
         }
 
@@ -246,7 +240,7 @@ internal sealed class ScriptExecutionEngine
             var rawInputs = (step.Parameters ?? new Dictionary<string, string?>())
                 .ToDictionary(kv => kv.Key, kv => (object?)kv.Value,
                     StringComparer.OrdinalIgnoreCase);
-            // Credential and setting references become stand-ins first, so that expanding the other
+            // Variable references become stand-ins first, so that expanding the other
             // variables never touches the real values; the real values go in afterwards.
             var secretValues = new List<string>();
             Dictionary<string, object?> inputs;
@@ -290,13 +284,13 @@ internal sealed class ScriptExecutionEngine
                 result = ActionResult.Fail("EXECUTION_FAILED", ex.Message);
             }
 
-            // A password or one-time code must not become an output of the run.
+            // A secret value must not become an output of the run.
             if (result.Success && result.Outputs is { Count: > 0 } && !secrets.IsEmpty &&
                 inputs.TryGetValue("storeAs", out var storeAs) && storeAs is string { Length: > 0 } &&
                 result.Outputs.Values.Any(v => secrets.HoldsSecret(v?.ToString())))
             {
                 result = ActionResult.Fail("CONFIGURATION",
-                    "CREDENTIAL_IN_OUTPUT: the step's output would hold a password or one-time code, so it is not stored");
+                    "CREDENTIAL_IN_OUTPUT: the step's output would hold a secret value, so it is not stored");
             }
 
             var completedAt = DateTimeOffset.UtcNow;

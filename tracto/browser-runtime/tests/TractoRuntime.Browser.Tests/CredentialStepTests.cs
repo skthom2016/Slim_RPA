@@ -11,9 +11,8 @@ using TractoRuntime.Browser.Host;
 namespace TractoRuntime.Browser.Tests;
 
 /// <summary>
-/// <c>${credential:NAME.field}</c> and <c>${setting:NAME}</c> in browser steps: which names a script
-/// reads, how values replace the references, and that no credential value leaves the run in a log,
-/// an error message or an output.
+/// <c>${env:NAME}</c> in browser steps: which names a script reads, how values replace the
+/// references, and that no secret value leaves the run in a log, an error message or an output.
 /// </summary>
 public sealed class CredentialStepTests : IDisposable
 {
@@ -38,17 +37,16 @@ public sealed class CredentialStepTests : IDisposable
     [Fact]
     public void Names_written_out_and_names_built_from_job_parameters_are_collected()
     {
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "bank.hdfc" };
-        var (creds, settings) = RunSecrets.CollectNames(
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "SITE1" };
+        var names = RunSecrets.CollectNames(
         [
-            ("step.1", P(("value", "${credential:givewell-portal.username}"))),
-            ("step.2", P(("value", "${credential:givewell-portal.password}"))),
-            ("step.3", P(("value", "${credential:${param.site}.password}"), ("url", "${setting:portal-url}/x"))),
+            ("step.1", P(("value", "${env:ACME_USERNAME}"))),
+            ("step.2", P(("value", "${env:ACME_PASSWORD}"))),
+            ("step.3", P(("value", "${env:${param.site}_PASSWORD}"), ("url", "${env:PORTAL_URL}/x"))),
             ("step.4", P(("value", "plain text"))),
         ], vars);
 
-        creds.Should().Equal("bank.hdfc", "givewell-portal");
-        settings.Should().Equal("portal-url");
+        names.Should().Equal("ACME_PASSWORD", "ACME_USERNAME", "PORTAL_URL", "SITE1_PASSWORD");
     }
 
     [Fact]
@@ -56,18 +54,17 @@ public sealed class CredentialStepTests : IDisposable
     {
         var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var act = () => RunSecrets.CollectNames(
-            [("step.2", P(("value", "${credential:${first.value}.password}")))], vars);
+            [("step.2", P(("value", "${env:${first.value}_PASSWORD}")))], vars);
         act.Should().Throw<ScriptValidationException>().WithMessage("*step.2*job parameters*");
     }
 
     [Fact]
     public void A_script_with_no_references_asks_for_nothing()
     {
-        var (creds, settings) = RunSecrets.CollectNames(
+        var names = RunSecrets.CollectNames(
             [("step.1", P(("value", "${param.x}"), ("url", "https://a.example/${now.date}")))],
             new Dictionary<string, string>());
-        creds.Should().BeEmpty();
-        settings.Should().BeEmpty();
+        names.Should().BeEmpty();
     }
 
     // ── substituting ─────────────────────────────────────────────────────────
@@ -75,8 +72,13 @@ public sealed class CredentialStepTests : IDisposable
     private static RunSecrets Loaded(string password = Pass)
     {
         var s = new RunSecrets();
-        s.Load(new Dictionary<string, CredentialValues> { ["site-a"] = new(User, password, "123456") },
-               new Dictionary<string, string> { ["portal-url"] = "https://portal.example.com" });
+        s.Load(new Dictionary<string, EnvValue>
+        {
+            ["SITE_A_USERNAME"] = new(User, false),
+            ["SITE_A_PASSWORD"] = new(password, true),
+            ["SITE_A_CODE"] = new("123456", true),
+            ["PORTAL_URL"] = new("https://portal.example.com", false),
+        });
         return s;
     }
 
@@ -88,10 +90,10 @@ public sealed class CredentialStepTests : IDisposable
         var values = new List<string>();
 
         var protectedParams = secrets.Protect(P(
-            ("a", "${credential:site-a.username}"),
-            ("b", "pw=${credential:site-a.password}!"),
-            ("c", "${credential:site-a.totp}"),
-            ("d", "${setting:portal-url}/login")), vars, values);
+            ("a", "${env:SITE_A_USERNAME}"),
+            ("b", "pw=${env:SITE_A_PASSWORD}!"),
+            ("c", "${env:SITE_A_CODE}"),
+            ("d", "${env:PORTAL_URL}/login")), vars, values);
 
         // while the rest is expanded, no real value and no ${...} from a value is visible
         foreach (var v in protectedParams.Values)
@@ -113,30 +115,28 @@ public sealed class CredentialStepTests : IDisposable
         const string tricky = "P${now.date}x${secret:Y}!";
         var secrets = Loaded(tricky);
         var values = new List<string>();
-        var p = secrets.Protect(P(("v", "${credential:site-a.password}")), new Dictionary<string, string>(), values);
+        var p = secrets.Protect(P(("v", "${env:SITE_A_PASSWORD}")), new Dictionary<string, string>(), values);
         p["v"].Should().NotContain("${");
         RunSecrets.Reveal(p, values);
         p["v"].Should().Be(tricky);
     }
 
     [Fact]
-    public void A_name_built_from_a_job_parameter_finds_its_credential()
+    public void A_name_built_from_a_job_parameter_finds_its_variable()
     {
         var secrets = Loaded();
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "site-a" };
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["param.site"] = "SITE_A" };
         var values = new List<string>();
-        var p = secrets.Protect(P(("v", "${credential:${param.site}.username}")), vars, values);
+        var p = secrets.Protect(P(("v", "${env:${param.site}_USERNAME}")), vars, values);
         RunSecrets.Reveal(p, values);
         p["v"].Should().Be(User);
     }
 
     [Fact]
-    public void A_one_time_code_is_refused_when_the_credential_has_no_key()
+    public void A_variable_the_orchestrator_did_not_give_is_a_script_error()
     {
-        var s = new RunSecrets();
-        s.Load(new Dictionary<string, CredentialValues> { ["site-a"] = new(User, Pass, null) }, new Dictionary<string, string>());
-        var act = () => s.Protect(P(("v", "${credential:site-a.totp}")), new Dictionary<string, string>(), []);
-        act.Should().Throw<ScriptValidationException>().WithMessage("*no one-time-code key*");
+        var act = () => Loaded().Protect(P(("v", "${env:NOT_THERE}")), new Dictionary<string, string>(), []);
+        act.Should().Throw<ScriptValidationException>().WithMessage("*NOT_THERE*not given*");
     }
 
     // ── the mask ─────────────────────────────────────────────────────────────
@@ -178,14 +178,15 @@ public sealed class CredentialStepTests : IDisposable
     }
 
     [Fact]
-    public void Only_passwords_and_codes_count_as_secrets_for_outputs()
+    public void Only_secret_values_are_masked_and_only_they_count_for_outputs()
     {
         var s = Loaded();
         s.HoldsSecret("the password is " + Pass).Should().BeTrue();
         s.HoldsSecret("code 123456 here").Should().BeTrue();
-        s.HoldsSecret(User).Should().BeFalse("a username may be read from a page and kept");
+        s.HoldsSecret(User).Should().BeFalse("a plain value may be read from a page and kept");
         s.HoldsSecret("nothing").Should().BeFalse();
         s.HoldsSecret(null).Should().BeFalse();
+        s.MaskValues().Should().BeEquivalentTo(Pass, "123456");
     }
 
     [Fact]
@@ -204,14 +205,19 @@ public sealed class CredentialStepTests : IDisposable
 
     // ── the whole run: a fake Orchestrator and a real headless browser ───────
 
-    /// <summary>Answers the three calls a run makes and records what it was asked.</summary>
+    /// <summary>Answers the calls a run makes and records what it was asked.</summary>
     private sealed class FakeOrchestrator(string script) : HttpMessageHandler
     {
-        public List<string[]> CredentialRequests { get; } = [];
+        public List<string[]> EnvRequests { get; } = [];
         public List<string> WorkerIds { get; } = [];
-        public int SettingsRequests { get; private set; }
         public (HttpStatusCode Status, string Message)? Refusal { get; set; }
         public string Password { get; set; } = Pass;
+
+        private (string Value, bool Secret) Resolve(string name) =>
+            name.EndsWith("_PASSWORD", StringComparison.Ordinal) ? (Password, true)
+            : name.EndsWith("_USERNAME", StringComparison.Ordinal) ? (User, false)
+            : name == "LOGIN_TITLE" ? ("Sign in", false)
+            : ("?", false);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
         {
@@ -223,23 +229,17 @@ public sealed class CredentialStepTests : IDisposable
             if (req.Method == HttpMethod.Get && path.Contains("/artifacts/"))
                 return Json(HttpStatusCode.OK, new { payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(script)) });
 
-            if (path.EndsWith("/credentials", StringComparison.Ordinal))
+            if (path.EndsWith("/env", StringComparison.Ordinal))
             {
                 using var doc = JsonDocument.Parse(body);
                 WorkerIds.Add(doc.RootElement.GetProperty("workerId").GetString()!);
                 var names = doc.RootElement.GetProperty("names").EnumerateArray().Select(n => n.GetString()!).ToArray();
-                CredentialRequests.Add(names);
-                if (Refusal is { } r) return Json(r.Status, new { error = "CREDENTIAL_DENIED", message = r.Message });
+                EnvRequests.Add(names);
+                if (Refusal is { } r) return Json(r.Status, new { error = new { code = "VARIABLE_DENIED", message = r.Message } });
                 return Json(HttpStatusCode.OK, new
                 {
-                    credentials = names.ToDictionary(n => n, _ => new { username = User, password = Password })
+                    values = names.ToDictionary(n => n, n => new { value = Resolve(n).Value, secret = Resolve(n).Secret })
                 });
-            }
-
-            if (path.EndsWith("/settings", StringComparison.Ordinal))
-            {
-                SettingsRequests++;
-                return Json(HttpStatusCode.OK, new { settings = new Dictionary<string, string> { ["login-title"] = "Sign in" } });
             }
 
             return new HttpResponseMessage(HttpStatusCode.NotFound);
@@ -309,11 +309,11 @@ public sealed class CredentialStepTests : IDisposable
         string.Join("\n", r.Log.Select(l => l.Message)) + "\n" + BrowserRunEngine.BuildResultPayload(r.Outcome);
 
     [Fact]
-    public async Task A_run_signs_in_with_a_stored_credential_and_nothing_leaks()
+    public async Task A_run_signs_in_with_stored_variables_and_no_secret_leaks()
     {
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${credential:site-a.username}\"}",
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:site-a.password}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:ACME_USERNAME}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:ACME_PASSWORD}\"}",
             "\"action\":\"click\",\"parameters\":{\"role\":\"button\",\"name\":\"Sign in\"}",
             "\"action\":\"assert\",\"parameters\":{\"kind\":\"textEquals\",\"css\":\"#msg\",\"expected\":\"Echo: " + Pass + "\"}",
             "\"action\":\"getText\",\"parameters\":{\"css\":\"#title\",\"storeAs\":\"title\"}");
@@ -323,26 +323,39 @@ public sealed class CredentialStepTests : IDisposable
 
         r.Outcome.TerminalState.Should().Be("Succeeded", r.Outcome.Message);
         r.Outcome.Outputs["title"].Should().Be("Sign in");
-        r.Fake.CredentialRequests.Should().ContainSingle().Which.Should().Equal("site-a");
+        r.Fake.EnvRequests.Should().ContainSingle().Which.Should().Equal("ACME_PASSWORD", "ACME_USERNAME");
         r.Fake.WorkerIds.Should().Equal("w-test");
-        Everything(r).Should().NotContain(Pass).And.NotContain(User);
+        Everything(r).Should().NotContain(Pass);
     }
 
     [Fact]
-    public async Task A_credential_name_can_come_from_a_job_parameter_and_a_setting_is_read()
+    public async Task A_variable_name_can_come_from_a_job_parameter_and_a_plain_value_is_read()
     {
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${credential:${param.site}.username}\"}",
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:${param.site}.password}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:${param.site}_USERNAME}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:${param.site}_PASSWORD}\"}",
             "\"action\":\"click\",\"parameters\":{\"role\":\"button\",\"name\":\"Sign in\"}",
-            "\"action\":\"assert\",\"parameters\":{\"kind\":\"textEquals\",\"css\":\"#title\",\"expected\":\"${setting:login-title}\"}");
+            "\"action\":\"assert\",\"parameters\":{\"kind\":\"textEquals\",\"css\":\"#title\",\"expected\":\"${env:LOGIN_TITLE}\"}");
 
-        var r = await RunAsync(script, new Dictionary<string, string> { ["site"] = "bank.hdfc" });
+        var r = await RunAsync(script, new Dictionary<string, string> { ["site"] = "SITE1" });
         if (!r.BrowserAvailable) return;
 
         r.Outcome.TerminalState.Should().Be("Succeeded", r.Outcome.Message);
-        r.Fake.CredentialRequests.Should().ContainSingle().Which.Should().Equal("bank.hdfc");
-        r.Fake.SettingsRequests.Should().Be(1);
+        r.Fake.EnvRequests.Should().ContainSingle().Which.Should().Equal("LOGIN_TITLE", "SITE1_PASSWORD", "SITE1_USERNAME");
+    }
+
+    [Fact]
+    public async Task A_plain_value_is_not_masked_and_may_be_kept_as_an_output()
+    {
+        var script = Script(WritePage(),
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:ACME_USERNAME}\"}",
+            "\"action\":\"getValue\",\"parameters\":{\"label\":\"User ID\",\"storeAs\":\"who\"}");
+
+        var r = await RunAsync(script);
+        if (!r.BrowserAvailable) return;
+
+        r.Outcome.TerminalState.Should().Be("Succeeded", r.Outcome.Message);
+        r.Outcome.Outputs["who"].Should().Be(User);
     }
 
     [Fact]
@@ -350,8 +363,8 @@ public sealed class CredentialStepTests : IDisposable
     {
         const string tricky = "P${now.date}x${param.site}!";
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${credential:site-a.username}\"}",
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:site-a.password}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:ACME_USERNAME}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:ACME_PASSWORD}\"}",
             "\"action\":\"click\",\"parameters\":{\"role\":\"button\",\"name\":\"Sign in\"}",
             "\"action\":\"assert\",\"parameters\":{\"kind\":\"textEquals\",\"css\":\"#match\",\"expected\":\"MATCH\"}");
 
@@ -364,11 +377,11 @@ public sealed class CredentialStepTests : IDisposable
     }
 
     [Fact]
-    public async Task A_step_that_would_store_a_password_as_an_output_fails()
+    public async Task A_step_that_would_store_a_secret_as_an_output_fails()
     {
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${credential:site-a.username}\"}",
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:site-a.password}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:ACME_USERNAME}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:ACME_PASSWORD}\"}",
             "\"action\":\"getValue\",\"parameters\":{\"label\":\"Password\",\"storeAs\":\"leaked\"}");
 
         var r = await RunAsync(script);
@@ -385,8 +398,8 @@ public sealed class CredentialStepTests : IDisposable
     {
         // the page echoes the typed password, and the assertion's message quotes it
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${credential:site-a.username}\"}",
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:site-a.password}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"User ID\",\"value\":\"${env:ACME_USERNAME}\"}",
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:ACME_PASSWORD}\"}",
             "\"action\":\"click\",\"parameters\":{\"role\":\"button\",\"name\":\"Sign in\"}",
             "\"action\":\"assert\",\"parameters\":{\"kind\":\"textEquals\",\"css\":\"#msg\",\"expected\":\"Welcome\"}");
 
@@ -399,23 +412,23 @@ public sealed class CredentialStepTests : IDisposable
     }
 
     [Fact]
-    public async Task A_refused_credential_fails_the_run_before_the_browser_opens()
+    public async Task A_refused_variable_fails_the_run_before_the_browser_opens()
     {
         var script = Script(WritePage(),
-            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${credential:site-a.password}\"}");
+            "\"action\":\"fill\",\"parameters\":{\"label\":\"Password\",\"value\":\"${env:ACME_PASSWORD}\"}");
 
         var r = await RunAsync(script, configure: f =>
-            f.Refusal = (HttpStatusCode.Forbidden, "Credential site-a: the script may not read the credentials of group finance"));
+            f.Refusal = (HttpStatusCode.Forbidden, "Variable ACME_PASSWORD: the script may not read the variables of group acme"));
         if (!r.BrowserAvailable) return;
 
         r.Outcome.TerminalState.Should().Be("Failed");
         r.Outcome.ErrorCategory.Should().Be("POLICY_DENIED");
-        r.Outcome.Message.Should().Contain("site-a").And.Contain("finance");
+        r.Outcome.Message.Should().Contain("ACME_PASSWORD").And.Contain("acme");
         r.Outcome.Steps.Should().BeEmpty("no step ran");
     }
 
     [Fact]
-    public async Task A_script_without_references_never_calls_the_credential_endpoints()
+    public async Task A_script_without_references_never_calls_the_env_endpoint()
     {
         var script = Script(WritePage(),
             "\"action\":\"assert\",\"parameters\":{\"kind\":\"visible\",\"css\":\"#title\"}");
@@ -424,7 +437,6 @@ public sealed class CredentialStepTests : IDisposable
         if (!r.BrowserAvailable) return;
 
         r.Outcome.TerminalState.Should().Be("Succeeded", r.Outcome.Message);
-        r.Fake.CredentialRequests.Should().BeEmpty();
-        r.Fake.SettingsRequests.Should().Be(0);
+        r.Fake.EnvRequests.Should().BeEmpty();
     }
 }
