@@ -98,6 +98,48 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         }
     }
 
+    /// <summary>
+    /// The credentials a running job reads. The Orchestrator answers only for a run that is running on
+    /// this worker, for names its script uses, from groups the script may read; otherwise the whole
+    /// request is refused with a message that names the first credential at fault.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, CredentialValues>> GetCredentialsAsync(
+        JobLease lease, string workerId, IReadOnlyCollection<string> names, CancellationToken ct)
+    {
+        using var resp = await http.PostAsJsonAsync($"jobs/{lease.RunId}/credentials", new { workerId, names }, Json, ct)
+            .ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "credentials", ct).ConfigureAwait(false);
+
+        var dto = await resp.Content.ReadFromJsonAsync<CredentialsDto>(Json, ct).ConfigureAwait(false);
+        return (dto?.Credentials ?? []).ToDictionary(
+            kv => kv.Key, kv => new CredentialValues(kv.Value.Username ?? "", kv.Value.Password ?? "", kv.Value.Totp),
+            StringComparer.Ordinal);
+    }
+
+    /// <summary>The settings a running job reads, under the same checks as its credentials.</summary>
+    public async Task<IReadOnlyDictionary<string, string>> GetSettingsAsync(
+        JobLease lease, string workerId, IReadOnlyCollection<string> names, CancellationToken ct)
+    {
+        using var resp = await http.PostAsJsonAsync($"jobs/{lease.RunId}/settings", new { workerId, names }, Json, ct)
+            .ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "settings", ct).ConfigureAwait(false);
+
+        var dto = await resp.Content.ReadFromJsonAsync<SettingsDto>(Json, ct).ConfigureAwait(false);
+        return dto?.Settings ?? new Dictionary<string, string>();
+    }
+
+    private static async Task<CredentialRefusedException> RefusalAsync(HttpResponseMessage resp, string what, CancellationToken ct)
+    {
+        string? message = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (doc.RootElement.TryGetProperty("message", out var m)) message = m.GetString();
+        }
+        catch (JsonException) { /* not JSON */ }
+        return new CredentialRefusedException(message ?? $"The Orchestrator refused the {what} ({(int)resp.StatusCode})");
+    }
+
     public async Task<byte[]> GetArtifactAsync(JobLease lease, CancellationToken ct)
     {
         using var resp = await http.GetAsync(
@@ -188,6 +230,23 @@ public sealed class OrchestratorClient(HttpClient http, ILogger<OrchestratorClie
         [JsonPropertyName("artifactVersion")] public string? ArtifactVersion { get; set; }
         [JsonPropertyName("artifactHash")]    public string? ArtifactHash    { get; set; }
         [JsonPropertyName("params")]          public Dictionary<string, string>? Params { get; set; }
+    }
+
+    private sealed class CredentialsDto
+    {
+        [JsonPropertyName("credentials")] public Dictionary<string, CredentialDto>? Credentials { get; set; }
+    }
+
+    private sealed class CredentialDto
+    {
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("password")] public string? Password { get; set; }
+        [JsonPropertyName("totp")]     public string? Totp     { get; set; }
+    }
+
+    private sealed class SettingsDto
+    {
+        [JsonPropertyName("settings")] public Dictionary<string, string>? Settings { get; set; }
     }
 
     private sealed class ArtifactDto

@@ -35,6 +35,8 @@ public sealed class RunLogForwarder(RunLogSink sink) : ILoggerProvider
             var message = formatter(state, exception);
             if (exception is not null)
                 message = $"{message} — {exception.GetType().Name}: {exception.Message}";
+            // A page, an error or a step can quote a credential: it is kept out of the run log.
+            message = SecretMask.Apply(message);
 
             // The step engine's own lines already say which step they are about ("[step.3] OK"):
             // that goes in the step column, and the logger name would only repeat itself.

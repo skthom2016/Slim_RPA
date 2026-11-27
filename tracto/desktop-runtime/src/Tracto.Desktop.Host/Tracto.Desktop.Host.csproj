@@ -16,6 +16,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Tracto.Desktop.Host.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Tracto.Desktop.Runtime/Tracto.Desktop.Runtime.csproj" />
     <ProjectReference Include="../Tracto.Desktop.Actions/Tracto.Desktop.Actions.csproj" />
     <ProjectReference Include="../Tracto.Desktop.Protocol/Tracto.Desktop.Protocol.csproj" />

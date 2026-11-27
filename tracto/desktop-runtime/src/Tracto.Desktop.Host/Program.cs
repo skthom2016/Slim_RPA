@@ -3,6 +3,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Tracto.Contract.Models;
 using Tracto.Contract.Models.Execution;
 using Tracto.Contract.Models.Protocol;
@@ -33,7 +34,12 @@ var runLogSink = new RunLogSink();
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureLogging(b =>
     {
+        // The default providers print to the console and the Windows event log as they are; the
+        // console here masks the run's credential values, and the event log is not used.
+        b.ClearProviders();
         b.SetMinimumLevel(LogLevel.Information);
+        b.AddConsole(o => o.FormatterName = MaskingConsoleFormatter.FormatterName);
+        b.AddConsoleFormatter<MaskingConsoleFormatter, ConsoleFormatterOptions>();
         b.AddProvider(new RunLogForwarder(runLogSink));
     })
     .ConfigureServices(services =>
@@ -54,7 +60,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<HttpOrchestratorBridge>(sp =>
         {
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("orchestrator");
-            return new HttpOrchestratorBridge(http, "desktop", sessionId);
+            return new HttpOrchestratorBridge(http, "desktop", sessionId, workerId);
         });
 
         // ── Desktop infrastructure ────────────────────────────────────────────
@@ -88,7 +94,7 @@ var host = Host.CreateDefaultBuilder(args)
             var dispatcher = sp.GetRequiredService<ActionDispatcher>();
             var http       = sp.GetRequiredService<IHttpClientFactory>().CreateClient("general");
             var log        = sp.GetRequiredService<ILogger<ScriptExecutionEngine>>();
-            return new ScriptExecutionEngine(dispatcher, http, log);
+            return new ScriptExecutionEngine(dispatcher, http, log, sp.GetRequiredService<HttpOrchestratorBridge>());
         });
 
         // ── Host config + worker ──────────────────────────────────────────────
@@ -214,6 +220,8 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
 
                 try
                 {
+                    // Nothing a credential was used for may come back as an output.
+                    foreach (var k in outputs.Keys.ToList()) outputs[k] = SecretMask.Apply(outputs[k]);
                     _orch.SetOutputs(job.LeaseId, outputs);
                     await submitter.SubmitAsync(
                         _orch, job, runState, steps,
@@ -231,6 +239,7 @@ internal sealed class DesktopRuntimeWorker : BackgroundService
             finally
             {
                 var entries = _logSink.EndRunAndDrain();
+                SecretMask.Clear(); // the run's credentials are forgotten
                 await _orch.SendRunLogsAsync(job.RunId, job.AttemptId, _cfg.WorkerId, entries,
                     CancellationToken.None);
             }

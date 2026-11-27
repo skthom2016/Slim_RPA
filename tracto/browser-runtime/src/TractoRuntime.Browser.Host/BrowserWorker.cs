@@ -77,6 +77,7 @@ public sealed class BrowserWorker(
             var entries = logSink.EndRunAndDrain();
             await orchestrator.SendLogsAsync(lease.RunId, lease.AttemptId, options.WorkerId, entries,
                 CancellationToken.None).ConfigureAwait(false);
+            SecretMask.Clear(); // the run's credentials are forgotten
         }
     }
 
@@ -119,6 +120,9 @@ public sealed class BrowserWorker(
 
         if (timedOut)
             outcome = outcome with { TerminalState = "TimedOut", ErrorCategory = "TIMEOUT", Message = "Run timeout reached." };
+
+        // Nothing a credential was typed into may come back as an error message or an output.
+        outcome = SecretMask.Mask(outcome);
 
         try
         {

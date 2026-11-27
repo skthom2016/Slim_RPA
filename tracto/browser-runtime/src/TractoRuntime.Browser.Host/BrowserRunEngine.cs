@@ -105,6 +105,45 @@ public sealed partial class BrowserRunEngine(
             return new RunOutcome("Failed", "VALIDATION", "Artifact is not valid JSON.", steps, outputs);
         }
 
+        // ── 2b. Credentials and settings the script reads ────────────────────
+        // Fetched before the browser opens, so a refused or missing one fails the run at once and
+        // names the credential. They live in memory for this run only.
+        var secrets = new RunSecrets();
+        try
+        {
+            var paramVars = lease.Params.ToDictionary(p => "param." + p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+            var (credNames, settingNames) = RunSecrets.CollectNames(
+                plan.Select(p => (p.StepId, (IReadOnlyDictionary<string, string?>)p.Flat.Parameters)), paramVars);
+            if (credNames.Count > 0 || settingNames.Count > 0)
+            {
+                _log.LogInformation("Run {RunId}: reading {Credentials} credential(s) [{CredentialNames}] and {Settings} setting(s) [{SettingNames}] from the Orchestrator.",
+                    lease.RunId, credNames.Count, string.Join(", ", credNames), settingNames.Count, string.Join(", ", settingNames));
+                var creds = credNames.Count > 0
+                    ? await orchestrator.GetCredentialsAsync(lease, options.WorkerId, credNames, ct).ConfigureAwait(false)
+                    : new Dictionary<string, CredentialValues>();
+                var settings = settingNames.Count > 0
+                    ? await orchestrator.GetSettingsAsync(lease, options.WorkerId, settingNames, ct).ConfigureAwait(false)
+                    : new Dictionary<string, string>();
+                secrets.Load(creds, settings);
+                SecretMask.Set(secrets.MaskValues());
+            }
+        }
+        catch (ScriptValidationException ex)
+        {
+            _log.LogError("Run {RunId}: script rejected — {Message}", lease.RunId, ex.Message);
+            return new RunOutcome("Failed", "VALIDATION", ex.Message, steps, outputs);
+        }
+        catch (CredentialRefusedException ex)
+        {
+            _log.LogError("Run {RunId}: {Message}", lease.RunId, ex.Message);
+            return new RunOutcome("Failed", "POLICY_DENIED", ex.Message, steps, outputs);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogError(ex, "Run {RunId}: could not read credentials or settings.", lease.RunId);
+            return new RunOutcome("Failed", "ENVIRONMENT", "Could not read credentials or settings from the Orchestrator.", steps, outputs);
+        }
+
         // The script may set its own mode; otherwise the host's own setting applies. How long
         // the browser stays open after the last step is always the host's PauseAfterRunMs —
         // that is a background viewing convenience, not something a script declares.
@@ -211,8 +250,13 @@ public sealed partial class BrowserRunEngine(
                 ct.ThrowIfCancellationRequested();
                 SeedBuiltIns(vars);
 
-                var expanded = ExpandVariables(flat.Parameters, vars);
+                // Credential and setting references become stand-ins first, so that expanding the
+                // other variables (and ${secret:...}) never touches the real values.
+                var secretValues = new List<string>();
+                var forExpansion = secrets.IsEmpty ? flat.Parameters : secrets.Protect(flat.Parameters, vars, secretValues);
+                var expanded = ExpandVariables(forExpansion, vars);
                 ResolveSecrets(stepId, expanded, validateOnly: false);
+                RunSecrets.Reveal(expanded, secretValues);
 
                 var translated = StepTranslator.Translate(stepId, flat.Action, expanded, options.AllowCss, DownloadFolder);
                 var sw = Stopwatch.StartNew();
@@ -236,6 +280,17 @@ public sealed partial class BrowserRunEngine(
                 }
 
                 sw.Stop();
+
+                // A password or one-time code must not become an output of the run.
+                if (result.Succeeded && translated.StoreAs is not null && !secrets.IsEmpty &&
+                    FileOutputs(translated.Action, result.Evidence).Values.Any(v => secrets.HoldsSecret(v?.ToString())))
+                {
+                    result = new ActionResult
+                    {
+                        Succeeded = false, ErrorCategory = ErrorCategory.VALIDATION, DetailCode = "CREDENTIAL_IN_OUTPUT",
+                        ErrorMessage = "the step's output would hold a password or one-time code, so it is not stored"
+                    };
+                }
 
                 if (!result.Succeeded && ct.IsCancellationRequested)
                     throw new OperationCanceledException(ct);

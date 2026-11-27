@@ -17,11 +17,12 @@ namespace Tracto.Desktop.Host;
 /// Adapts IOrchestratorServer to the Orchestrator's HTTP API.
 /// Caches leaseId → {runId, attemptId} so subsequent calls can resolve the URL segment.
 /// </summary>
-internal sealed class HttpOrchestratorBridge : IOrchestratorServer
+internal sealed class HttpOrchestratorBridge : IOrchestratorServer, IRunSecretSource
 {
     private readonly HttpClient _http;
     private readonly string _runtimeType;
     private readonly string? _interactiveSessionId;
+    private readonly string? _workerId;
     private readonly ConcurrentDictionary<string, (string RunId, string AttemptId)> _leaseCache = new();
 
     // Params the Orchestrator queued the run with, and outputs the run produced, keyed by leaseId.
@@ -38,11 +39,57 @@ internal sealed class HttpOrchestratorBridge : IOrchestratorServer
 
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
-    public HttpOrchestratorBridge(HttpClient http, string runtimeType, string? interactiveSessionId)
+    public HttpOrchestratorBridge(HttpClient http, string runtimeType, string? interactiveSessionId, string? workerId = null)
     {
         _http = http;
         _runtimeType = runtimeType;
         _interactiveSessionId = interactiveSessionId;
+        _workerId = workerId;
+    }
+
+    // ── Credentials and settings for a run ────────────────────────────────────
+
+    public async Task<IReadOnlyDictionary<string, CredentialValues>> GetCredentialsAsync(
+        string runId, IReadOnlyCollection<string> names, CancellationToken ct)
+    {
+        var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/credentials", new { workerId = _workerId, names }, JsonOpts, ct);
+        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "credentials", ct);
+
+        using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        var result = new Dictionary<string, CredentialValues>(StringComparer.Ordinal);
+        if (doc.RootElement.TryGetProperty("credentials", out var creds))
+            foreach (var c in creds.EnumerateObject())
+            {
+                string? Field(string n) => c.Value.TryGetProperty(n, out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() : null;
+                result[c.Name] = new CredentialValues(Field("username") ?? "", Field("password") ?? "", Field("totp"));
+            }
+        return result;
+    }
+
+    public async Task<IReadOnlyDictionary<string, string>> GetSettingsAsync(
+        string runId, IReadOnlyCollection<string> names, CancellationToken ct)
+    {
+        var resp = await _http.PostAsJsonAsync($"/jobs/{runId}/settings", new { workerId = _workerId, names }, JsonOpts, ct);
+        if (!resp.IsSuccessStatusCode) throw await RefusalAsync(resp, "settings", ct);
+
+        using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (doc.RootElement.TryGetProperty("settings", out var settings))
+            foreach (var s in settings.EnumerateObject())
+                result[s.Name] = s.Value.GetString() ?? "";
+        return result;
+    }
+
+    private static async Task<CredentialRefusedException> RefusalAsync(HttpResponseMessage resp, string what, CancellationToken ct)
+    {
+        string? message = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            if (doc.RootElement.TryGetProperty("message", out var m)) message = m.GetString();
+        }
+        catch (JsonException) { /* not JSON */ }
+        return new CredentialRefusedException(message ?? $"The Orchestrator refused the {what} ({(int)resp.StatusCode})");
     }
 
     // ── Worker registration ───────────────────────────────────────────────────

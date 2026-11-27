@@ -48,6 +48,9 @@
     <Project Path="tests/Tracto.Desktop.Input.Tests/Tracto.Desktop.Input.Tests.csproj">
       <Platform Project="x64" />
     </Project>
+    <Project Path="tests/Tracto.Desktop.Host.Tests/Tracto.Desktop.Host.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="tests/Tracto.Desktop.Integration.Tests/Tracto.Desktop.Integration.Tests.csproj">
       <Platform Project="x64" />
     </Project>

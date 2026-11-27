@@ -37,11 +37,9 @@ if (args.Length > 0 && args[0].Equals("--login", StringComparison.OrdinalIgnoreC
 var runLogSink = new RunLogSink();
 
 builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(o =>
-{
-    o.SingleLine      = true;
-    o.TimestampFormat = "HH:mm:ss ";
-});
+// One line per entry, with the run's credential values masked wherever they would be printed.
+builder.Logging.AddConsole(o => o.FormatterName = MaskingConsoleFormatter.FormatterName);
+builder.Logging.AddConsoleFormatter<MaskingConsoleFormatter, Microsoft.Extensions.Logging.Console.ConsoleFormatterOptions>();
 builder.Logging.AddProvider(new RunLogForwarder(runLogSink));
 
 Console.WriteLine($"[Browser Host] Orchestrator: {options.OrchestratorUrl}  Worker: {options.WorkerId}  Mode: {options.Mode}"
