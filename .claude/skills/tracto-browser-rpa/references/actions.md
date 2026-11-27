@@ -1,8 +1,10 @@
 # Browser actions
 
+Created: 2026-11-06 | Last updated: 2026-11-27
+
 Every parameter value is a **string**. Every action also accepts `timeoutMs` (a positive whole
 number, how long to wait for its element) and `storeAs` (a name for what it publishes, though
-only the four readers publish anything).
+only the readers and the two file actions publish anything).
 
 Actions that work on an element need exactly one way of naming it: `role` (+ `name`), `label`,
 `placeholder`, `testId`, `text`, `css` or `xpath`. See "Naming the element" in `SKILL.md`.
@@ -24,11 +26,12 @@ Write these or the script is refused before a browser opens. "An element" means 
 | `select` | an element, `value` (the option value) |
 | `getAttr` | an element, `attribute` |
 | `getTexts` | an element |
+| `upload` | an element (the file field or its button), `path` |
 | `click`, `dblclick`, `hover`, `scroll`, `check`, `uncheck`, `wait`, `find`, `getText`, `getValue` | an element |
 | `assert` | `kind`; an element unless `kind` is `urlEquals`; `expected` for `urlEquals` and `textEquals` |
 
 Everything else is optional. `timeoutMs` works on any action; `storeAs` only publishes anything
-on `getText`, `getValue`, `getAttr` and `getTexts`.
+on `getText`, `getValue`, `getAttr`, `getTexts`, `download` and `upload`.
 
 ### The full table
 
@@ -52,11 +55,13 @@ on `getText`, `getValue`, `getAttr` and `getTexts`.
 | `getValue` | **yes** | | `timeoutMs` | `value` |
 | `getAttr` | **yes** | `attribute` | `timeoutMs` | `value` |
 | `getTexts` | **yes** | | `limit`, `separator`, `timeoutMs` | `value`, `count` |
+| `download` | optional | | `folder`, `expectedFileName`, `contentType`, `maxSizeBytes`, `timeoutMs` | `value`, `path`, `fileName`, `size` |
+| `upload` | **yes** | `path` | `timeoutMs` | `value`, `path` |
 | `delay` | no | `ms` | | |
 
-### `ms`, `timeoutMs` and `limit` must be literal numbers
+### `ms`, `timeoutMs`, `limit` and `maxSizeBytes` must be literal numbers
 
-These three are read while the script is validated, which happens before any `${...}` is
+These are read while the script is validated, which happens before any `${...}` is
 substituted. A variable in one of them is never a number by the time it is read, so the run is
 rejected before a browser opens:
 
@@ -172,6 +177,49 @@ Checks the page is as expected and fails the run if not. `kind` is one of:
 
 Comparisons are exact. Only these five technical checks exist; there is no "greater than", no
 arithmetic and no business rule, and anything of that sort is rejected at validation.
+
+## download
+
+Clicks the element and saves the file the page sends. Without an element it waits for a download
+that the previous step already started (for example a `click` on a link that downloads after a
+moment). The file keeps the name the site gives it, and a file of the same name in the folder is
+replaced.
+
+- `folder`: where to save. A full path (`D:\finance\portals`), or a name taken inside the
+  worker's first file root (`givewell` saves into `<root>\givewell`). Without `folder` the file
+  goes into the first file root itself. The folder is created when missing.
+- The worker only writes inside its **file roots**, set with `BROWSER_FILE_ROOTS` (folders
+  separated by `;`, default the Downloads folder of the user running the worker). A folder
+  outside them fails the step before any byte is written.
+- `expectedFileName`, `contentType` (`text/csv`, `application/pdf`, ...; checked from the file's
+  extension) and `maxSizeBytes`: optional checks. A file that fails one is deleted and the step
+  fails.
+- `timeoutMs`: how long to wait for the download to start (default 30000).
+- Publishes `path` (the full path of the saved file, also the step's `value`), `fileName` and
+  `size` (bytes).
+
+```json
+{ "stepNumber": 6, "action": "download", "description": "Download this month's donations",
+  "parameters": { "role": "button", "name": "Download report", "folder": "givewell",
+                  "contentType": "text/csv", "timeoutMs": "60000", "storeAs": "report" } }
+```
+
+Later in the same segment: `${report.path}`. In a later segment: `${param.report.path}`.
+
+## upload
+
+Puts a file from disk into a page's file field. The element is the `<input type="file">` itself
+or the button that opens the file picker; both work. `path` is the full path of the file, and it
+must be inside the worker's file roots (see `download`). A variable is fine:
+`"path": "${report.path}"` uploads the file an earlier `download` saved. Publishes `path`.
+
+Uploading only fills the field. Press the page's own submit or import button with a `click`
+afterwards.
+
+```json
+{ "stepNumber": 4, "action": "upload", "description": "Choose the import file",
+  "parameters": { "label": "Import file", "path": "D:\\finance\\donations\\import.csv" } }
+```
 
 ## delay
 

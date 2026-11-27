@@ -1,5 +1,7 @@
 # Tracto Browser Runtime
 
+Created: 2026-11-03 | Last updated: 2026-11-27
+
 A worker that runs browser scripts with Playwright (Chromium). It registers with the
 Orchestrator as `runtimeType=browser`, pulls one job at a time, drives a fresh, isolated
 browser context for each run and reports the result.
@@ -37,6 +39,7 @@ Settings come from environment variables, then `appsettings.json` (`Host` sectio
 | `PAUSE_AFTER_RUN_MS` | `2000` | Keep the window open after the last step (headed only). Host setting only — not a script field. |
 | `BROWSER_PROFILE` | empty | Profile used when a script names none. Empty = a fresh browser every run. |
 | `BROWSER_PROFILE_ROOT` | `%LOCALAPPDATA%\Tracto\browser-profiles` | Folder holding the named profiles |
+| `BROWSER_FILE_ROOTS` | `%USERPROFILE%\Downloads` | Folders `download` may save into and `upload` may read from, separated by `;`. The first is where `download` saves when a step names no folder |
 | `RUN_TIMEOUT_MS` | `600000` | Whole-run limit |
 | `TRACTO_SECRET_<NAME>` | – | Value for `${secret:NAME}` in a script |
 
@@ -121,6 +124,8 @@ never silently takes the first. Narrow it (`nth=0`, a parent, role + name).
 | `getText`, `getValue` | target, `storeAs` | Output `${x.value}` |
 | `getAttr` | target, `attribute`, `storeAs` | Output `${x.value}` |
 | `assert` | `kind`, `expected`, target | `visible`, `enabled`, `checked`, `urlEquals`, `textEquals` |
+| `download` | optional target, `folder`, `storeAs` | Clicks the target and saves the file the site sends; without a target waits for a download already started. Output `${x.path}`, `${x.fileName}`, `${x.size}`. Only inside `BROWSER_FILE_ROOTS` |
+| `upload` | target, `path` | Puts the file into a file field (or the button that opens the file picker). Only from inside `BROWSER_FILE_ROOTS` |
 | `delay` | `ms` | Fixed pause |
 
 Full runtime names (`browser.page.navigate`, `browser.element.click`, …) are accepted too.

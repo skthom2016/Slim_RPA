@@ -238,10 +238,10 @@ function checkBrowserStep(step, where, ctx) {
   if (name === 'navigate' && p.url && !p.url.includes('${') && !/^[a-z][a-z0-9+.-]*:\/\//i.test(p.url))
     report.error(`${where}: "url" must be absolute (https://...), got "${p.url}"`);
 
-  // The runtime reads "ms", "timeoutMs" and "limit" while it validates the script, which happens
+  // The runtime reads "ms", "timeoutMs", "limit" and "maxSizeBytes" while it validates the script, which happens
   // before any ${...} is substituted. A variable in one of them is therefore never a number by
   // the time it is read, and the run is rejected. They have to be literal.
-  for (const key of ['ms', 'timeoutMs', 'limit']) {
+  for (const key of ['ms', 'timeoutMs', 'limit', 'maxSizeBytes']) {
     if (p[key] && p[key].includes('${'))
       report.error(`${where}: "${key}" cannot be a variable — it is read before `
         + `\${...} is substituted. Write the number in the step, got "${p[key]}"`);
@@ -255,6 +255,11 @@ function checkBrowserStep(step, where, ctx) {
     report.error(`${where}: "timeoutMs" must be a positive whole number in a string, got "${p.timeoutMs}"`);
   if (p.limit && !p.limit.includes('${') && !/^\d+$/.test(p.limit))
     report.error(`${where}: "limit" must be a non-negative whole number in a string, got "${p.limit}"`);
+
+  if (p.maxSizeBytes && !p.maxSizeBytes.includes('${') && !/^\d+$/.test(p.maxSizeBytes))
+    report.error(`${where}: "maxSizeBytes" must be a non-negative whole number in a string, got "${p.maxSizeBytes}"`);
+  if (name === 'upload' && p.path && !p.path.includes('${') && !/^[a-z]:[\\/]|^\\\\/i.test(p.path))
+    report.error(`${where}: "path" must be a full path (C:\\...), got "${p.path}"`);
 
   if (name === 'assert') checkAssert(p, where, report);
 

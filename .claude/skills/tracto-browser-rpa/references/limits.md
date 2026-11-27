@@ -1,5 +1,7 @@
 # What the browser runtime cannot do
 
+Created: 2026-11-06 | Last updated: 2026-11-27
+
 Tell the developer plainly when one of these blocks the request. Do not invent an action.
 
 ## No branching, no loops, no retry
@@ -53,10 +55,11 @@ A profile keeps cookies, not credentials. When the site ends the session or asks
 run lands on a login page and fails. Someone has to run `--login` again. Plan for it on any
 schedule that runs unattended for long (see `scheduling.md`).
 
-## No file downloads or uploads from a step
+## Files only inside the worker's file roots
 
-There is no action that downloads a file to a path or attaches one to a form. If a flow needs a
-file, a desktop segment has to handle it.
+`download` saves and `upload` reads only inside the folders set in `BROWSER_FILE_ROOTS` on the
+worker (default: the Downloads folder of the user running it). A path outside them fails the
+step. To use another folder, add it to that setting on the worker and restart it.
 
 ## No reading a page's structure
 

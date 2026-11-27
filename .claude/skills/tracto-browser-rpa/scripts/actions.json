@@ -284,6 +284,44 @@
         "count"
       ]
     },
+    "download": {
+      "canonical": "browser.file.download",
+      "aliases": [
+        "browser.download"
+      ],
+      "element": "optional",
+      "required": [],
+      "optional": [
+        "folder",
+        "expectedFileName",
+        "contentType",
+        "maxSizeBytes",
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value",
+        "path",
+        "fileName",
+        "size"
+      ]
+    },
+    "upload": {
+      "canonical": "browser.file.upload",
+      "aliases": [
+        "browser.upload"
+      ],
+      "element": "required",
+      "required": [
+        "path"
+      ],
+      "optional": [
+        "timeoutMs"
+      ],
+      "outputs": [
+        "value",
+        "path"
+      ]
+    },
     "delay": {
       "canonical": "delay",
       "aliases": [

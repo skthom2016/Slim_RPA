@@ -46,6 +46,24 @@ public sealed record BrowserHostOptions
     /// <summary>Folder that holds the named profiles. One sub-folder per profile.</summary>
     public string ProfileRoot { get; init; } = BrowserProfile.DefaultRoot;
 
+    /// <summary>
+    /// Folders a script may download into and upload from, separated by <c>;</c>. A file
+    /// outside them is refused before any byte moves. The first folder is where
+    /// <c>download</c> saves when the step names no <c>folder</c>, and a relative
+    /// <c>folder</c> is taken inside it.
+    /// </summary>
+    public string FileRoots { get; init; } = DefaultFileRoot;
+
+    /// <summary>The user's Downloads folder.</summary>
+    public static string DefaultFileRoot =>
+        Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Downloads");
+
+    /// <summary><see cref="FileRoots"/> as full paths, empty entries dropped.</summary>
+    public IReadOnlyList<string> FileRootList =>
+        FileRoots.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                 .Select(r => Path.GetFullPath(System.Environment.ExpandEnvironmentVariables(r)))
+                 .ToList();
+
     public string? InteractiveSessionId { get; init; }
 
     public BrowserMode BrowserMode =>
@@ -72,6 +90,7 @@ public sealed record BrowserHostOptions
             AllowCss            = Bool("BROWSER_ALLOW_CSS", "AllowCss",            d.AllowCss),
             Profile             = Str("BROWSER_PROFILE",      "Profile",           d.Profile),
             ProfileRoot         = Str("BROWSER_PROFILE_ROOT", "ProfileRoot",       d.ProfileRoot),
+            FileRoots           = Str("BROWSER_FILE_ROOTS",   "FileRoots",         d.FileRoots),
             InteractiveSessionId = System.Environment.GetEnvironmentVariable("INTERACTIVE_SESSION_ID")
                                    ?? System.Environment.GetEnvironmentVariable("SESSIONNAME")
                                    ?? "Console"

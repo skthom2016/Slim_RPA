@@ -10,6 +10,7 @@ using TractoRuntime.Browser.Context;
 using TractoRuntime.Browser.Contracts;
 using TractoRuntime.Browser.Extraction;
 using TractoRuntime.Browser.Failure;
+using TractoRuntime.Browser.FileTransfer;
 using TractoRuntime.Browser.Locators;
 using TractoRuntime.Browser.Session;
 
@@ -88,7 +89,7 @@ public sealed partial class BrowserRunEngine(
             foreach (var flat in script.Steps)
             {
                 var stepId = $"step.{flat.StepNumber}";
-                StepTranslator.Translate(stepId, flat.Action, flat.Parameters, options.AllowCss);
+                StepTranslator.Translate(stepId, flat.Action, flat.Parameters, options.AllowCss, DownloadFolder);
                 ResolveSecrets(stepId, flat.Parameters, validateOnly: true);
                 plan.Add((flat, stepId));
             }
@@ -156,10 +157,17 @@ public sealed partial class BrowserRunEngine(
         var resolver   = new WaitingSelectorStrategy(
             new LocatorResolver(), options.LocatorWaitMs, loggerFactory.CreateLogger<WaitingSelectorStrategy>());
         var classifier = new FailureClassifier(loggerFactory.CreateLogger<FailureClassifier>());
+        // Downloads and uploads are allowed only inside the host's file roots.
+        var fileRoots = options.FileRootList;
+        var filePolicy = new FileTransferPolicy(
+            new FileTransferPolicyOptions { ApprovedDownloadRoots = fileRoots, ApprovedUploadRoots = fileRoots },
+            loggerFactory.CreateLogger<FileTransferPolicy>());
         var executor   = new ActionExecutor(
             resolver,
             classifier,
             loggerFactory.CreateLogger<ActionExecutor>(),
+            fileDownloadHandler:  new FileDownloadHandler(filePolicy, resolver, loggerFactory.CreateLogger<FileDownloadHandler>()),
+            fileUploadHandler:    new FileUploadHandler(filePolicy, resolver, loggerFactory.CreateLogger<FileUploadHandler>()),
             domAssertionService:  new DomAssertionService(resolver, loggerFactory.CreateLogger<DomAssertionService>()),
             domExtractionService: new DomExtractionService(resolver, loggerFactory.CreateLogger<DomExtractionService>()));
 
@@ -206,7 +214,7 @@ public sealed partial class BrowserRunEngine(
                 var expanded = ExpandVariables(flat.Parameters, vars);
                 ResolveSecrets(stepId, expanded, validateOnly: false);
 
-                var translated = StepTranslator.Translate(stepId, flat.Action, expanded, options.AllowCss);
+                var translated = StepTranslator.Translate(stepId, flat.Action, expanded, options.AllowCss, DownloadFolder);
                 var sw = Stopwatch.StartNew();
 
                 _log.LogInformation("[{StepId}] {Action}  {Description}",
@@ -246,7 +254,7 @@ public sealed partial class BrowserRunEngine(
                     break;
                 }
 
-                StoreEvidence(translated.StoreAs, result.Evidence, vars, outputs);
+                StoreEvidence(translated.StoreAs, FileOutputs(translated.Action, result.Evidence), vars, outputs);
                 _log.LogInformation("[{StepId}] OK ({Ms} ms)", stepId, sw.ElapsedMilliseconds);
             }
         }
@@ -287,6 +295,38 @@ public sealed partial class BrowserRunEngine(
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>Where <c>download</c> saves when a step names no folder: the first file root.</summary>
+    private string? DownloadFolder => options.FileRootList.FirstOrDefault();
+
+    /// <summary>
+    /// Gives the file steps short output names: <c>download</c> yields <c>path</c>,
+    /// <c>fileName</c> and <c>size</c>, and <c>upload</c> yields <c>path</c>. The path is
+    /// also the step's main value, so <c>${report}</c> is the downloaded file.
+    /// </summary>
+    private static IReadOnlyDictionary<string, object?> FileOutputs(
+        string action, IReadOnlyDictionary<string, object?> evidence)
+    {
+        if (action == StepTranslator.DownloadAction)
+        {
+            var path = evidence.GetValueOrDefault("downloadedFilePath");
+            return new Dictionary<string, object?>
+            {
+                ["value"]    = path,
+                ["path"]     = path,
+                ["fileName"] = evidence.GetValueOrDefault("filename"),
+                ["size"]     = evidence.GetValueOrDefault("fileSizeBytes")
+            };
+        }
+
+        if (action == StepTranslator.UploadAction)
+        {
+            var path = evidence.GetValueOrDefault("uploadedFile");
+            return new Dictionary<string, object?> { ["value"] = path, ["path"] = path };
+        }
+
+        return evidence;
+    }
 
     /// <summary>
     /// <c>getTexts</c>: the visible text of every element the target matches, joined with the

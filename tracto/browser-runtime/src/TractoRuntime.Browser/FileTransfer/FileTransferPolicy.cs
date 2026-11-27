@@ -74,7 +74,11 @@ public sealed class FileTransferPolicy(
             // OrdinalIgnoreCase: Windows filesystem paths are case-insensitive; Path.GetFullPath
             // already normalises drive-letter casing so this comparison is safe on Windows.
             // The platform is Windows-only; a Linux-style case-sensitive comparison is not needed.
-            if (fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+            // The root itself is approved too: a download may be saved straight into it.
+            var comparable = fullPath.EndsWith(Path.DirectorySeparatorChar)
+                ? fullPath
+                : fullPath + Path.DirectorySeparatorChar;
+            if (comparable.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 

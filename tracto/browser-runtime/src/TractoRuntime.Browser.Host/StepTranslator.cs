@@ -49,8 +49,16 @@ public static class StepTranslator
         "browser.element.getAttr",
         "browser.element.getValue",
         GetTextsAction,
+        DownloadAction,
+        UploadAction,
         DelayAction
     ];
+
+    /// <summary>Clicks a target (or waits, without one) and saves the file the page sends.</summary>
+    public const string DownloadAction = "browser.file.download";
+
+    /// <summary>Puts a file from disk into a page's file field.</summary>
+    public const string UploadAction = "browser.file.upload";
 
     // Short names accepted in scripts, mapped to the canonical runtime action.
     private static readonly Dictionary<string, string> Aliases = new(StringComparer.OrdinalIgnoreCase)
@@ -94,6 +102,10 @@ public static class StepTranslator
         ["browser.getValue"] = "browser.element.getValue",
         ["getTexts"]         = GetTextsAction,
         ["browser.getTexts"] = GetTextsAction,
+        ["download"]         = DownloadAction,
+        ["browser.download"] = DownloadAction,
+        ["upload"]           = UploadAction,
+        ["browser.upload"]   = UploadAction,
         ["sleep"]            = DelayAction,
         ["browser.delay"]    = DelayAction
     };
@@ -104,7 +116,7 @@ public static class StepTranslator
         "browser.element.type", "browser.element.select", "browser.element.check",
         "browser.element.uncheck", "browser.element.click", "browser.element.dblclick",
         "browser.element.hover", "browser.element.scroll", "browser.element.getText",
-        "browser.element.getAttr", "browser.element.getValue"
+        "browser.element.getAttr", "browser.element.getValue", UploadAction
     };
 
     public static string Canonical(string action)
@@ -114,11 +126,17 @@ public static class StepTranslator
                ?? action;
     }
 
+    /// <param name="downloadFolder">
+    /// Where <c>download</c> saves when the step names no <c>folder</c>; a relative
+    /// <c>folder</c> is taken inside it. Whether the folder is allowed is checked when the
+    /// step runs, against the host's file roots.
+    /// </param>
     public static TranslatedStep Translate(
         string stepId,
         string rawAction,
         IReadOnlyDictionary<string, string?> p,
-        bool allowCss)
+        bool allowCss,
+        string? downloadFolder = null)
     {
         if (string.IsNullOrWhiteSpace(rawAction))
             throw new ScriptValidationException($"{stepId}: action is missing.");
@@ -169,6 +187,8 @@ public static class StepTranslator
         string? value = null;
         AssertionSpec? assertion = null;
         ExtractionSpec? extraction = null;
+        DownloadRef? download = null;
+        UploadRef? upload = null;
 
         switch (action)
         {
@@ -208,6 +228,18 @@ public static class StepTranslator
             case "browser.page.assert":
                 assertion = BuildAssertion(stepId, p, selector);
                 break;
+
+            case DownloadAction:
+                download = BuildDownload(stepId, p, downloadFolder);
+                break;
+
+            case UploadAction:
+                var path = Get(p, "path") ?? throw new ScriptValidationException(
+                    $"{stepId}: upload needs 'path' (the full path of the file to put into the field).");
+                if (!path.Contains("${", StringComparison.Ordinal) && !Path.IsPathFullyQualified(path))
+                    throw new ScriptValidationException($"{stepId}: upload 'path' must be a full path (C:\\...).");
+                upload = new UploadRef { SourcePath = path };
+                break;
         }
 
         var step = new BrowserStep
@@ -217,11 +249,41 @@ public static class StepTranslator
             Selector   = selector,
             Value      = value,
             Timeout    = timeout,
-            Assertion  = assertion,
-            Extraction = extraction
+            Assertion   = assertion,
+            Extraction  = extraction,
+            DownloadRef = download,
+            UploadRef   = upload
         };
 
         return new TranslatedStep(stepId, action, step, null, storeAs);
+    }
+
+    private static DownloadRef BuildDownload(string stepId, IReadOnlyDictionary<string, string?> p, string? downloadFolder)
+    {
+        var folder = Get(p, "folder");
+        if (folder is null)
+        {
+            folder = downloadFolder ?? throw new ScriptValidationException(
+                $"{stepId}: download needs 'folder'; this worker has no default download folder.");
+        }
+        else if (!folder.Contains("${", StringComparison.Ordinal) && !Path.IsPathFullyQualified(folder))
+        {
+            folder = downloadFolder is null
+                ? throw new ScriptValidationException($"{stepId}: download 'folder' must be a full path (C:\\...).")
+                : Path.Combine(downloadFolder, folder);
+        }
+
+        long maxSize = 0;
+        if (Get(p, "maxSizeBytes") is { } max && (!long.TryParse(max, out maxSize) || maxSize < 0))
+            throw new ScriptValidationException($"{stepId}: maxSizeBytes must be a non-negative whole number.");
+
+        return new DownloadRef
+        {
+            DestinationDirectory = folder,
+            ExpectedFilename     = Get(p, "expectedFileName"),
+            ExpectedContentType  = Get(p, "contentType"),
+            MaxSizeBytes         = maxSize
+        };
     }
 
     private static SelectorRef? BuildSelector(string stepId, IReadOnlyDictionary<string, string?> p, bool allowCss)
