@@ -76,6 +76,34 @@ public sealed class FileStepTests : IDisposable
     }
 
     [Fact]
+    public void The_name_is_stamped_unless_the_script_says_not_to()
+    {
+        StepTranslator.Translate("step.1", "download", P(("text", "x")), allowCss: true, _root)
+            .Browser!.DownloadRef!.StampFileName.Should().BeTrue();
+        StepTranslator.Translate("step.1", "download", P(("text", "x"), ("stampName", "false")), allowCss: true, _root)
+            .Browser!.DownloadRef!.StampFileName.Should().BeFalse();
+
+        var bad = () => StepTranslator.Translate("step.1", "download", P(("text", "x"), ("stampName", "yes")), allowCss: true, _root);
+        bad.Should().Throw<ScriptValidationException>().WithMessage("*stampName*");
+    }
+
+    [Fact]
+    public void A_stamped_name_carries_date_and_time_and_never_replaces_a_file()
+    {
+        var at = new DateTime(2026, 11, 27, 14, 14, 21);
+
+        var first = FileDownloadHandler.StampedPath(_root, "donations.csv", at);
+        first.Should().Be(Path.Combine(_root, "donations_2026-11-27_14-14-21.csv"));
+
+        File.WriteAllText(first, "x");
+        FileDownloadHandler.StampedPath(_root, "donations.csv", at)
+            .Should().Be(Path.Combine(_root, "donations_2026-11-27_14-14-21_2.csv"));
+
+        FileDownloadHandler.StampedPath(_root, "README", at)
+            .Should().Be(Path.Combine(_root, "README_2026-11-27_14-14-21"));
+    }
+
+    [Fact]
     public void Download_without_any_folder_is_refused()
     {
         var act = () => StepTranslator.Translate("step.1", "download", P(("text", "x")), allowCss: true);
@@ -192,9 +220,24 @@ public sealed class FileStepTests : IDisposable
         var got = await executor.ExecuteAsync(page, download.Browser!, CancellationToken.None);
 
         got.Succeeded.Should().BeTrue(got.ErrorMessage);
-        var saved = Path.Combine(_root, "givewell", "donations.csv");
-        got.Evidence["downloadedFilePath"].Should().Be(saved);
+        var saved = (string)got.Evidence["downloadedFilePath"]!;
+        Path.GetDirectoryName(saved).Should().Be(Path.Combine(_root, "givewell"));
+        Path.GetFileName(saved).Should().MatchRegex(@"^donations_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv$");
         (await File.ReadAllTextAsync(saved)).Should().Be(Csv);
+        got.Evidence["filename"].Should().Be(Path.GetFileName(saved));
+        got.Evidence["suggestedFilename"].Should().Be("donations.csv");
+
+        // the same file again keeps the first one
+        var again = await executor.ExecuteAsync(page, download.Browser!, CancellationToken.None);
+        again.Succeeded.Should().BeTrue(again.ErrorMessage);
+        again.Evidence["downloadedFilePath"].Should().NotBe(saved);
+        Directory.GetFiles(Path.Combine(_root, "givewell")).Should().HaveCount(2);
+
+        // stampName=false keeps the site's name
+        var plain = StepTranslator.Translate("step.1b", "download",
+            P(("role", "link"), ("name", "Download report"), ("folder", "plain"), ("stampName", "false")), allowCss: true, _root);
+        var kept = await executor.ExecuteAsync(page, plain.Browser!, CancellationToken.None);
+        kept.Evidence["downloadedFilePath"].Should().Be(Path.Combine(_root, "plain", "donations.csv"));
 
         // a folder outside the roots is refused and nothing is written
         var outside = Path.Combine(Path.GetTempPath(), "tracto-outside-" + Guid.NewGuid().ToString("N"));
@@ -210,6 +253,6 @@ public sealed class FileStepTests : IDisposable
         var put = await executor.ExecuteAsync(page, upload.Browser!, CancellationToken.None);
 
         put.Succeeded.Should().BeTrue(put.ErrorMessage);
-        (await page.EvaluateAsync<string>("() => document.getElementById('f').files[0].name")).Should().Be("donations.csv");
+        (await page.EvaluateAsync<string>("() => document.getElementById('f').files[0].name")).Should().Be(Path.GetFileName(saved));
     }
 }

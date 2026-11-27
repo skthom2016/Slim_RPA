@@ -55,7 +55,7 @@ on `getText`, `getValue`, `getAttr`, `getTexts`, `download` and `upload`.
 | `getValue` | **yes** | | `timeoutMs` | `value` |
 | `getAttr` | **yes** | `attribute` | `timeoutMs` | `value` |
 | `getTexts` | **yes** | | `limit`, `separator`, `timeoutMs` | `value`, `count` |
-| `download` | optional | | `folder`, `expectedFileName`, `contentType`, `maxSizeBytes`, `timeoutMs` | `value`, `path`, `fileName`, `size` |
+| `download` | optional | | `folder`, `expectedFileName`, `contentType`, `maxSizeBytes`, `stampName`, `timeoutMs` | `value`, `path`, `fileName`, `size` |
 | `upload` | **yes** | `path` | `timeoutMs` | `value`, `path` |
 | `delay` | no | `ms` | | |
 
@@ -180,10 +180,18 @@ arithmetic and no business rule, and anything of that sort is rejected at valida
 
 ## download
 
-Clicks the element and saves the file the page sends. Without an element it waits for a download
-that the previous step already started (for example a `click` on a link that downloads after a
-moment). The file keeps the name the site gives it, and a file of the same name in the folder is
-replaced.
+Clicks the element and saves the file the page sends. The saved name is the site's name with the
+local date and time added, down to the second: `donations.csv` becomes
+`donations_2026-11-27_14-14-21.csv`, so a later download never replaces an earlier one (a name
+already taken in the same second gets `_2`, `_3`, ...). Read the final name from
+`${x.path}` / `${x.fileName}`, never by guessing it. `"stampName": "false"` keeps the site's
+own name and replaces a file of that name.
+
+**Always give `download` the element whose click starts the file**: the link, the button, or the
+"Download" item of a menu. When the file sits behind a menu or a preview, open them with ordinary
+`click` steps and let the `download` step do the last click. Without an element the step only
+starts listening once the previous step has finished, so a download that the previous `click`
+already started can be missed and the step times out.
 
 - `folder`: where to save. A full path (`D:\finance\portals`), or a name taken inside the
   worker's first file root (`givewell` saves into `<root>\givewell`). Without `folder` the file
@@ -193,7 +201,8 @@ replaced.
   outside them fails the step before any byte is written.
 - `expectedFileName`, `contentType` (`text/csv`, `application/pdf`, ...; checked from the file's
   extension) and `maxSizeBytes`: optional checks. A file that fails one is deleted and the step
-  fails.
+  fails. `expectedFileName` is compared with the site's name, before the date and time are added.
+- `stampName`: `"true"` (default) or `"false"`, see above.
 - `timeoutMs`: how long to wait for the download to start (default 30000).
 - Publishes `path` (the full path of the saved file, also the step's `value`), `fileName` and
   `size` (bytes).

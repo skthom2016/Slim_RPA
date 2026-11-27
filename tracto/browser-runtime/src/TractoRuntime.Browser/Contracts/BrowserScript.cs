@@ -250,6 +250,14 @@ public sealed record DownloadRef
     /// Zero (the default) means no size limit is enforced.
     /// </summary>
     public long MaxSizeBytes { get; init; }
+
+    /// <summary>
+    /// When true the file is saved as <c>name_yyyy-MM-dd_HH-mm-ss.ext</c> (local time), so a
+    /// later download of a file with the same name does not replace it. A name already taken
+    /// within the same second gets <c>_2</c>, <c>_3</c>, ... When false the site's name is kept
+    /// and an existing file of that name is replaced.
+    /// </summary>
+    public bool StampFileName { get; init; }
 }
 
 /// <summary>

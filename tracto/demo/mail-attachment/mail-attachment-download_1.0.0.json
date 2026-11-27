@@ -1,0 +1,37 @@
+{
+  "id": "mail-attachment-download",
+  "name": "Mail Attachment Download",
+  "version": "1.0.0",
+  "params": {
+    "mailUrl": "http://localhost:8766/",
+    "sender": "accounts@acme-supplies.com"
+  },
+  "segments": [
+    {
+      "name": "Download the attachment of the newest mail from the sender",
+      "runtime": "browser",
+      "mode": "headed",
+      "steps": [
+        { "stepNumber": 1, "action": "navigate", "description": "Open the mailbox",
+          "parameters": { "url": "${param.mailUrl}" } },
+        { "stepNumber": 2, "action": "fill", "description": "Search for the sender",
+          "parameters": { "placeholder": "Search mail", "value": "${param.sender}" } },
+        { "stepNumber": 3, "action": "press", "description": "Run the search",
+          "parameters": { "placeholder": "Search mail", "key": "Enter" } },
+        { "stepNumber": 4, "action": "delay", "description": "Let the results show",
+          "parameters": { "ms": "1000" } },
+        { "stepNumber": 5, "action": "click", "description": "Open the first (newest) mail",
+          "parameters": { "css": "[role='option'] >> nth=0" } },
+        { "stepNumber": 6, "action": "assert", "description": "The open mail is from the sender",
+          "parameters": { "kind": "textEquals", "css": "#from", "expected": "${param.sender}" } },
+        { "stepNumber": 7, "action": "getText", "description": "Read the subject",
+          "parameters": { "css": "#subject", "storeAs": "subject" } },
+        { "stepNumber": 8, "action": "delay", "description": "Pause so the open mail can be seen",
+          "parameters": { "ms": "1500" } },
+        { "stepNumber": 9, "action": "download", "description": "Download the attachment",
+          "parameters": { "role": "link", "name": "Download", "folder": "mail-attachments",
+                          "contentType": "application/pdf", "storeAs": "attachment" } }
+      ]
+    }
+  ]
+}

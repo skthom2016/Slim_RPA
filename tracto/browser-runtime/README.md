@@ -124,7 +124,7 @@ never silently takes the first. Narrow it (`nth=0`, a parent, role + name).
 | `getText`, `getValue` | target, `storeAs` | Output `${x.value}` |
 | `getAttr` | target, `attribute`, `storeAs` | Output `${x.value}` |
 | `assert` | `kind`, `expected`, target | `visible`, `enabled`, `checked`, `urlEquals`, `textEquals` |
-| `download` | optional target, `folder`, `storeAs` | Clicks the target and saves the file the site sends; without a target waits for a download already started. Output `${x.path}`, `${x.fileName}`, `${x.size}`. Only inside `BROWSER_FILE_ROOTS` |
+| `download` | optional target, `folder`, `storeAs` | Clicks the target and saves the file the site sends; without a target waits for a download already started. The saved name gets the local date and time (`report_2026-11-27_14-14-21.csv`) unless `stampName` is `false`. Output `${x.path}`, `${x.fileName}`, `${x.size}`. Only inside `BROWSER_FILE_ROOTS` |
 | `upload` | target, `path` | Puts the file into a file field (or the button that opens the file picker). Only from inside `BROWSER_FILE_ROOTS` |
 | `delay` | `ms` | Fixed pause |
 

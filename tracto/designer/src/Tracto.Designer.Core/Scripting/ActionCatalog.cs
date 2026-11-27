@@ -107,8 +107,9 @@ public static class ActionCatalog
         // Reads every element the target matches, joined; the one action where several
         // matches are the point rather than an error.
         Browser("getTexts", [], ["limit", "separator", "timeoutMs"], ["value"]),
-        // Without an element, download waits for a download the previous step started.
-        Browser("download", [], ["folder", "expectedFileName", "contentType", "maxSizeBytes", "timeoutMs"],
+        // Without an element, download only waits for a download already under way, which a
+        // previous step's click may have started before the wait began; scripts give the element.
+        Browser("download", [], ["folder", "expectedFileName", "contentType", "maxSizeBytes", "stampName", "timeoutMs"],
             ["value", "path", "fileName", "size"], needsElement: false),
         Browser("upload",   ["path"], ["timeoutMs"], ["value", "path"]),
         Browser("delay",    ["ms"],    [], [], targeted: false),

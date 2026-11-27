@@ -296,6 +296,7 @@
         "expectedFileName",
         "contentType",
         "maxSizeBytes",
+        "stampName",
         "timeoutMs"
       ],
       "outputs": [

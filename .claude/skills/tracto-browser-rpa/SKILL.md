@@ -1,9 +1,11 @@
 ---
 name: tracto-browser-rpa
-description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, and reading text, values or attributes off a page. Covers signing in without putting a password in the script, through a signed-in browser profile or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
+description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, reading text, values or attributes off a page, and downloading a file from a page or uploading one into a file field. Covers signing in without putting a password in the script, through a signed-in browser profile or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
 ---
 
 # Tracto browser RPA scripts
+
+Created: 2026-11-06 | Last updated: 2026-11-27
 
 A script is one JSON file holding an ordered list of **segments**, each with an ordered list of
 **steps**. The Browser Runtime runs a browser segment's steps top to bottom in Playwright
@@ -123,8 +125,9 @@ read anywhere as `${param.name}`. A job overrides any of them when it is submitt
 | A later **segment** | `${param.name.field}` | `${param.headline.value}` |
 
 `getText`, `getValue` and `getAttr` each publish one field, `value`. `getTexts` publishes
-`value` and also `count`, how many elements it read. Every other action publishes nothing, so a
-`storeAs` on one does nothing.
+`value` and also `count`, how many elements it read. `download` publishes `path`, `fileName`
+and `size` of the saved file (and `value`, the same as `path`); `upload` publishes `path`. Every
+other action publishes nothing, so a `storeAs` on one does nothing.
 
 Getting the prefix wrong does not fail the run: the reference is left in the page or the file
 exactly as written. The validator catches it.
@@ -177,6 +180,11 @@ choice for a search or any public page and lets several runs go at once.
    `bin/Debug/net10.0/evidence/<runId>-<stepId>.png`. Look there first.
 9. **Google refuses automated Chromium** with a CAPTCHA page. The runtime does not solve
    CAPTCHAs. Bing works.
+10. **Files stay inside the worker's file roots.** `download` saves and `upload` reads only
+    inside the folders in `BROWSER_FILE_ROOTS` on the browser worker (default: the Downloads
+    folder of the user running it). Anything else fails with `POLICY_DENIED` before a byte is
+    written. A downloaded file is on the **browser worker's** machine; a desktop segment can use
+    its path only when it runs on the same machine or the folder is shared.
 
 ## Which action for the job
 
@@ -194,6 +202,8 @@ choice for a search or any public page and lets several runs go at once.
 | Read every matching element at once | `getTexts` (with `limit`, `separator`) |
 | Check the page is as expected | `assert` (`visible`, `enabled`, `checked`, `urlEquals`, `textEquals`) |
 | Wait a fixed time | `delay` |
+| Save a file the page offers (report, export, invoice) | `download` (the button or link, optional `folder`, `storeAs`) |
+| Put a file into an upload or import field | `upload` (the field or its button, `path`), then `click` the page's submit |
 | Use a value in a later desktop segment | `storeAs`, then `${param.name.value}` there |
 
 ## Files in this skill
@@ -201,7 +211,8 @@ choice for a search or any public page and lets several runs go at once.
 - `references/actions.md`: every action with its mandatory and optional parameters, what it
   publishes, and its traps.
 - `references/recipes.md`: worked patterns — a search, a sign-in either way, an autocomplete
-  field, a form, reading a list, asserting, handing a value to a desktop segment — each marked
+  field, a form, reading a list, asserting, handing a value to a desktop segment, downloading
+  and uploading a file — each marked
   verified or not.
 - `references/loops-and-conditions.md`: how a loop ("for each row") and a decision ("if this, run
   that") are done in Tracto: not in the script, but by sheet-service running a child job per row

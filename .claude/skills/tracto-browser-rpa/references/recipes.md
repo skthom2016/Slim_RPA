@@ -1,10 +1,12 @@
 # Browser recipes
 
+Created: 2026-11-06 | Last updated: 2026-11-27
+
 Worked patterns. Each says whether it has been run on a live worker (**verified**) or only
 checked against the runtime code (**not verified**).
 
-Every parameter value is a string. Every step may add `timeoutMs`; only the four readers accept
-a useful `storeAs`.
+Every parameter value is a string. Every step may add `timeoutMs`; only the readers,
+`download` and `upload` accept a useful `storeAs`.
 
 ---
 
@@ -26,9 +28,12 @@ a useful `storeAs`.
 | Read every match at once | `getTexts` | — |
 | Check the page is right | `assert` | `kind`, plus `expected` for `urlEquals` and `textEquals` |
 | Wait a fixed time | `delay` | `ms` |
+| Save a file the page offers | `download` | — (optional `folder`) |
+| Put a file into an upload field | `upload` | `path` (full path) |
 
 The element itself is mandatory for every action in that table except `navigate`, `press`,
-`delay`, and `assert kind=urlEquals`.
+`delay`, and `assert kind=urlEquals`. `download` accepts no element but should always get one
+(recipe 12).
 
 ---
 
@@ -255,6 +260,83 @@ main job start a sheet-service batch that runs it once per row: see `loops-and-c
 which has a verified child. To read many matches on one page, use `getTexts` and let whatever
 consumes the result split it. A page of fifty rows cannot be walked by a script; that is a limit,
 not a gap to work around. See `limits.md`.
+
+---
+
+## 12. Download a file from a page (**verified**)
+
+The `download` step is the click that starts the file. It clicks, catches the file the page
+sends, and saves it inside the worker's file roots (`BROWSER_FILE_ROOTS`, default Downloads).
+
+```json
+{ "stepNumber": 1, "action": "navigate", "description": "Open the reports page",
+  "parameters": { "url": "https://portal.example.com/reports" } },
+{ "stepNumber": 2, "action": "download", "description": "Download the report",
+  "parameters": { "role": "link", "name": "Download report", "folder": "portal",
+                  "expectedFileName": "donations.csv", "storeAs": "report" } }
+```
+
+- `${report.path}` is the saved file's full path; `${report.fileName}` and `${report.size}`
+  too. In a later segment: `${param.report.path}`.
+- `folder` `"portal"` means `<first file root>\portal`. A full path must be inside a file root.
+- The saved name gets the date and time down to the second (`donations_2026-11-27_14-14-21.csv`),
+  so nothing is replaced. Use `${report.path}` rather than building the name yourself.
+  `"stampName": "false"` keeps the site's name instead.
+
+**Verified:** through the Orchestrator and a browser worker, a CSV was downloaded into
+`<root>\portal`, byte for byte the same as the original; a `folder` outside the roots was refused
+with `POLICY_DENIED` and nothing was created.
+
+## 13. Download an email attachment (**not verified**)
+
+Open the mailbox through a signed-in profile (recipe 2), find the message, then let `download`
+click the attachment's download control. The script never knows the message in advance, so
+search for it with a value from `params` (a subject, a sender) rather than clicking "the first
+mail". In Outlook on the web the control is behind the attachment's menu: open the menu with a
+`click`, then `download` clicks its "Download" item.
+
+```json
+{ "name": "Fetch the invoice", "runtime": "browser", "profile": "finance-mail", "steps": [
+  { "stepNumber": 1, "action": "navigate", "description": "Open the inbox",
+    "parameters": { "url": "https://outlook.office.com/mail/" } },
+  { "stepNumber": 2, "action": "fill", "description": "Search for the message",
+    "parameters": { "placeholder": "Search", "value": "${param.subject}" } },
+  { "stepNumber": 3, "action": "press", "description": "Run the search",
+    "parameters": { "placeholder": "Search", "key": "Enter" } },
+  { "stepNumber": 4, "action": "click", "description": "Open the newest result",
+    "parameters": { "css": "[role='option'] >> nth=0" } },
+  { "stepNumber": 5, "action": "click", "description": "Open the attachment's menu",
+    "parameters": { "role": "button", "name": "More actions" } },
+  { "stepNumber": 6, "action": "download", "description": "Download the attachment",
+    "parameters": { "role": "menuitem", "name": "Download", "folder": "mail\\${now.date}",
+                    "contentType": "application/pdf", "storeAs": "invoice" } }
+] }
+```
+
+- The element names above are examples: record the real mailbox once and copy the names it
+  shows. A message with several attachments needs the attachment named, for example
+  `css: "[title='invoice.pdf']"`, or the step fails as ambiguous.
+- A mail that arrives triggers nothing by itself. Run the script on a schedule
+  (`references/scheduling.md`) and search for what is new, such as today's date in the subject.
+- Several messages, each with an attachment, is a loop: a child script per message started by a
+  main job (`references/loops-and-conditions.md`).
+
+## 14. Upload a file (**verified**)
+
+`upload` fills the file field; the page's own button sends it.
+
+```json
+{ "stepNumber": 3, "action": "upload", "description": "Choose the file",
+  "parameters": { "label": "Import file", "path": "${report.path}" } },
+{ "stepNumber": 4, "action": "click", "description": "Send it",
+  "parameters": { "role": "button", "name": "Import" } }
+```
+
+- The element is the `<input type="file">` or the button that opens the file picker.
+- `path` is a full path inside the worker's file roots, or a variable holding one.
+
+**Verified:** the file downloaded in recipe 12 was put into a file field and the page read it
+whole.
 
 ---
 

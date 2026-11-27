@@ -157,7 +157,9 @@ public sealed class FileDownloadHandler(
             var destDir  = Path.GetFullPath(downloadRef.DestinationDirectory);
             Directory.CreateDirectory(destDir);   // no-op if already exists
 
-            savedFilePath = Path.Combine(destDir, suggestedFilename);
+            savedFilePath = downloadRef.StampFileName
+                ? StampedPath(destDir, suggestedFilename, DateTime.Now)
+                : Path.Combine(destDir, Path.GetFileName(suggestedFilename));
 
             logger.LogInformation(
                 "Saving download '{Filename}' to '{Destination}'.",
@@ -199,7 +201,10 @@ public sealed class FileDownloadHandler(
                 Evidence  = new Dictionary<string, object?>
                 {
                     ["downloadedFilePath"] = savedFilePath,
-                    ["filename"]           = suggestedFilename,
+                    // The name the file was saved under, which carries the date and time when
+                    // stamping is on; the site's own name is kept beside it.
+                    ["filename"]           = Path.GetFileName(savedFilePath),
+                    ["suggestedFilename"]  = suggestedFilename,
                     ["fileSizeBytes"]      = fileInfo.Length
                 }
             };
@@ -253,6 +258,23 @@ public sealed class FileDownloadHandler(
             [".txt"]  = ["text/plain"],
             [".html"] = ["text/html"]
         };
+
+    /// <summary>
+    /// <c>donations.csv</c> saved at 14:14:21 on 27 Nov 2026 becomes
+    /// <c>donations_2026-11-27_14-14-21.csv</c>; when that is taken, <c>..._2.csv</c> and so on.
+    /// </summary>
+    public static string StampedPath(string directory, string suggestedFilename, DateTime now)
+    {
+        var name = Path.GetFileName(suggestedFilename);
+        var stem = Path.GetFileNameWithoutExtension(name);
+        var ext  = Path.GetExtension(name);
+        var stamped = $"{stem}_{now:yyyy-MM-dd_HH-mm-ss}";
+
+        var path = Path.Combine(directory, stamped + ext);
+        for (var n = 2; File.Exists(path); n++)
+            path = Path.Combine(directory, $"{stamped}_{n}{ext}");
+        return path;
+    }
 
     private static bool ExtensionMatchesContentType(string extension, string expectedContentType)
     {

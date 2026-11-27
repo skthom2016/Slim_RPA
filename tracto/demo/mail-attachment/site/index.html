@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo Mail - Inbox</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 0; display: flex; height: 100vh; }
+  #left { width: 380px; border-right: 1px solid #ccc; display: flex; flex-direction: column; }
+  #search { margin: 12px; padding: 8px; font-size: 14px; }
+  #list { overflow-y: auto; }
+  .msg { padding: 10px 14px; border-bottom: 1px solid #eee; cursor: pointer; }
+  .msg:hover, .msg[aria-selected="true"] { background: #e8f0fe; }
+  .from { font-weight: 600; }
+  .subject { color: #333; }
+  .date { color: #888; font-size: 12px; }
+  #pane { flex: 1; padding: 24px; }
+  .att { display: inline-flex; gap: 12px; align-items: center; border: 1px solid #ccc; padding: 8px 12px; border-radius: 6px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div id="left">
+  <input id="search" type="search" placeholder="Search mail" aria-label="Search mail">
+  <div id="list" role="listbox" aria-label="Messages"></div>
+</div>
+<main id="pane" aria-label="Reading pane"><p>Select a message to read it.</p></main>
+
+<script>
+// Newest first, as a mailbox shows them.
+const mails = [
+  { id: 1, from: "accounts@acme-supplies.com", subject: "Invoice 1042 for November", date: "2026-11-27 09:12",
+    body: "Please find attached invoice 1042.", attachment: "invoice-1042.pdf" },
+  { id: 2, from: "newsletter@example.org", subject: "Weekly news", date: "2026-11-26 18:00",
+    body: "Nothing to download here.", attachment: null },
+  { id: 3, from: "accounts@acme-supplies.com", subject: "Invoice 1031 for October", date: "2026-10-28 10:05",
+    body: "Please find attached invoice 1031.", attachment: "invoice-1031.pdf" },
+  { id: 4, from: "hr@neeli-demo.com", subject: "Holiday calendar", date: "2026-10-20 08:30",
+    body: "Holiday calendar attached.", attachment: "holidays-2027.pdf" }
+];
+
+const list = document.getElementById("list");
+const pane = document.getElementById("pane");
+
+function render(filter) {
+  const f = (filter || "").trim().toLowerCase();
+  list.innerHTML = "";
+  for (const m of mails.filter(m => !f || m.from.toLowerCase().includes(f) || m.subject.toLowerCase().includes(f))) {
+    const row = document.createElement("div");
+    row.className = "msg";
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-label", `${m.from} ${m.subject}`);
+    row.innerHTML = `<div class="from">${m.from}</div><div class="subject">${m.subject}</div><div class="date">${m.date}</div>`;
+    row.onclick = () => open(m, row);
+    list.appendChild(row);
+  }
+}
+
+function open(m, row) {
+  list.querySelectorAll(".msg").forEach(r => r.setAttribute("aria-selected", "false"));
+  row.setAttribute("aria-selected", "true");
+  pane.innerHTML =
+    `<h2 id="subject">${m.subject}</h2>` +
+    `<p>From: <span id="from">${m.from}</span></p>` +
+    `<p>${m.body}</p>` +
+    (m.attachment
+      ? `<div class="att" aria-label="Attachment"><span id="attname">${m.attachment}</span>` +
+        `<a href="attachments/${m.attachment}" download>Download</a></div>`
+      : "");
+}
+
+document.getElementById("search").addEventListener("keydown", e => {
+  if (e.key === "Enter") render(e.target.value);
+});
+render("");
+</script>
+</body>
+</html>

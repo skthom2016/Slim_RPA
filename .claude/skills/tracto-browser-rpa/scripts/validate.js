@@ -258,7 +258,12 @@ function checkBrowserStep(step, where, ctx) {
 
   if (p.maxSizeBytes && !p.maxSizeBytes.includes('${') && !/^\d+$/.test(p.maxSizeBytes))
     report.error(`${where}: "maxSizeBytes" must be a non-negative whole number in a string, got "${p.maxSizeBytes}"`);
-  if (name === 'upload' && p.path && !p.path.includes('${') && !/^[a-z]:[\\/]|^\\\\/i.test(p.path))
+  if (p.stampName && !p.stampName.includes('${') && !/^(true|false)$/i.test(p.stampName))
+    report.error(`${where}: "stampName" must be "true" or "false", got "${p.stampName}"`);
+  if (name === 'download' && !META.elementSelectors.some(s => p[s]))
+    report.warn(`${where}: download without an element only waits for a download already under way and can `
+      + `miss one the previous click started. Give it the link, button or menu item that starts the file.`);
+  if (name === 'upload' && p.path &&!p.path.includes('${') && !/^[a-z]:[\\/]|^\\\\/i.test(p.path))
     report.error(`${where}: "path" must be a full path (C:\\...), got "${p.path}"`);
 
   if (name === 'assert') checkAssert(p, where, report);

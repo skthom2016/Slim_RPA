@@ -277,12 +277,21 @@ public static class StepTranslator
         if (Get(p, "maxSizeBytes") is { } max && (!long.TryParse(max, out maxSize) || maxSize < 0))
             throw new ScriptValidationException($"{stepId}: maxSizeBytes must be a non-negative whole number.");
 
+        // The saved name carries the date and time unless the script asks for the site's own name.
+        var stamp = Get(p, "stampName") switch
+        {
+            null => true,
+            var s when bool.TryParse(s, out var b) => b,
+            var s => throw new ScriptValidationException($"{stepId}: stampName must be \"true\" or \"false\", got \"{s}\".")
+        };
+
         return new DownloadRef
         {
             DestinationDirectory = folder,
             ExpectedFilename     = Get(p, "expectedFileName"),
             ExpectedContentType  = Get(p, "contentType"),
-            MaxSizeBytes         = maxSize
+            MaxSizeBytes         = maxSize,
+            StampFileName        = stamp
         };
     }
 

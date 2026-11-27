@@ -1,5 +1,7 @@
 # Recipes
 
+Created: 2026-11-02 | Last updated: 2026-11-27
+
 Each recipe says whether it was **verified** (run on a Windows 11 machine with the real runtime) or only follows from how the runtime works. Step JSON is shown compactly; every value is a string in the real file.
 
 Paths below use `C:\\Users\\<you>\\...` as JSON strings (doubled backslashes). Inside a `type` value that goes to the Run dialog the same string is typed as `C:\Users\...`.
@@ -297,6 +299,29 @@ What makes this work, and what breaks it:
 
 Split on values, not on convenience: if two stages share anything other than a `storeAs` output,
 they belong in one segment.
+
+## 17. Use a file a browser segment downloaded
+
+**Not run as a mixed flow.** The desktop runtime has no download of its own: a file from a
+website or a mailbox is fetched by a browser segment with `download` (the `tracto-browser-rpa`
+skill), and its full path reaches the desktop segment as `${param.<storeAs>.path}`.
+
+```json
+{ "name": "Fetch the report", "runtime": "browser", "steps": [
+  { "stepNumber": 2, "action": "download", "parameters": { "role": "link", "name": "Download report", "storeAs": "report" } }
+] },
+{ "name": "Use the report", "runtime": "desktop", "steps": [
+  { "stepNumber": 1, "action": "file.read", "parameters": { "path": "${param.report.path}", "storeAs": "doc" } }
+] }
+```
+
+- The saved name carries the date and time (`report_2026-11-27_14-14-21.csv`); always use the
+  path from `${param.report.path}`, never a fixed name.
+- The path is on the **browser worker's** machine. It works when both workers run on the same
+  machine or the folder is shared.
+- To open the file in an app, use recipe 6 with the path; to copy or move it, recipe 4.
+
+---
 
 ## When a script misbehaves
 
