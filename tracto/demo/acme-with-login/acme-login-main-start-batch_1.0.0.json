@@ -1,0 +1,27 @@
+{
+  "id": "acme-login-main-start-batch",
+  "name": "ACME Main: Start Invoice Batch (With Sign-in)",
+  "version": "1.0.0",
+  "params": {
+    "excelPath": "H:/Neelitech/Slim_RPA/tracto/demo/acme-with-login/acme-login-invoices.xlsx",
+    "sheetName": "Invoices"
+  },
+  "segments": [
+    {
+      "name": "Start the batch and finish",
+      "runtime": "desktop",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "action": "http.post",
+          "description": "Ask sheet-service to run acme-login-child-fetch-invoice for every row that is not Done. It replies at once with a batch id; this job then ends and holds no worker.",
+          "parameters": {
+            "url": "http://localhost:5090/process/start",
+            "body": "{\"source\":{\"path\":\"${param.excelPath}\",\"sheet\":\"${param.sheetName}\"},\"child\":{\"artifactId\":\"acme-login-child-fetch-invoice\",\"version\":\"latest\"},\"params\":{\"invoiceId\":\"Id\"},\"outputs\":{\"invItem.value\":\"InvoiceItem\",\"invTotal.value\":\"Total\",\"invDate.value\":\"Date\"},\"statusColumn\":\"Status\",\"messageColumn\":\"Message\",\"timeoutSeconds\":180}",
+            "storeAs": "batch"
+          }
+        }
+      ]
+    }
+  ]
+}
