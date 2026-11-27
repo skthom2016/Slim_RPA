@@ -184,8 +184,8 @@ func TestDisabledUserCannotSignIn(t *testing.T) {
 func TestProtectedRoutesNeedASessionEvenWithNoSigningKey(t *testing.T) {
 	e := newAuthEnv(t)
 	anon := e.as("")
-	for _, p := range [][2]string{{"GET", "/auth/me"}, {"GET", "/admin/users"}, {"GET", "/admin/credentials"},
-		{"GET", "/admin/credential-groups"}, {"GET", "/admin/settings"}, {"POST", "/auth/password"}} {
+	for _, p := range [][2]string{{"GET", "/auth/me"}, {"GET", "/admin/users"}, {"GET", "/admin/secrets"},
+		{"GET", "/admin/credential-groups"}, {"GET", "/admin/credential-groups/g"}, {"POST", "/auth/password"}} {
 		if code, out := anon.call(p[0], p[1], nil); code != http.StatusUnauthorized || str(out, "error") != "AUTH_REQUIRED" {
 			t.Errorf("%s %s without a session: %d %v", p[0], p[1], code, out)
 		}
@@ -206,14 +206,14 @@ func TestSessionAndWorkerTokensAreNotInterchangeable(t *testing.T) {
 
 	// the user's session works on the session routes
 	e.must(http.StatusOK, "GET", "/auth/me", nil)
-	e.must(http.StatusOK, "GET", "/admin/credentials", nil)
+	e.must(http.StatusOK, "GET", "/admin/secrets", nil)
 
 	// a worker token (signed with the raw key) is not a session
 	worker, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": "admin", "role": "Administrator", "sv": 1, "exp": time.Now().Add(time.Hour).Unix(),
 	}).SignedString([]byte(secret))
-	if code, _ := e.as(worker).call("GET", "/admin/credentials", nil); code != http.StatusUnauthorized {
-		t.Fatalf("a worker token opened the credential store: %d", code)
+	if code, _ := e.as(worker).call("GET", "/admin/secrets", nil); code != http.StatusUnauthorized {
+		t.Fatalf("a worker token opened the secret store: %d", code)
 	}
 	// and a user's session is not a worker token
 	if code, _ := e.call("GET", "/jobs", nil); code != http.StatusUnauthorized {

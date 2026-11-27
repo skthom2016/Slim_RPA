@@ -92,11 +92,11 @@ func redactBody(body string) string {
 }
 
 // bodyNeverLogged reports whether a request body must not be logged at all, even redacted: sign-in
-// and password changes, users, credentials (including a whole import), and what a run reads.
+// and password changes, users, secrets (including a whole import), and what a run reads.
 func bodyNeverLogged(path string) bool {
 	return strings.HasPrefix(path, "/auth/") || strings.HasPrefix(path, "/admin/users") ||
-		strings.HasPrefix(path, "/admin/credentials") ||
-		(strings.HasPrefix(path, "/jobs/") && (strings.HasSuffix(path, "/credentials") || strings.HasSuffix(path, "/settings")))
+		strings.HasPrefix(path, "/admin/secrets") ||
+		(strings.HasPrefix(path, "/jobs/") && strings.HasSuffix(path, "/env"))
 }
 
 func writeSecurityEvent(db *sql.DB, eventType, sourceIP, details string) {

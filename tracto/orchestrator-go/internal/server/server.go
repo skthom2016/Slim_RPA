@@ -116,7 +116,7 @@ func NewRouter(database *sql.DB, logger *slog.Logger, cfg Config) http.Handler {
 	r.Get("/admin/continuations", cnh.List)
 	r.Delete("/admin/continuations/{mappingId}", cnh.Delete)
 
-	// Sign-in, users, and the credential store. These routes check the signed-in user themselves
+	// Sign-in, users, secrets, and groups with their variables. These routes check the signed-in user themselves
 	// (a session token, not a worker token), so the worker token check skips them.
 	sess := auth.NewService(database, cfg.JWTSecret)
 	au := handlers.NewAuthHandler(database, sess)
@@ -137,31 +137,33 @@ func NewRouter(database *sql.DB, logger *slog.Logger, cfg Config) http.Handler {
 	r.Post("/admin/credential-groups", sess.Require(auth.PermGroups, ch2.CreateGroup))
 	r.Put("/admin/credential-groups/{name}", sess.Require(auth.PermGroups, ch2.UpdateGroup))
 	r.Delete("/admin/credential-groups/{name}", sess.Require(auth.PermGroups, ch2.DeleteGroup))
-	r.Get("/admin/credentials", sess.Require(auth.PermView, ch2.List))
-	r.Post("/admin/credentials", sess.Require(auth.PermEdit, ch2.Create))
-	r.Post("/admin/credentials/import", sess.Require(auth.PermEdit, ch2.Import))
-	r.Put("/admin/credentials/{name}", sess.Require(auth.PermEdit, ch2.Update))
-	r.Delete("/admin/credentials/{name}", sess.Require(auth.PermEdit, ch2.Delete))
-	r.Get("/admin/credentials/{name}/events", sess.Require(auth.PermView, ch2.Events))
-	r.Post("/admin/credentials/{name}/reveal", sess.Require("", func(w http.ResponseWriter, r *http.Request) {
-		p := auth.PrincipalFrom(r.Context())
-		if !p.Has(auth.PermReveal) {
-			ch2.RevealDenied(chi.URLParam(r, "name"), p.Username)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(`{"error":"FORBIDDEN","message":"This needs the permission ` + auth.PermReveal + `"}`))
-			return
-		}
-		ch2.Reveal(w, r)
-	}))
-	r.Get("/admin/settings", sess.Require("", ch2.ListSettings))
-	r.Put("/admin/settings/{name}", sess.Require(auth.PermSettings, ch2.PutSetting))
-	r.Delete("/admin/settings/{name}", sess.Require(auth.PermSettings, ch2.DeleteSetting))
+	r.Get("/admin/credential-groups/{name}", sess.Require(auth.PermView, ch2.GetGroup))
+	r.Put("/admin/credential-groups/{name}/variables", sess.Require(auth.PermSettings, ch2.PutVariables))
+	r.Get("/admin/secrets", sess.Require(auth.PermView, ch2.ListSecrets))
+	r.Post("/admin/secrets", sess.Require(auth.PermEdit, ch2.CreateSecret))
+	r.Post("/admin/secrets/import", sess.Require(auth.PermEdit, ch2.ImportSecrets))
+	r.Put("/admin/secrets/{name}", sess.Require(auth.PermEdit, ch2.UpdateSecret))
+	r.Delete("/admin/secrets/{name}", sess.Require(auth.PermEdit, ch2.DeleteSecret))
+	r.Get("/admin/secrets/{name}/events", sess.Require(auth.PermView, ch2.Events))
+	revealRoute := func(h http.HandlerFunc) http.HandlerFunc {
+		return sess.Require("", func(w http.ResponseWriter, r *http.Request) {
+			p := auth.PrincipalFrom(r.Context())
+			if !p.Has(auth.PermReveal) {
+				ch2.RevealDenied(chi.URLParam(r, "name"), p.Username)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`{"error":"FORBIDDEN","message":"This needs the permission ` + auth.PermReveal + `"}`))
+				return
+			}
+			h(w, r)
+		})
+	}
+	r.Post("/admin/secrets/{name}/reveal", revealRoute(ch2.RevealSecret("reveal")))
+	r.Post("/admin/secrets/{name}/copy", revealRoute(ch2.RevealSecret("copy")))
 
-	// What a running job reads: its credentials and settings (worker token, like the rest of /jobs)
+	// What a running job reads: the variables its script names (worker token, like the rest of /jobs)
 	rc := handlers.NewRunCredentialHandler(database, v)
-	r.Post("/jobs/{runId}/credentials", rc.Credentials)
-	r.Post("/jobs/{runId}/settings", rc.Settings)
+	r.Post("/jobs/{runId}/env", rc.Env)
 
 	return r
 }

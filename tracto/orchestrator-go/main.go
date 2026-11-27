@@ -95,13 +95,13 @@ func main() {
 			logger.Error("rekey failed; nothing was changed", "err", err)
 			os.Exit(1)
 		}
-		logger.Info("rekey done", "credentialsResealed", n, "keyId", credVault.KeyID())
+		logger.Info("rekey done", "secretsResealed", n, "keyId", credVault.KeyID())
 		return
 	}
 	if credVault.IsLocked() {
-		logger.Warn(vault.EnvKey + " is not set: the credential store is locked (jobs still run)")
+		logger.Warn(vault.EnvKey + " is not set: the secret store is locked (jobs still run)")
 	} else if err := handlers.VerifyAll(database, credVault); err != nil {
-		logger.Error("the master key does not open the stored credentials", "err", err)
+		logger.Error("the master key does not open the stored secrets", "err", err)
 		os.Exit(1)
 	}
 	if err := auth.EnsureFirstAdmin(database, logger); err != nil {

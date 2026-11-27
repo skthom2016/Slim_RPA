@@ -65,7 +65,7 @@ func JWTAuth(signingKey string, db *sql.DB, logger *slog.Logger) func(http.Handl
 
 // sessionPaths are the routes that check a signed-in user (a session token) themselves, so the
 // worker token check leaves them alone.
-var sessionPaths = []string{"/admin/users", "/admin/credentials", "/admin/credential-groups", "/admin/settings"}
+var sessionPaths = []string{"/admin/users", "/admin/secrets", "/admin/credential-groups"}
 
 func usesSession(path string) bool {
 	for _, p := range sessionPaths {
