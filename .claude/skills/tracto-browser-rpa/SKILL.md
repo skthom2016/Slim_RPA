@@ -1,6 +1,6 @@
 ---
 name: tracto-browser-rpa
-description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, reading text, values or attributes off a page, and downloading a file from a page or uploading one into a file field. Covers signing in without putting a password in the script: a credential kept in the Orchestrator (one site or hundreds), a signed-in browser profile, or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
+description: Use when asked to create, edit, clean, review or validate a Tracto browser segment or browser RPA script (the JSON the Browser Runtime executes with Playwright): opening pages, filling and typing into fields, clicking, selecting, checking, waiting, asserting, reading text, values or attributes off a page, and downloading a file from a page or uploading one into a file field. Covers signing in without putting a password in the script: a secret and group variables kept in the Orchestrator (one site or hundreds), a signed-in browser profile, or a secret on the worker. Also covers a flow that mixes browser and desktop segments and passes values between them; for the desktop segment's own actions use the tracto-desktop-rpa skill. Not terminal runtimes; not for publishing or running.
 ---
 
 # Tracto browser RPA scripts
@@ -140,12 +140,18 @@ desktop segment after it typed `${param.headline.value}` into Notepad and saved 
 **Never put a password in a script.** Three supported ways, all in
 `references/credentials.md`:
 
-1. **A credential in the Orchestrator's store** — for a site with a user id and a password
-   (one site or hundreds). People add it on the Credentials page; the script writes
-   `${credential:NAME.username}` and `${credential:NAME.password}` (and `.totp` for a one-time
-   code), and `${setting:NAME}` for a plain value. The name is written out or built from job
-   parameters only. The run fails at once, naming the credential, if the script may not read it.
-   Values are masked in every log and output, and a password cannot be stored as an output.
+1. **An environment variable from the Orchestrator** — for a site with a user id and a password
+   (one site or hundreds), an API key, or any plain setting. People keep the password on the
+   Secrets page, then add variables to a group on the Groups page: a plain value
+   (`ACME_USERNAME`) or a variable that points at a secret (`ACME_PASSWORD`). The group lists the
+   scripts that may read it. These are the script's environment variables: they live in the
+   Orchestrator database, never in a service's `.env` or `PORT`-style settings. Each group has a
+   number (100, 101, ...) shown on the group page, and a variable's full name is
+   `GP<number>_<name>`, so names never clash between groups. Ask the user for the number. The
+   script writes `${env:GP100_ACME_USERNAME}` and `${env:GP100_ACME_PASSWORD}`. After the prefix
+   the name is written out or built from job parameters (`${env:GP100_${param.site}_PASSWORD}`).
+   The run fails at once, naming the variable, if the script may not read it. Secret values are
+   masked in every log and output, and a secret cannot be stored as an output.
 2. **A signed-in profile** — a person signs in once with `dotnet run -- --login <profile>`, and
    the segment names that `profile`. The script holds no password. One run at a time per
    profile, and sign-ins expire.
@@ -210,7 +216,7 @@ choice for a search or any public page and lets several runs go at once.
 | Wait a fixed time | `delay` |
 | Save a file the page offers (report, export, invoice) | `download` (the button or link, optional `folder`, `storeAs`) |
 | Put a file into an upload or import field | `upload` (the field or its button, `path`), then `click` the page's submit |
-| Sign in with a stored user id and password | `${credential:NAME.username}`, `${credential:NAME.password}` in `fill` |
+| Sign in with a stored user id and password | `${env:GP100_NAME_USERNAME}`, `${env:GP100_NAME_PASSWORD}` in `fill` (100 = the group's number) |
 | Use a value in a later desktop segment | `storeAs`, then `${param.name.value}` there |
 
 ## Files in this skill

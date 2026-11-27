@@ -371,7 +371,7 @@ with the files checked on disk afterwards. Templates for each are in `references
   that") are done in Tracto: not in the script, but by sheet-service running a child job per row
   from a main job that ends at once. The request, the rules, what is verified and what is not built.
 - `references/scheduling.md`: what can start a run (a person, an Orchestrator schedule, a continuation, an event that is not built) and when the scheduler is the right choice; the schedule request, what it guarantees and what it does not, and how to write a script that runs unattended.
-- `references/credentials.md`: typing or sending a password without putting it in the script: `${credential:NAME.password}` and `${setting:NAME}`, the name rule, masking.
+- `references/credentials.md`: typing or sending a password without putting it in the script: `${env:GP100_NAME}` (a group variable kept in the Orchestrator database, plain or backed by a secret; 100 is the group's number), the `GP<number>_` naming, masking.
 - `references/limits.md`: what the runtime cannot do, workarounds, and what to ask the core team
   to add.
 - `references/templates/*.json`: working scripts to copy. The verified ones from the table

@@ -343,16 +343,18 @@ whole.
 ## 15. Sign in to many sites with one script (**verified**)
 
 Two hundred portals are one child script and a list, not two hundred scripts. The sites are rows
-of a sheet (`site`, `url`); each `site` is the name of a credential in the store, all in one group
-whose list of allowed scripts holds the child.
+of a sheet (`site`, `url`); each `site` is the middle of two variables (`SITE1` gives
+`SITE1_USERNAME` and `SITE1_PASSWORD`, read as `GP100_SITE1_USERNAME` and `GP100_SITE1_PASSWORD`
+when the group's number is 100), all in one group whose list of allowed scripts holds the child.
+Each `_PASSWORD` variable points at its own secret. Use the number shown on the group page.
 
 ```json
 { "name": "Sign in to one portal", "runtime": "browser", "steps": [
   { "stepNumber": 1, "action": "navigate", "parameters": { "url": "${param.url}" } },
   { "stepNumber": 2, "action": "fill",
-    "parameters": { "label": "User ID", "value": "${credential:${param.site}.username}" } },
+    "parameters": { "label": "User ID", "value": "${env:GP100_${param.site}_USERNAME}" } },
   { "stepNumber": 3, "action": "fill",
-    "parameters": { "label": "Password", "value": "${credential:${param.site}.password}" } },
+    "parameters": { "label": "Password", "value": "${env:GP100_${param.site}_PASSWORD}" } },
   { "stepNumber": 4, "action": "click", "parameters": { "role": "button", "name": "Sign in" } },
   { "stepNumber": 5, "action": "assert",
     "parameters": { "kind": "textEquals", "css": "#status", "expected": "Signed in" } }
@@ -361,15 +363,15 @@ whose list of allowed scripts holds the child.
 
 A main job starts the batch (`loops-and-conditions.md`): `"params": {"site": "site", "url": "url"}`
 maps the sheet's columns to the child's parameters, so each row is one run with its own
-credential. The child does the work after signing in (a download, a read); add those steps.
+variables. The child does the work after signing in (a download, a read); add those steps.
 
-- **A row whose credential is missing, or not readable by the script, fails on its own** with a
-  message naming the credential; the other rows go on.
-- Sites that differ in layout need their own child script; the credential names work the same way.
+- **A row whose variable is missing, or not readable by the script, fails on its own** with a
+  message naming the variable; the other rows go on.
+- Sites that differ in layout need their own child script; the variable names work the same way.
 - Sites with a code by SMS or e-mail, or a CAPTCHA, cannot be done this way (`credentials.md`).
 
-**Verified:** three local portals with different accounts, one child script, one group; all three
-rows signed in with their own credential, and no password was found in any log, output or
+**Verified:** three local portals with different accounts, one child script, one group of variables; all three
+rows signed in with their own account, and no password was found in any log, output or
 database table. Files: `tracto/demo/many-sites/`. Template: `templates/many-sites-child.json`.
 
 ---

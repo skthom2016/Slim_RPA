@@ -190,37 +190,47 @@ Invoke-RestMethod "http://localhost:5080/jobs/<runId>/telemetry"
 ```
 A segment that has not started is `PENDING`. When a segment fails or is cancelled the parent takes that state and later segments stay `PENDING`. `POST /jobs/{runId}/cancel` on the parent cancels the active segment.
 
-## Orchestrator sign-in and the credential store
+## Orchestrator sign-in, secrets and group variables
 
 The Orchestrator UI needs a sign-in. On its first start, with no users, the orchestrator creates the
 user `admin` with the password `Admin@123#`; change it on the **Change password** page. Users, roles
 (Viewer, Operator, Credential admin, Administrator) and the permissions behind them are on the
 **Users** page. Design: `docs/credential-store-design.md`; stories: `docs/credential-store-stories.md`.
 
-**Never put a password in a script.** Passwords live in the credential store (**Credentials** page),
-sealed with `CREDENTIAL_MASTER_KEY` (set in the orchestrator's environment or `.env`; see
-`orchestrator-go/.env.example`). A script names them:
+**Never put a password in a script.** Passwords and keys are **secrets** (**Secrets** tab), sealed
+with `CREDENTIAL_MASTER_KEY` (set in the orchestrator's environment or `.env`; see
+`orchestrator-go/.env.example`). A **group** (**Groups** tab) lists the scripts allowed to read it
+and holds **environment variables**: each is a name with a plain value or a pointer to a secret.
+These are the script's environment variables and they live in the Orchestrator database. The
+services' own settings (`.env`, `PORT`, `DATABASE_URL`, `CREDENTIAL_MASTER_KEY`) are separate and
+a script cannot read them. Every group has a **group number**, assigned automatically from 100 and
+never reused; a variable's full name is `GP<number>_<name>`, so `ACME_USERNAME` in group 100 is
+read as `GP100_ACME_USERNAME`. Ask for the group number; never guess it. A script reads a variable
+by its full name:
 
 ```json
-{ "action": "fill", "parameters": { "label": "Password", "value": "${credential:givewell-portal.password}" } }
-{ "action": "navigate", "parameters": { "url": "${setting:givewell-url}" } }
+{ "action": "fill", "parameters": { "label": "User ID",  "value": "${env:GP100_ACME_USERNAME}" } }
+{ "action": "fill", "parameters": { "label": "Password", "value": "${env:GP100_ACME_PASSWORD}" } }
 ```
 
-- Fields: `username`, `password`, `totp` (the current code of a one-time-code key). Names use small
-  letters, digits, `-` and `.`, written out or built from job parameters only
-  (`${credential:${param.site}.password}`).
-- A credential belongs to a **group**; the group lists the scripts allowed to read it. A run is
-  refused, naming the credential, when its script may not read it.
-- Browser and desktop workers fetch them after accepting the job, hold them in memory for the run
-  and mask them in every log, error and output. A password cannot be stored as an output
-  (`CREDENTIAL_IN_OUTPUT`).
-- Plain values (a URL, a folder) are **settings**, shown in clear.
-- 200 sites are one child script run once per row of a sheet (`demo/many-sites/`).
+- Secret names use small letters, digits, `-` and `.`. Variable names use letters, digits and `_`
+  (`ACME_PASSWORD`). A group name is any text without a comma. In a script the variable name is
+  written out, with only the part after `GP100_` built from job parameters
+  (`${env:GP100_${param.site}_PASSWORD}`).
+- A script may read a variable only from a group that lists it (or `*`). A run is refused, naming
+  the variable, when it may not read it or when no variable has that name.
+- Browser and desktop workers fetch the variables after accepting the job, hold them in memory for
+  the run and mask secret values in every log, error and output. A secret cannot be stored as an
+  output (`CREDENTIAL_IN_OUTPUT`). Plain values are shown in clear.
+- A variable pointing at a `totp` secret gives the current one-time code.
+- 200 sites are one child script run once per row of a sheet (`demo/many-sites/`); `SITE1` in the
+  sheet gives `GP100_SITE1_USERNAME` and `GP100_SITE1_PASSWORD` (group 100).
 - `${secret:NAME}` (an environment variable on the worker) still works for one-off use.
+- `${credential:...}` and `${setting:...}` no longer exist; the validators report them.
 
-The routes for users, credentials, groups and settings check a signed-in user's session (a bearer
-token from `POST /auth/login`), not a worker token. The UI server keeps the session in a cookie the
-page's scripts cannot read and adds it to every call it forwards.
+The routes for users, secrets and groups check a signed-in user's session (a bearer token from
+`POST /auth/login`), not a worker token. The UI server keeps the session in a cookie the page's
+scripts cannot read and adds it to every call it forwards.
 ---
 
 ## Starting All Services

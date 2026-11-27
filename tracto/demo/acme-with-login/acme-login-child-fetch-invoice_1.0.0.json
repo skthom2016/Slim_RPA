@@ -7,15 +7,15 @@
   },
   "segments": [
     {
-      "name": "Sign in with the stored ACME credential, then search one invoice",
+      "name": "Sign in with the stored ACME variables, then search one invoice",
       "runtime": "browser",
       "steps": [
         { "stepNumber": 1, "action": "navigate", "description": "Open the ACME login page in an empty browser",
           "parameters": { "url": "https://acme-test.uipath.com/login" } },
-        { "stepNumber": 2, "action": "fill", "description": "Enter the e-mail of the stored credential",
-          "parameters": { "css": "#email", "value": "${credential:acme-login.username}" } },
-        { "stepNumber": 3, "action": "fill", "description": "Enter the password of the stored credential",
-          "parameters": { "css": "#password", "value": "${credential:acme-login.password}" } },
+        { "stepNumber": 2, "action": "fill", "description": "Enter the ACME e-mail (a group variable)",
+          "parameters": { "css": "#email", "value": "${env:GP100_ACME_USERNAME}" } },
+        { "stepNumber": 3, "action": "fill", "description": "Enter the ACME password (a secret behind a group variable)",
+          "parameters": { "css": "#password", "value": "${env:GP100_ACME_PASSWORD}" } },
         { "stepNumber": 4, "action": "click", "description": "Click Login",
           "parameters": { "role": "button", "name": "Login" } },
         { "stepNumber": 5, "action": "delay", "description": "Let the sign-in finish before leaving the page",

@@ -1,11 +1,12 @@
-# Epic CS: credential store, settings and Orchestrator sign-in
+# Epic CS: secrets, group variables and Orchestrator sign-in
 
 Created: 2026-11-27 | Last updated: 2026-11-27
 
 Scope: everything in [credential-store-design.md](credential-store-design.md): sign-in to the
-Orchestrator UI with users, roles and a password change page; an encrypted credential store with
-groups, an eye icon and a history; a plain settings store; handing credentials and settings to
-browser and desktop runs; one-time codes; the many-sites pattern.
+Orchestrator UI with users, roles and a password change page; encrypted secrets with an eye icon
+and a history; groups that list the scripts allowed to read them and hold environment variables
+(a plain value or a pointer to a secret); handing variables to browser and desktop runs as
+`${env:GP100_NAME}` (the group number and the variable name); one-time codes; the many-sites pattern.
 Paths are relative to `tracto/`. Section numbers refer to the design document.
 
 | ID | Title | Phase |
@@ -16,15 +17,15 @@ Paths are relative to `tracto/`. Section numbers refer to the design document.
 | CS4 | Users page | 1 |
 | CS5 | Roles and permissions | 1 |
 | CS6 | Encryption and the master key | 2 |
-| CS7 | Credential groups and script access | 2 |
-| CS8 | Credentials API | 2 |
-| CS9 | Credentials page with the eye icon | 2 |
+| CS7 | Groups and script access | 2 |
+| CS8 | Secrets API | 2 |
+| CS9 | Secrets tab with the eye icon | 2 |
 | CS10 | Expiry or no expiry | 2 |
-| CS11 | Import credentials from a file | 2 |
-| CS12 | Settings store and page | 2 |
-| CS13 | Credentials and settings for a run | 3 |
-| CS14 | Browser runtime: credentials, settings and masking | 3 |
-| CS15 | Desktop runtime: credentials, settings and masking | 3 |
+| CS11 | Import secrets from a file | 2 |
+| CS12 | Environment variables of a group | 2 |
+| CS13 | Variables for a run | 3 |
+| CS14 | Browser runtime: variables and masking | 3 |
+| CS15 | Desktop runtime: variables and masking | 3 |
 | CS16 | Validator, skills and Designer | 3 |
 | CS17 | One-time codes (TOTP) | 4 |
 | CS18 | Many sites with one login script | 4 |
@@ -34,7 +35,7 @@ Paths are relative to `tracto/`. Section numbers refer to the design document.
 ## CS1 — Users table and the first administrator
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | none |
 | Capability today | None. The Orchestrator UI (`orchestrator-ui/server.js`) has no sign-in; the orchestrator checks a bearer token only on `/jobs`, `/workers`, `/admin`, and not at all when `ORCHESTRATOR_JWT_SECRET` is empty (`orchestrator-go/internal/middleware/auth.go`) |
@@ -67,7 +68,7 @@ before anyone has set up users.
 ## CS2 — Login page and sessions
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS1 |
 | Capability today | None |
@@ -111,7 +112,7 @@ and sign out again, so that only known people can use the UI and every action is
 ## CS3 — Password change page
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS2 |
 | Capability today | None |
@@ -146,7 +147,7 @@ administrator's password and any password given to me can be replaced by one onl
 ## CS4 — Users page
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS2, CS5 |
 | Capability today | None |
@@ -180,13 +181,13 @@ with only the access they need.
 ## CS5 — Roles and permissions
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS2 |
 | Capability today | None |
 
 **User story.** As an administrator, I want four roles made of six permissions, optionally limited
-to some credential groups, so that viewing, revealing and editing credentials can be given to
+to some groups, so that viewing, revealing and editing secrets and variables can be given to
 different people.
 
 **Acceptance criteria.**
@@ -196,8 +197,8 @@ different people.
    the UI hides buttons the user may not use.
 3. Given a call needing a permission the user lacks, then it answers `403 FORBIDDEN` naming the
    permission, whatever the UI shows.
-4. Given a user limited to group `finance-portals`, then lists, reveals and edits of credentials
-   in other groups are refused or left out, and creating a credential in another group is refused.
+4. Given a user limited to group `finance portals`, then the groups and variables of other groups
+   are refused or left out.
 5. Given the jobs, artifacts and schedules pages, then any signed-in user can use them as before.
 
 **Tasks.**
@@ -213,22 +214,22 @@ different people.
 ## CS6 — Encryption and the master key
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | none |
 | Capability today | Partly. `sheet-service/internal/secretbox` seals values with AES-256-GCM under `TRACTO_SECRET_KEY`; the orchestrator has nothing |
 
-**User story.** As a security owner, I want credential passwords and TOTP keys sealed with a key
+**User story.** As a security owner, I want secret values sealed with a key
 that lives only in the orchestrator's environment, so that a copy of the database alone gives
 none of them away.
 
 **Acceptance criteria.**
 1. Given `CREDENTIAL_MASTER_KEY` set (32 random bytes, base64) in the environment or `.env`, on
    Windows, Linux or macOS, then values are sealed with AES-256-GCM in the `secretbox` format,
-   with the credential name as additional authenticated data.
-2. Given a sealed value copied onto another credential's row, then opening it fails.
-3. Given the key is missing, then the orchestrator starts, jobs run, and every credential endpoint
-   answers `503 CREDENTIAL_STORE_LOCKED`.
+   with the secret name as additional authenticated data.
+2. Given a sealed value copied onto another secret's row, then opening it fails.
+3. Given the key is missing, then the orchestrator starts, jobs run, and every secret endpoint
+   answers `503 CREDENTIAL_STORE_LOCKED` and plain variables still work.
 4. Given a key that does not open the stored rows, then the orchestrator refuses to start and
    names the problem without printing a value.
 5. Given `CREDENTIAL_MASTER_KEY_OLD`, a new `CREDENTIAL_MASTER_KEY` and a new
@@ -248,399 +249,378 @@ none of them away.
 
 ---
 
-## CS7 — Credential groups and script access
+## CS7 — Groups and script access
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS5 |
 | Capability today | None |
 
-**User story.** As a credential admin, I want to put credentials into groups and say which
-scripts may read each group, so that a finance script can read the finance portals and nothing
-else.
+**User story.** As a credential admin, I want to create groups and say which scripts may read each
+group, so that a finance script can read the finance portals and nothing else.
 
 **Acceptance criteria.**
-1. Given `credentials.groups`, then groups can be created, renamed in description, and deleted
-   when empty; deleting a group that holds credentials is refused naming how many.
+1. Given the Edit groups permission, then groups can be created, their description changed, and
+   deleted; deleting a group deletes its variables.
 2. Given a group, then scripts are allowed by `artifactId`, or all scripts by `*`.
-3. Given the Groups tab, then it lists each group with its number of credentials and allowed
-   scripts.
+3. Given the group page, then the scripts are chosen from a type-ahead box that lists the published
+   scripts with name, id and versions; `+` adds another script and `−` removes one.
 4. Given group names, then any text up to 100 characters without a comma is accepted; an empty
    name or a duplicate is refused.
+5. Given the Groups tab, then it lists each group with its group number (`GP100`), its number of
+   scripts and variables, and clicking a group opens its page.
+6. Given a new group, then it gets the next group number automatically, starting at 100. A number
+   is never given again, even after the group is deleted, and renaming a group keeps it.
+7. Given the group list and the group page, then the number is shown.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS7.1 | `CredentialGroups`, `CredentialGroupAccess` tables |  |
+| CS7.1 | `CredentialGroups`, `CredentialGroupAccess` tables; `GroupNo` from a sequence starting at 100 | migrations 003 and 005 |
 | CS7.2 | Groups API |  |
-| CS7.3 | Groups tab |  |
+| CS7.3 | Groups tab and the group page with the script picker |  |
 | CS7.4 | Tests |  |
 
 ---
 
-## CS8 — Credentials API
+## CS8 — Secrets API
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS5, CS6, CS7 |
+| Depends on | CS5, CS6 |
 | Capability today | None |
 
-**User story.** As a credential admin, I want to add, change, delete, list and reveal credentials
-through the API, with every change and reveal recorded, so that the page and any tool use the
-same rules.
+**User story.** As a credential admin, I want to add, change and delete named secrets through the
+API, so that no password has to be written in a script or a file.
 
 **Acceptance criteria.**
-1. Given `POST /admin/credentials` with name, group, username, password and optional TOTP key,
-   URL, notes and expiry, then the password and TOTP key are sealed before storing and the reply
-   holds no secret.
-2. Given a name breaking the rules of section 1 (a capital letter, a character outside small letters, digits, `-` and `.`), or a duplicate, then `422`
-   names the problem.
-3. Given `GET /admin/credentials`, then no reply ever contains a password or TOTP key.
-4. Given `PUT` without `password`, then the stored password is kept; with one, it is replaced and
-   `Version` goes up.
-5. Given `POST /admin/credentials/{name}/reveal` by a user with `credentials.reveal`, then the
-   password is returned with `Cache-Control: no-store` and `REVEALED` (or `COPIED` for
-   `{"purpose":"copy"}`) is recorded with the username; without the permission, `403` and a
-   refusal recorded.
-6. Given any change, then a `CredentialEvents` row records kind, credential, user and time, and
-   `GET /admin/credentials/{name}/events` lists them newest first.
-7. Given the audit log, then no request or reply body in it contains a password or TOTP key.
+1. Given `POST /admin/secrets {name, kind, value, description?, expiresOn?}`, then the value is
+   sealed and stored; a name outside the rule, a duplicate, or an unknown kind is refused.
+2. Given `GET /admin/secrets`, then the reply holds names, kinds, descriptions, expiry, status and
+   where each secret is used, and never a value.
+3. Given `PUT /admin/secrets/{name}` without a `value`, then the old value is kept.
+4. Given `DELETE /admin/secrets/{name}` while a variable points at the secret, then it answers 409
+   and names the group and variable.
+5. Given any change, then a history row records who did it and when, without the value.
+6. Given the audit log, then it never contains a secret value.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS8.1 | `Credentials`, `CredentialEvents` tables |  |
-| CS8.2 | Create, change, delete, list |  |
-| CS8.3 | Reveal with permission check and event |  |
-| CS8.4 | Events endpoint |  |
-| CS8.5 | Audit log blanking for `totpKey` |  |
-| CS8.6 | Tests |  |
+| CS8.1 | Migration `004_secrets_variables.sql`: `Secrets` and `GroupVariables`, dropping the credential and setting tables | Section 4 |
+| CS8.2 | Secrets handlers | |
+| CS8.3 | Audit redaction of `value` | |
+| CS8.4 | Tests | |
 
 ---
 
-## CS9 — Credentials page with the eye icon
+## CS9 — Secrets tab with the eye icon
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS8 |
 | Capability today | None |
 
-**User story.** As an operator, I want a page listing every site's credential with the password
-hidden behind an eye icon, so that I can check or copy a password when I need it and everyone can
-see who did.
+**User story.** As an operator, I want to see secrets as dots and reveal one only when I click an
+eye icon, so that nothing secret is on screen by accident.
 
 **Acceptance criteria.**
-1. Given the Credentials page, then it lists name, site, username, the password as `●●●●●●●●`,
-   expiry and actions, filterable by group and searchable by name, site or username.
-2. Given a user with `credentials.reveal`, when the eye icon is clicked, then the password is
-   fetched by the reveal call and shown in place; it hides again after 30 seconds, on a second
-   click, or when the page loses focus.
-3. Given the copy icon, then the password goes to the clipboard without being shown, recorded as
-   `COPIED`.
-4. Given a user without `credentials.reveal`, then neither icon is shown.
-5. Given **Add** or **✎**, then a form with masked password (with its own eye icon), optional TOTP
-   key, URL, notes and expiry saves the credential; an edit with the password left empty keeps
-   the old one.
-6. Given **🗑**, then the page asks for confirmation naming the credential and deletes it.
-7. Given **History**, then the credential's events are shown with user and time.
-8. Given the store is locked (CS6 criterion 3), then the page says so and offers no action.
+1. Given the Secrets tab, then values show as `●●●●●●` and the list response holds no value.
+2. Given the Reveal permission, then the eye icon shows the value, and hides it after 30 seconds,
+   on a second click, or when the page loses focus; the copy button copies without showing.
+3. Given a user without the Reveal permission, then no eye or copy button is shown and the calls
+   are refused.
+4. Given every reveal and copy, then a history row records the user.
+5. Given the add and edit form, then the value is masked with its own eye icon, and an edit with an
+   empty value keeps the old one.
+6. Given a delete of a secret still in use, then the page shows the refusal message.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS9.1 | List, filter, search |  |
-| CS9.2 | Eye icon with timed hide; copy |  |
-| CS9.3 | Add / edit form, delete with confirmation |  |
-| CS9.4 | History tab |  |
-| CS9.5 | UI tests in a browser |  |
+| CS9.1 | Reveal and copy endpoints, `no-store` | |
+| CS9.2 | Secrets tab, form, eye with timed hide, copy | |
+| CS9.3 | History view | |
+| CS9.4 | Tests and a browser check | |
 
 ---
 
 ## CS10 — Expiry or no expiry
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
-| Type | Story |
-| Depends on | CS9 |
-| Capability today | None |
-
-**User story.** As a credential admin, I want to give a credential an expiry date or mark it as
-never expiring, so that passwords a site forces to change are flagged in time and the rest never
-raise a warning.
-
-**Acceptance criteria.**
-1. Given the form, then expiry is **No expiry** by default, or a date.
-2. Given no expiry, then the list shows "No expiry" and the credential never warns.
-3. Given a date within 14 days, then the row shows ⚠ and the date; given a past date, ⛔ "Expired".
-4. Given the page header, then it shows the number of credentials expiring soon and expired,
-   and clicking it filters the list to them.
-5. Given a run reads an expired credential, then the values are still given and the run log
-   warns naming the credential and the date.
-
-**Tasks.**
-| ID | Task | Notes |
-|---|---|---|
-| CS10.1 | Expiry field with No expiry in form and API (`expiresOn: null`) |  |
-| CS10.2 | Warnings, header counts, filter |  |
-| CS10.3 | Run log warning (with CS13) |  |
-| CS10.4 | Tests |  |
-
----
-
-## CS11 — Import credentials from a file
-| Field | Value |
-|---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS8 |
 | Capability today | None |
 
-**User story.** As a credential admin, I want to load many credentials from one CSV file, so that
-200 portals do not have to be typed in one by one.
+**User story.** As a credential admin, I want a secret to have an expiry date or none, so that
+passwords that must be changed are flagged and others are left alone.
 
 **Acceptance criteria.**
-1. Given a CSV with `name,group,username,password,siteUrl,notes,expiresOn`, then the page shows a
-   preview with passwords masked and a check per row (name rules, duplicate, missing group,
-   date format).
-2. Given any row in error, then nothing is saved and the errors are listed by row.
-3. Given all rows valid, when **Import** is pressed, then all are saved in one transaction and one
-   `CREATED` event is recorded per credential; an empty `expiresOn` means no expiry.
-4. Given an existing name in the file, then the import refuses it unless **Replace existing** is
-   ticked, in which case those credentials are updated.
-5. Given the import is done, then the page reminds the user to delete the file; the server keeps
-   no copy and the audit log holds no password.
+1. Given the form, then **No expiry** is the default; a date can be chosen instead.
+2. Given no expiry, then the secret never warns.
+3. Given a date within 14 days, then the list shows ⚠; past the date it shows ⛔ "Expired".
+4. Given an expired secret read by a run, then the value is still given and the run log carries a
+   warning naming the secret and its date.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS11.1 | `POST /admin/credentials/import`, all or nothing |  |
-| CS11.2 | Import page with preview |  |
-| CS11.3 | Audit log: import bodies not logged |  |
-| CS11.4 | Tests with 200 rows |  |
+| CS10.1 | `ExpiresOn` column and status calculation | |
+| CS10.2 | Form and list display | |
+| CS10.3 | Warning at run time | |
+| CS10.4 | Tests | |
 
 ---
 
-## CS12 — Settings store and page
+## CS11 — Import secrets from a file
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS5 |
-| Capability today | None. Scripts take values from `params` or from worker environment variables |
-
-**User story.** As a flow developer, I want plain named settings (URLs, folders, addresses) kept
-in the Orchestrator and editable on a page, so that a value used by many scripts is changed in
-one place.
-
-**Acceptance criteria.**
-1. Given the Settings page, then every signed-in user sees name, value, notes and last change;
-   users with `settings.edit` can add, change and delete.
-2. Given setting names, then the rules of section 1 apply.
-3. Given `GET/PUT/DELETE /admin/settings/{name}`, then they behave as the page.
-4. Given a value that looks like a password (the patterns of `handlers/result.go`), then saving
-   is refused with a message to use a credential instead.
-
-**Tasks.**
-| ID | Task | Notes |
-|---|---|---|
-| CS12.1 | `Settings` table and API |  |
-| CS12.2 | Settings page |  |
-| CS12.3 | Secret-pattern check |  |
-| CS12.4 | Tests |  |
-
----
-
-## CS13 — Credentials and settings for a run
-| Field | Value |
-|---|---|
-| Epic | CS: credential store and sign-in |
-| Type | Story |
-| Depends on | CS7, CS8, CS12 |
+| Depends on | CS8 |
 | Capability today | None |
 
-**User story.** As a worker, I want to fetch exactly the credentials and settings my current run
-needs, so that a script can sign in without the password ever being in the script or on the
-worker's disk.
+**User story.** As a credential admin, I want to load many secrets from a CSV file, so that 200
+passwords are not typed one by one.
 
 **Acceptance criteria.**
-1. Given `POST /jobs/{runId}/credentials {workerId, names}` for a run leased to that worker and
-   running, whose script names those credentials and may read their groups, then the reply holds
-   username and password (and the current TOTP code, CS17) per name, and `READ_BY_RUN` is recorded
-   per name.
-2. Given a run not leased to that worker, a run not running, a name not in the script, or a group
-   the script may not read, then the reply is `403` naming the first failing name and reason, and
-   `READ_DENIED` is recorded.
-3. Given a name with a capital letter, then it is refused as unknown.
-4. Given `POST /jobs/{runId}/settings`, then settings named in the script are returned under the
-   same leased-run check.
-5. Given the replies, then they carry `Cache-Control: no-store` and are not written to the audit
-   log body.
+1. Given a CSV with `name,value,kind,description,expiresOn`, then a check run lists every row with
+   values masked and every error with its row number, and saves nothing.
+2. Given a file with no errors, then all rows are saved or none; a name that already exists is
+   refused unless replacing is chosen.
+3. Given an empty `expiresOn`, then the secret has no expiry.
+4. Given the import page, then it reminds the user to delete the file, and the file is not kept.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS13.1 | Name extraction from a run's script after parameters | Same resolution order as the runtimes |
-| CS13.2 | `/jobs/{runId}/credentials` and `/settings` with checks |  |
-| CS13.3 | Events and audit exclusions |  |
-| CS13.4 | Tests for each refusal |  |
+| CS11.1 | Import endpoint with `dryRun` and `replaceExisting` | |
+| CS11.2 | Import dialog with the check | |
+| CS11.3 | Tests: errors, all-or-none, replace | |
 
 ---
 
-## CS14 — Browser runtime: credentials, settings and masking
+## CS12 — Environment variables of a group
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS13 |
-| Capability today | Partly. `${secret:NAME}` from the worker environment (`browser-runtime/src/TractoRuntime.Browser.Host/BrowserRunEngine.cs`, `ResolveSecrets`) |
+| Depends on | CS7, CS8 |
+| Capability today | None. Plain settings existed on their own page and are replaced by group variables |
 
-**User story.** As a flow developer, I want `${credential:NAME.field}` and `${setting:NAME}` in
-browser steps, so that a browser script signs in to any stored site and nothing secret leaves the
-worker.
+**User story.** As a credential admin, I want to add environment variables to a group, each with a
+plain value or a pointer to a secret, so that a script gets its settings and passwords by name.
 
 **Acceptance criteria.**
-1. Given a script using `${credential:NAME.username|password|totp}` or `${setting:NAME}`, then
-   after accepting the lease the worker fetches every name in one call each and fills the steps;
-   `${param...}` inside a name is filled in first.
-2. Given a refused or unknown name, then the run fails before the browser opens with a message
-   naming the credential.
-3. Given any log line, error message, telemetry or run output containing a credential value, then
-   the value is replaced by `●●●●` before it leaves the worker.
-4. Given a `storeAs` whose output would contain a password or TOTP code, then the step fails with
+1. Given a group page, then **Environment variables** lists rows of name, a choice between Value
+   and Secret, and a value box or a drop-down of secrets; `+` adds a row and `−` removes one;
+   **Save** replaces the group's list in one step.
+   In front of every name box the page shows the fixed prefix `GP100_` (the group's own number)
+   and the user types only the rest. A variable typed as `ACME_USERNAME` in group 100 is read by
+   scripts as `GP100_ACME_USERNAME`, so names never clash between groups.
+2. Given a name outside letters, digits and `_`, a name starting with a digit, a duplicate name in
+   the group, a row with both or neither of value and secret, or a secret that does not exist,
+   then Save is refused and the message names the row.
+3. Given the Edit variables permission, then the page is editable; a Viewer sees it read-only; a
+   user limited to other groups does not see the group.
+4. Given a variable that points at a secret, then the secret's page shows it under "Used by".
+5. Given a save, then a history row records the group and the user.
+
+**Tasks.**
+| ID | Task | Notes |
+|---|---|---|
+| CS12.1 | `GroupVariables` table and `PUT /admin/credential-groups/{name}/variables` | |
+| CS12.2 | Variables section of the group page | |
+| CS12.3 | "Used by" in the secrets list | |
+| CS12.4 | Tests | |
+
+---
+
+## CS13 — Variables for a run
+| Field | Value |
+|---|---|
+| Epic | CS: secrets, variables and sign-in |
+| Type | Story |
+| Depends on | CS6, CS7, CS12 |
+| Capability today | `${secret:NAME}` from a worker's environment only |
+
+**User story.** As a script author, I want to write `${env:GP100_NAME}` and have the worker receive
+the value only while the run is going, so that the script holds no password.
+
+**Acceptance criteria.**
+1. Given `POST /jobs/{runId}/env {workerId, names}`, then it answers only when the run is running
+   and leased to that worker, each name appears in the run's script, and each name is
+   `GP<number>_<name>` where the group with that number lists the run's main script or `*` and
+   holds the variable.
+2. Given a name the script may not read, then the answer is `403 VARIABLE_DENIED` naming it; given
+   an unknown name, or a name without the `GP<number>_` prefix, `404 UNKNOWN_VARIABLE` naming it.
+3. Given a variable that points at a secret, then the reply holds the value with `secret: true`;
+   given a plain value, `secret: false`.
+4. Given the master key is missing and a secret-backed variable is asked for, then the answer is
+   `503 CREDENTIAL_STORE_LOCKED`; plain variables still work.
+5. Given every read or refusal, then a history row records the run and worker; the reply is
+   `Cache-Control: no-store`.
+
+**Tasks.**
+| ID | Task | Notes |
+|---|---|---|
+| CS13.1 | `/jobs/{runId}/env` handler and entitlement check | |
+| CS13.2 | Events `READ_BY_RUN` and `READ_DENIED` | |
+| CS13.3 | Tests per refusal | |
+
+---
+
+## CS14 — Browser runtime: variables and masking
+| Field | Value |
+|---|---|
+| Epic | CS: secrets, variables and sign-in |
+| Type | Story |
+| Depends on | CS13 |
+| Capability today | None |
+
+**User story.** As an operator, I want a browser script to sign in with `${env:...}` and nothing
+secret to reach a log or an output, so that a run leaves no password behind.
+
+**Acceptance criteria.**
+1. Given `${env:GP100_NAME}` in a step, then the worker fetches the names in one call before the browser
+   opens; a refusal fails the run at once, naming the variable (category POLICY_DENIED).
+2. Given a secret value, then it is held in memory only and replaced by `●●●●` in the console, the
+   run log, step errors, outputs and the result; values shorter than 4 characters and plain
+   values are not masked.
+3. Given a secret value containing `${...}`, then it is typed as it is and never expanded.
+4. Given a step with `storeAs` whose output would hold a secret value, then it fails with
    `CREDENTIAL_IN_OUTPUT`.
-5. Given the run ends, then the values are dropped from memory; nothing is written to disk.
-6. Given `${secret:NAME}`, then it works as before.
-7. Given a local test page with a login form, then a run signs in with a stored credential, and a
-   search of its logs, outputs and telemetry finds neither the username nor the password.
+5. Given a name built from `${param.x}`, then parameters are filled in first and the resolved
+   names are fetched.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS14.1 | Orchestrator client calls for credentials and settings |  |
-| CS14.2 | Resolver in `BrowserRunEngine` beside `ResolveSecrets` |  |
-| CS14.3 | Run mask list applied to logs, errors, telemetry, outputs |  |
-| CS14.4 | `storeAs` guard |  |
-| CS14.5 | Tests including the local login page |  |
+| CS14.1 | Collect and fetch `${env:...}` names | |
+| CS14.2 | Stand-in values and the mask list | |
+| CS14.3 | `storeAs` guard | |
+| CS14.4 | Tests with a fake Orchestrator and a headless browser | |
 
 ---
 
-## CS15 — Desktop runtime: credentials, settings and masking
+## CS15 — Desktop runtime: variables and masking
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
 | Depends on | CS13 |
-| Capability today | None. The desktop runtime has no `${secret:...}` either |
+| Capability today | None |
 
-**User story.** As a flow developer, I want the same `${credential:...}` and `${setting:...}` in
-desktop steps, so that a desktop application can be signed in to with a stored password.
+**User story.** As an operator, I want a desktop script to type or send a stored password without
+holding it, so that desktop automation follows the same rule as browser automation.
 
-**Acceptance criteria.** As CS14 criteria 1 to 5 and 7, for the desktop runtime: `type` and
-`notepad.type` accept credential values, the value is masked in every log and output, and a
-desktop test signs in to a local test form.
+**Acceptance criteria.**
+1. Given `${env:GP100_NAME}` in `type`, `key` or `http.post`, then the worker fetches the names before
+   the first step; a refusal fails the run with a first step result `credentials` naming the
+   variable.
+2. Given a secret value, then it is masked as in CS14 in logs, step errors and outputs.
+3. Given a step with `storeAs` whose output would hold a secret value, then it fails with
+   `CREDENTIAL_IN_OUTPUT`.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS15.1 | Orchestrator client calls |  |
-| CS15.2 | Resolver in the desktop run engine |  |
-| CS15.3 | Masking and `storeAs` guard |  |
-| CS15.4 | Tests |  |
+| CS15.1 | Shared resolver and mask in the protocol project | |
+| CS15.2 | Engine integration and masking console formatter | |
+| CS15.3 | Tests | |
 
 ---
 
 ## CS16 — Validator, skills and Designer
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS14, CS15 |
-| Capability today | The validators and the Designer know `${secret:...}` only |
+| Depends on | CS13 |
+| Capability today | The validators know `${secret:NAME}` |
 
-**User story.** As a script author (person or Claude), I want the tools to know the new
-references, so that a script using credentials is checked before it is published.
+**User story.** As a script author, I want the validators and skills to know `${env:GP100_NAME}`, so that
+a script is checked before it is published.
 
 **Acceptance criteria.**
-1. Given the browser and desktop validators, then `${credential:NAME.field}` with a field other
-   than `username`, `password`, `totp`, or a name breaking the rules, is an error; `${setting:NAME}`
-   is accepted.
-2. Given a literal password in a script, then the validators and publishing still refuse it (as
-   SIS story H3 criterion 4).
-3. Given the `tracto-browser-rpa` and `tracto-desktop-rpa` skills, then their credential pages
-   describe the store, the syntax and the many-sites pattern, and say to never put a password in a
-   script.
-4. Given the Designer, then its data-flow check accepts the new references.
+1. Given `${env:GP100_NAME}` with a valid name, or a name whose part after the `GP100_` prefix is
+   built from `${param.x}`, then both validators accept it; a name without the written-out
+   `GP<digits>_` prefix, a name built from anything else, or a name outside letters, digits and
+   `_`, is an error.
+2. Given `${credential:...}` or `${setting:...}`, then the validators report that the form is no
+   longer supported.
+3. Given a literal value in a password field, then the browser validator still reports it.
+4. Given the skills and `CLAUDE.md`, then they describe secrets, groups, group numbers, variables, the
+   `GP<number>_` naming, where a script's environment variables are kept (the Orchestrator
+   database, not the services' own settings) and masking, and ship a many-sites template.
+5. Given the Designer's data-flow check, then `env:` references are not reported as unknown.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS16.1 | Validators |  |
-| CS16.2 | Skills: `references/credentials.md` in both |  |
-| CS16.3 | Designer `DataFlow` |  |
-| CS16.4 | README and CLAUDE.md |  |
+| CS16.1 | `checkNamedRefs` in both validators | |
+| CS16.2 | Skills, references, recipes, template | |
+| CS16.3 | Designer `DataFlow.cs` | |
+| CS16.4 | `CLAUDE.md` section | |
 
 ---
 
 ## CS17 — One-time codes (TOTP)
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS8, CS13 |
+| Depends on | CS13 |
 | Capability today | None |
 
-**User story.** As a flow developer, I want a site that asks for an authenticator-app code to be
-signed in to automatically, so that sites with two-step sign-in by app can be automated.
+**User story.** As an operator, I want a script to sign in to a site that asks for an
+authenticator code, so that the code is made when needed and the key never leaves the
+Orchestrator.
 
 **Acceptance criteria.**
-1. Given a credential with a TOTP key (base32 setup key from the site's QR code), then
-   `${credential:NAME.totp}` gives the current 6-digit code (RFC 6238, 30 seconds, SHA-1 unless
-   the credential says otherwise).
-2. Given the code is asked for in the last 5 seconds of its 30-second window, then the next code
-   is waited for and returned, so the site does not receive one about to expire.
-3. Given the TOTP key, then it never leaves the orchestrator: neither the reveal call nor the run
-   call returns it.
+1. Given a secret of kind `totp` and a variable pointing at it, then `${env:GP100_NAME}` gives the
+   current 6-digit code.
+2. Given a code about to change within 5 seconds, then the Orchestrator waits for the next window.
+3. Given the code, then it is masked and cannot become an output like any secret value.
 4. Given the RFC 6238 test vectors, then the codes match.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS17.1 | TOTP generation in the orchestrator |  |
-| CS17.2 | Window-edge wait |  |
-| CS17.3 | Tests with RFC vectors |  |
+| CS17.1 | Code generation and the window wait | |
+| CS17.2 | `totp` kind in the secret form | |
+| CS17.3 | Tests with the RFC vectors | |
 
 ---
 
 ## CS18 — Many sites with one login script
 | Field | Value |
 |---|---|
-| Epic | CS: credential store and sign-in |
+| Epic | CS: secrets, variables and sign-in |
 | Type | Story |
-| Depends on | CS14 |
-| Capability today | The main-job and child-job batch exists (sheet-service batches); per-site credentials do not |
+| Depends on | CS14, CS16 |
+| Capability today | Sheet-service starts a child job once per row |
 
-**User story.** As a finance operations lead, I want one login script run once per portal from a
-list, each run using that portal's stored credential, so that 200 portals are handled without 200
-scripts.
+**User story.** As an operator, I want one child script that signs in to every site in a list with
+that site's own account, so that 200 sites are one script and 200 rows.
 
 **Acceptance criteria.**
-1. Given a list with `site` and `url` per row and a child script using
-   `${credential:${param.site}.username}` and `.password`, when the main job runs, then each row's
-   child run signs in with that row's credential.
-2. Given a row whose credential is missing or not readable by the child script, then that row's
-   run fails naming the credential and the other rows go on.
-3. Given three local test sites with different logins, then all three runs succeed and the logs
-   hold no password.
-4. Given the `tracto-browser-rpa` skill, then it has this pattern as a recipe with a template.
+1. Given a sheet with `site` (`SITE1`, `SITE2`, ...) and `url`, and one group holding
+   `SITEn_USERNAME` and `SITEn_PASSWORD` (the password pointing at its own secret), then a main
+   job starts the batch and each row signs in with its own account.
+2. Given a row whose variable is missing or not readable by the child, then that row fails with a
+   message naming the variable and the other rows go on.
+3. Given the whole run, then no password is found in any log, output, result or database table.
+4. Given the demo folder `demo/many-sites/`, then it holds the sheet, three test portals, the main
+   and child scripts and a README.
 
 **Tasks.**
 | ID | Task | Notes |
 |---|---|---|
-| CS18.1 | Three local test sites with login forms |  |
-| CS18.2 | Child script and main job |  |
-| CS18.3 | Recipe and template in the skill |  |
-
----
+| CS18.1 | Child script, main job, sheet and test portals | |
+| CS18.2 | Live run over three portals | |
+| CS18.3 | Search of logs and tables for the passwords | |

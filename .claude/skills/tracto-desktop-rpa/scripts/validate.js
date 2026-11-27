@@ -289,38 +289,40 @@ function defineStoreAs(name, step, sheetRoute, where, ctx) {
 }
 
 // ── variable references ─────────────────────────────────────────────────────────────────────
-// ── credential and setting references ───────────────────────────────────────────────────────
-// ${credential:NAME.username|password|totp} and ${setting:NAME}: kept in the Orchestrator's
-// credential store. A name is written out, or built from job parameters only, so that the
-// Orchestrator can check what a run is entitled to before it starts.
-const NAMED_REF = /\$\{(credential|setting):((?:[^${}]|\$\{[^}]*\})*)\}/gi;
-const CRED_FIELDS = ['username', 'password', 'totp'];
-const NAME_RULE = /^[a-z0-9][a-z0-9.-]{0,99}$/;
+// ── environment variable references ─────────────────────────────────────────────────────────
+// ${env:NAME}: a variable of a group kept in the Orchestrator (a plain value, or a secret).
+// NAME is written out, or built from job parameters only, so that the Orchestrator can check
+// what a run is entitled to before it starts. ${credential:...} and ${setting:...} no longer exist.
+const NAMED_REF = /\$\{(env|credential|setting):((?:[^${}]|\$\{[^}]*\})*)\}/gi;
+const NAME_RULE = /^[A-Za-z_][A-Za-z0-9_]{0,99}$/;
+// A variable's full name is GP<group number>_<name>: the number is shown on the group page and
+// makes the name unique across all groups. The prefix is always written out, never built.
+const FULL_NAME_RULE = /^GP[0-9]+_[A-Za-z_][A-Za-z0-9_]{0,99}$/;
 
-/** Checks each credential and setting reference and returns the text without them. */
+/** Checks each ${env:NAME} reference and returns the text without them. */
 function checkNamedRefs(value, where, ctx, checkPart) {
   return value.replace(NAMED_REF, (whole, kind, inner) => {
     kind = kind.toLowerCase();
-    let name = inner;
-    if (kind === 'credential') {
-      const dot = inner.lastIndexOf('.');
-      const field = dot < 0 ? '' : inner.slice(dot + 1);
-      name = dot < 0 ? inner : inner.slice(0, dot);
-      if (!CRED_FIELDS.includes(field))
-        ctx.report.error(`${where}: "${whole}" must end in .username, .password or .totp`);
+    if (kind !== 'env') {
+      ctx.report.error(`${where}: "${whole}" is no longer supported. Keep the value as a secret or a plain ` +
+        `variable in an Orchestrator group and read it as \${env:GP<group number>_NAME}.`);
+      return '';
     }
     let fromElsewhere = false;
-    const plain = name.replace(/\$\{([^}]*)\}/g, (part, ref) => {
+    const plain = inner.replace(/\$\{([^}]*)\}/g, (part, ref) => {
       ref = ref.trim();
       if (/^param\.[^.]+/.test(ref)) { if (checkPart) checkPart(ref); } else fromElsewhere = true;
-      return 'x';
+      return 'X';
     });
     if (fromElsewhere)
       ctx.report.error(`${where}: "${whole}" builds its name from something other than a job parameter. ` +
         `Write the name out, or use \${param.NAME}.`);
-    else if (!NAME_RULE.test(plain))
-      ctx.report.error(`${where}: "${whole}": a ${kind} name uses small letters, digits, "-" and ".", ` +
-        `starts with a letter or digit and is at most 100 characters (no capital letters, no "_").`);
+    else if (!/^GP[0-9]+_/.test(inner))
+      ctx.report.error(`${where}: "${whole}": a variable name starts with GP<group number>_ written out, for ` +
+        `example \${env:GP100_SITE_USERNAME}. The number is on the group page.`);
+    else if (!FULL_NAME_RULE.test(plain))
+      ctx.report.error(`${where}: "${whole}": after GP<number>_ a variable name uses letters, digits and "_", ` +
+        `does not start with a digit and is at most 100 characters.`);
     return '';
   });
 }
