@@ -37,11 +37,11 @@
         <span class="icon">📜</span> Logs
       </a>
       <div class="nav-section">Secrets</div>
-      <a href="#" class="nav-link" data-tab="credentials" data-perm="credentials.view">
-        <span class="icon">🔑</span> Credentials
+      <a href="#" class="nav-link" data-tab="secrets" data-perm="credentials.view">
+        <span class="icon">🔑</span> Secrets
       </a>
-      <a href="#" class="nav-link" data-tab="settings">
-        <span class="icon">🧩</span> Settings
+      <a href="#" class="nav-link" data-tab="groups" data-perm="credentials.view">
+        <span class="icon">🧩</span> Groups
       </a>
       <a href="#" class="nav-link" data-tab="users" data-perm="users.manage">
         <span class="icon">👥</span> Users
@@ -233,41 +233,36 @@
       <div id="logs-content"></div>
     </div>
 
-    <!-- Credentials ──────────────────────────────────────────────────────── -->
-    <div class="tab-pane" id="tab-credentials">
+    <!-- Secrets ──────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-secrets">
       <div class="notice notice-info" id="cred-locked" style="display:none">
-        The credential store is locked: set <code>CREDENTIAL_MASTER_KEY</code> for the orchestrator and restart it.
+        The secret store is locked: set <code>CREDENTIAL_MASTER_KEY</code> for the orchestrator and restart it.
       </div>
-      <div class="subtabs">
-        <button class="subtab active" id="subtab-creds" data-sub="creds">Credentials</button>
-        <button class="subtab" id="subtab-groups" data-sub="groups">Groups</button>
+      <div class="notice notice-info">
+        A secret is a sealed value (a password, an API key). It is shown again only with the eye icon.
+        Put it in a group as an environment variable, and a script reads it as <code>${env:NAME}</code>.
+      </div>
+      <div class="toolbar">
+        <input type="search" id="secret-search" placeholder="Search name or description…">
+        <button class="btn btn-secondary" id="btn-secret-refresh">↺ Refresh</button>
         <span class="cred-summary" id="cred-summary"></span>
+        <span class="toolbar-spacer"></span>
+        <button class="btn btn-secondary" id="btn-secret-import" data-perm="credentials.edit">Import file</button>
+        <button class="btn btn-primary"   id="btn-secret-add"    data-perm="credentials.edit">+ Add secret</button>
       </div>
-
-      <div id="sub-creds">
-        <div class="toolbar">
-          <label>Group</label>
-          <select id="cred-group-filter"><option value="">All groups</option></select>
-          <input type="search" id="cred-search" placeholder="Search name, site or username…">
-          <button class="btn btn-secondary" id="btn-cred-refresh">↺ Refresh</button>
-          <span class="toolbar-spacer"></span>
-          <button class="btn btn-secondary" id="btn-cred-import" data-perm="credentials.edit">Import file</button>
-          <button class="btn btn-primary"   id="btn-cred-add"    data-perm="credentials.edit">+ Add</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th><th>Site</th><th>Username</th><th>Password</th>
-                <th>Group</th><th>Expires</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="cred-body"></tbody>
-          </table>
-        </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Kind</th><th>Value</th><th>Description</th><th>Expires</th><th>Used by</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="secret-body"></tbody>
+        </table>
       </div>
+    </div>
 
-      <div id="sub-groups" style="display:none">
+    <!-- Groups ───────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-groups">
+      <div id="groups-list">
         <div class="toolbar">
           <button class="btn btn-secondary" id="btn-group-refresh">↺ Refresh</button>
           <span class="toolbar-spacer"></span>
@@ -276,30 +271,49 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Group</th><th>Description</th><th>Credentials</th><th>Scripts allowed to read it</th><th>Actions</th></tr>
+              <tr><th>Number</th><th>Group</th><th>Description</th><th>Variables</th><th>Scripts allowed to read it</th></tr>
             </thead>
             <tbody id="group-body"></tbody>
           </table>
         </div>
       </div>
-    </div>
 
-    <!-- Settings ─────────────────────────────────────────────────────────── -->
-    <div class="tab-pane" id="tab-settings">
-      <div class="notice notice-info">
-        Settings are shown in clear and are read by scripts as <code>${setting:name}</code>.
-        Anything secret belongs in Credentials.
-      </div>
-      <div class="toolbar">
-        <button class="btn btn-secondary" id="btn-setting-refresh">↺ Refresh</button>
-        <span class="toolbar-spacer"></span>
-        <button class="btn btn-primary" id="btn-setting-add" data-perm="settings.edit">+ Add</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Value</th><th>Notes</th><th>Last change</th><th>Actions</th></tr></thead>
-          <tbody id="setting-body"></tbody>
-        </table>
+      <div id="group-page" style="display:none">
+        <div class="toolbar">
+          <button class="btn btn-secondary" id="btn-group-back">← Groups</button>
+          <span class="group-page-title" id="group-page-title">Group</span>
+          <span class="toolbar-spacer"></span>
+          <button class="btn btn-outline-danger" id="btn-group-delete" data-perm="credentials.groups">Delete group</button>
+        </div>
+        <div class="group-card">
+          <div class="form-grid" style="grid-template-columns:1fr">
+            <div class="form-row">
+              <label for="group-name">Name</label>
+              <input type="text" id="group-name" spellcheck="false" autocomplete="off" placeholder="acme with login">
+            </div>
+            <div class="form-row">
+              <label for="group-desc">Description</label>
+              <input type="text" id="group-desc" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <label>Scripts allowed to read the variables</label>
+              <div id="group-scripts-list" class="script-rows"></div>
+              <div class="form-hint">Type to search or pick a main or child script (name, id and versions are listed). Access covers every version of the script. Use + to add another and − to remove one. * means every script.</div>
+            </div>
+            <div class="form-row">
+              <label>Environment variables</label>
+              <div class="form-hint" id="group-number-note"></div>
+              <div id="group-vars-list" class="var-rows"></div>
+              <div class="form-hint">Each variable is a plain value or one of your secrets. A script reads it as <code>${env:NAME}</code>. Use + to add another and − to remove one.</div>
+            </div>
+          </div>
+          <div class="form-error" id="group-error" role="alert"></div>
+          <div class="form-ok" id="group-ok" role="status"></div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="group-dismiss">Cancel</button>
+            <button class="btn btn-primary"   id="group-save">Save</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -461,57 +475,46 @@
   </div>
 </div>
 
-<!-- ── Credential modal (add and edit) ───────────────────────────────────── -->
-<div class="modal-overlay" id="cred-overlay">
-  <div class="modal modal-wide">
-    <div class="modal-title" id="cred-modal-title">Credential</div>
-    <div class="form-grid">
+<!-- ── Secret modal (add and edit) ───────────────────────────────────────── -->
+<div class="modal-overlay" id="secret-overlay">
+  <div class="modal">
+    <div class="modal-title" id="secret-modal-title">Secret</div>
+    <div class="form-grid" style="grid-template-columns:1fr">
       <div class="form-row">
-        <label for="cred-name">Name</label>
-        <input type="text" id="cred-name" spellcheck="false" autocomplete="off" placeholder="givewell-portal">
-        <div class="form-hint">Small letters, digits, <code>-</code> and <code>.</code>. Scripts use it as <code>${credential:name.password}</code>.</div>
-      </div>
-      <div class="form-row">
-        <label for="cred-group">Group</label>
-        <select id="cred-group"></select>
+        <label for="secret-name">Name</label>
+        <input type="text" id="secret-name" spellcheck="false" autocomplete="off" placeholder="acme-password">
+        <div class="form-hint">Small letters, digits, <code>-</code> and <code>.</code>. A group variable points at the secret by this name.</div>
       </div>
       <div class="form-row">
-        <label for="cred-username">Username</label>
-        <input type="text" id="cred-username" autocomplete="off">
+        <label for="secret-kind">Kind</label>
+        <select id="secret-kind">
+          <option value="text">Text (a password, an API key)</option>
+          <option value="totp">One-time-code key (an authenticator setup key)</option>
+        </select>
       </div>
       <div class="form-row">
-        <label for="cred-password">Password</label>
-        <div class="pw-field"><input type="password" id="cred-password" autocomplete="new-password">
-          <button type="button" class="eye" data-eye="cred-password" title="Show what was typed" aria-label="Show what was typed">👁</button></div>
-        <div class="form-hint" id="cred-password-hint"></div>
+        <label for="secret-value">Value</label>
+        <div class="pw-field"><input type="password" id="secret-value" autocomplete="new-password">
+          <button type="button" class="eye" data-eye="secret-value" title="Show what was typed" aria-label="Show what was typed">👁</button></div>
+        <div class="form-hint" id="secret-value-hint"></div>
       </div>
-      <div class="form-row form-full">
-        <label for="cred-totp">One-time-code key (optional)</label>
-        <div class="pw-field"><input type="password" id="cred-totp" autocomplete="off" placeholder="the setup key an authenticator app is given">
-          <button type="button" class="eye" data-eye="cred-totp" title="Show what was typed" aria-label="Show what was typed">👁</button></div>
-        <div class="form-hint" id="cred-totp-hint"></div>
+      <div class="form-row">
+        <label for="secret-desc">Description</label>
+        <input type="text" id="secret-desc" autocomplete="off">
       </div>
-      <div class="form-row form-full">
-        <label for="cred-site">Site address</label>
-        <input type="text" id="cred-site" autocomplete="off" placeholder="https://portal.example.com">
-      </div>
-      <div class="form-row form-full">
-        <label for="cred-notes">Notes</label>
-        <input type="text" id="cred-notes" autocomplete="off">
-      </div>
-      <div class="form-row form-full">
+      <div class="form-row">
         <label>Expiry</label>
         <div class="radio-row">
-          <label class="check"><input type="radio" name="cred-expiry" id="cred-expiry-none" value="none" checked> No expiry</label>
-          <label class="check"><input type="radio" name="cred-expiry" id="cred-expiry-date" value="date"> Expires on</label>
-          <input type="date" id="cred-expires">
+          <label class="check"><input type="radio" name="secret-expiry" id="secret-expiry-none" value="none" checked> No expiry</label>
+          <label class="check"><input type="radio" name="secret-expiry" id="secret-expiry-date" value="date"> Expires on</label>
+          <input type="date" id="secret-expires">
         </div>
       </div>
     </div>
-    <div class="form-error" id="cred-error" role="alert"></div>
+    <div class="form-error" id="secret-error" role="alert"></div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="cred-dismiss">Cancel</button>
-      <button class="btn btn-primary"   id="cred-save">Save</button>
+      <button class="btn btn-secondary" id="secret-dismiss">Cancel</button>
+      <button class="btn btn-primary"   id="secret-save">Save</button>
     </div>
   </div>
 </div>
@@ -519,16 +522,16 @@
 <!-- ── Import modal ──────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="import-overlay">
   <div class="modal modal-wide">
-    <div class="modal-title">Import credentials</div>
+    <div class="modal-title">Import secrets</div>
     <div class="modal-desc">
-      A CSV file with the columns <code>name,group,username,password,siteUrl,notes,expiresOn</code>
-      (an empty <code>expiresOn</code> means no expiry). Nothing is saved unless every row is valid.
+      A CSV file with the columns <code>name,value,kind,description,expiresOn</code> (kind is <code>text</code> or <code>totp</code>, empty means text;
+      an empty <code>expiresOn</code> means no expiry). Nothing is saved unless every row is valid.
     </div>
     <input type="file" id="import-file" accept=".csv,text/csv">
-    <label class="check" style="margin-top:10px"><input type="checkbox" id="import-replace"> Replace existing credentials with the same name</label>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="import-replace"> Replace existing secrets with the same name</label>
     <div class="table-wrap import-preview" id="import-preview" style="display:none">
       <table>
-        <thead><tr><th>#</th><th>Name</th><th>Group</th><th>Username</th><th>Password</th><th>Expires</th><th>Check</th></tr></thead>
+        <thead><tr><th>#</th><th>Name</th><th>Kind</th><th>Value</th><th>Expires</th><th>Check</th></tr></thead>
         <tbody id="import-body"></tbody>
       </table>
     </div>
@@ -556,59 +559,6 @@
   </div>
 </div>
 
-<!-- ── Group modal ───────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="group-overlay">
-  <div class="modal">
-    <div class="modal-title" id="group-modal-title">Group</div>
-    <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="form-row">
-        <label for="group-name">Name</label>
-        <input type="text" id="group-name" spellcheck="false" autocomplete="off" placeholder="finance-portals">
-      </div>
-      <div class="form-row">
-        <label for="group-desc">Description</label>
-        <input type="text" id="group-desc" autocomplete="off">
-      </div>
-      <div class="form-row">
-        <label>Scripts allowed to read the credentials</label>
-        <div id="group-scripts-list" class="script-rows"></div>
-        <div class="form-hint">Type to search or pick a main or child script (name, id and versions are listed). Access covers every version of the script. Use + to add another and − to remove one. * means every script.</div>
-      </div>
-    </div>
-    <div class="form-error" id="group-error" role="alert"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" id="group-dismiss">Cancel</button>
-      <button class="btn btn-primary"   id="group-save">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Setting modal ─────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="setting-overlay">
-  <div class="modal">
-    <div class="modal-title" id="setting-modal-title">Setting</div>
-    <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="form-row">
-        <label for="setting-name">Name</label>
-        <input type="text" id="setting-name" spellcheck="false" autocomplete="off" placeholder="portal-url">
-      </div>
-      <div class="form-row">
-        <label for="setting-value">Value</label>
-        <input type="text" id="setting-value" autocomplete="off">
-      </div>
-      <div class="form-row">
-        <label for="setting-notes">Notes</label>
-        <input type="text" id="setting-notes" autocomplete="off">
-      </div>
-    </div>
-    <div class="form-error" id="setting-error" role="alert"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" id="setting-dismiss">Cancel</button>
-      <button class="btn btn-primary"   id="setting-save">Save</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── User modal ────────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="user-overlay">
   <div class="modal">
@@ -621,10 +571,10 @@
       <div class="form-row">
         <label for="user-role">Role</label>
         <select id="user-role"></select>
-        <div class="form-hint">Viewer sees credentials; Operator can also reveal passwords; Credential admin can change them; Administrator can also manage users.</div>
+        <div class="form-hint">Viewer sees secrets and groups; Operator can also reveal secrets; Credential admin can change them; Administrator can also manage users.</div>
       </div>
       <div class="form-row">
-        <label for="user-groups">Credential groups</label>
+        <label for="user-groups">Groups</label>
         <input type="text" id="user-groups" spellcheck="false" autocomplete="off" placeholder="empty: every group">
       </div>
       <div class="form-row">

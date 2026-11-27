@@ -1,6 +1,6 @@
 'use strict';
 
-// Credentials, groups, settings, users and the password page. Loaded after app.js, which provides
+// Secrets, groups with environment variables, users and the password page. Loaded after app.js, which provides
 // api(), toast(), esc(), fmtDate(), switchTab() and the tab bookkeeping.
 
 const $ = id => document.getElementById(id);
@@ -57,36 +57,36 @@ $('confirm-go').addEventListener('click', async () => {
     catch (err) { setErr('confirm-error', msgOf(err)); }
 });
 
-// ══ Credentials ══════════════════════════════════════════════════════════════
-let groups = [];
-let creds = [];
-let expiryFilter = false;     // show only credentials that expire soon or have expired
-const revealed = new Map();   // credential name → timer that hides its password again
+// ══ Secrets ══════════════════════════════════════════════════════════════════
+let secrets = [];
+let expiryFilter = false;     // show only secrets that expire soon or have expired
+const revealed = new Map();   // secret name → timer that hides its value again
 const REVEAL_MS = 30000;
+const STARS = '●●●●●●●●';
 
-function maskedPassword(name) {
+function maskedValue(name) {
     const cell = document.querySelector(`.pw-cell[data-name="${CSS.escape(name)}"] .pw`);
-    if (cell) { cell.textContent = '●●●●●●●●'; cell.classList.remove('shown'); }
+    if (cell) { cell.textContent = STARS; cell.classList.remove('shown'); }
     const eye = document.querySelector(`.pw-cell[data-name="${CSS.escape(name)}"] [data-act="reveal"]`);
-    if (eye) eye.title = 'Show the password';
+    if (eye) eye.title = 'Show the value';
 }
 
-function hidePassword(name) {
+function hideValue(name) {
     clearTimeout(revealed.get(name));
     revealed.delete(name);
-    maskedPassword(name);
+    maskedValue(name);
 }
 
-function hideAllPasswords() {
-    [...revealed.keys()].forEach(hidePassword);
+function hideAllValues() {
+    [...revealed.keys()].forEach(hideValue);
 }
 
-// The password disappears when the page is left, as well as after 30 seconds.
-window.addEventListener('blur', hideAllPasswords);
-document.addEventListener('visibilitychange', () => { if (document.hidden) hideAllPasswords(); });
+// The value disappears when the page is left, as well as after 30 seconds.
+window.addEventListener('blur', hideAllValues);
+document.addEventListener('visibilitychange', () => { if (document.hidden) hideAllValues(); });
 
 function expiryCell(c) {
-    switch (c.expiryStatus) {
+    switch (c.status) {
         case 'none':    return '<span class="muted">No expiry</span>';
         case 'soon':    return `<span class="exp-soon" title="Expires soon">⚠ ${esc(c.expiresOn)}</span>`;
         case 'expired': return `<span class="exp-expired" title="Expired">⛔ ${esc(c.expiresOn)} · Expired</span>`;
@@ -94,75 +94,65 @@ function expiryCell(c) {
     }
 }
 
-function renderCredentials() {
-    const body = $('cred-body');
-    const rows = creds.filter(c => !expiryFilter || c.expiryStatus === 'soon' || c.expiryStatus === 'expired');
+function usedByCell(c) {
+    const used = c.usedBy || [];
+    if (!used.length) return '<span class="muted">not used</span>';
+    return used.map(u => `<code title="Group ${esc(u.group)}">${esc(u.fullName || (u.group + ' / ' + u.variable))}</code>`).join(' ');
+}
+
+function renderSecrets() {
+    const body = $('secret-body');
+    const q = $('secret-search').value.trim().toLowerCase();
+    const rows = secrets.filter(c =>
+        (!expiryFilter || c.status === 'soon' || c.status === 'expired') &&
+        (!q || c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q)));
     if (!rows.length) {
-        body.innerHTML = `<tr class="empty-row"><td colspan="7">${creds.length ? 'Nothing matches' : 'No credentials yet'}</td></tr>`;
+        body.innerHTML = `<tr class="empty-row"><td colspan="7">${secrets.length ? 'Nothing matches' : 'No secrets yet'}</td></tr>`;
         return;
     }
     const reveal = can('credentials.reveal');
     const edit = can('credentials.edit');
     body.innerHTML = rows.map(c => {
-        const site = c.siteUrl ? `<span title="${esc(c.siteUrl)}">${esc(c.siteUrl)}</span>` : '<span class="muted">—</span>';
-        const pw = `<span class="pw-cell" data-name="${esc(c.name)}"><span class="pw">●●●●●●●●</span>` +
-            (reveal ? ` <button class="icon-btn" data-act="reveal" data-name="${esc(c.name)}" title="Show the password" aria-label="Show the password">👁</button>` +
-                      ` <button class="icon-btn" data-act="copy" data-name="${esc(c.name)}" title="Copy the password" aria-label="Copy the password">⧉</button>` : '') +
-            (c.hasTotp ? ' <span class="badge b-default" title="Has a one-time-code key">code</span>' : '') + '</span>';
+        const val = `<span class="pw-cell" data-name="${esc(c.name)}"><span class="pw">${STARS}</span>` +
+            (reveal ? ` <button class="icon-btn" data-act="reveal" data-name="${esc(c.name)}" title="Show the value" aria-label="Show the value">👁</button>` +
+                      ` <button class="icon-btn" data-act="copy" data-name="${esc(c.name)}" title="Copy the value" aria-label="Copy the value">⧉</button>` : '') + '</span>';
+        const kind = c.kind === 'totp' ? '<span class="badge b-default" title="A one-time-code key: scripts get the current code">code key</span>' : 'Text';
         const actions = `<button class="btn btn-secondary btn-sm" data-act="history" data-name="${esc(c.name)}">History</button>` +
             (edit ? ` <button class="btn btn-secondary btn-sm" data-act="edit" data-name="${esc(c.name)}" title="Edit">✎</button>` +
                     ` <button class="btn btn-outline-danger btn-sm" data-act="delete" data-name="${esc(c.name)}" title="Delete">🗑</button>` : '');
-        return `<tr><td><strong>${esc(c.name)}</strong></td><td>${site}</td><td>${esc(c.username)}</td><td>${pw}</td>` +
-               `<td>${esc(c.group)}</td><td>${expiryCell(c)}</td><td class="actions">${actions}</td></tr>`;
+        return `<tr><td><strong>${esc(c.name)}</strong></td><td>${kind}</td><td>${val}</td><td>${esc(c.description)}</td>` +
+               `<td>${expiryCell(c)}</td><td>${usedByCell(c)}</td><td class="actions">${actions}</td></tr>`;
     }).join('');
 }
 
-function renderSummary(s) {
+function renderSecretSummary() {
+    const soon = secrets.filter(c => c.status === 'soon').length;
+    const expired = secrets.filter(c => c.status === 'expired').length;
     const parts = [];
-    if (s.soon)    parts.push(`⚠ ${s.soon} expiring soon`);
-    if (s.expired) parts.push(`⛔ ${s.expired} expired`);
+    if (soon)    parts.push(`⚠ ${soon} expiring soon`);
+    if (expired) parts.push(`⛔ ${expired} expired`);
     const el = $('cred-summary');
     el.innerHTML = parts.length
         ? `<button class="link-btn${expiryFilter ? ' active' : ''}" id="cred-summary-btn" title="Show only these">${esc(parts.join(' · '))}${expiryFilter ? ' (showing only these)' : ''}</button>`
         : '';
     const btn = $('cred-summary-btn');
-    if (btn) btn.addEventListener('click', () => { expiryFilter = !expiryFilter; renderSummary(s); renderCredentials(); });
+    if (btn) btn.addEventListener('click', () => { expiryFilter = !expiryFilter; renderSecretSummary(); renderSecrets(); });
     else expiryFilter = false;
 }
 
-function fillGroupSelects() {
-    const filter = $('cred-group-filter');
-    const keep = filter.value;
-    filter.innerHTML = '<option value="">All groups</option>' + groups.map(g => `<option value="${esc(g.name)}">${esc(g.name)}</option>`).join('');
-    filter.value = groups.some(g => g.name === keep) ? keep : '';
-}
-
-async function loadGroups() {
-    groups = (await api('/admin/credential-groups')).groups;
-    fillGroupSelects();
-}
-
-async function loadCredentialsPage() {
-    hideAllPasswords();
+async function loadSecretsPage() {
+    hideAllValues();
     try {
-        await loadGroups();
-        const q = new URLSearchParams();
-        if ($('cred-group-filter').value) q.set('group', $('cred-group-filter').value);
-        if ($('cred-search').value.trim()) q.set('q', $('cred-search').value.trim());
-        const out = await api('/admin/credentials' + (q.toString() ? '?' + q : ''));
+        const out = await api('/admin/secrets');
         $('cred-locked').style.display = 'none';
-        $('sub-creds').style.opacity = '';
-        creds = out.credentials;
-        renderSummary(out.summary);
-        renderCredentials();
-        renderGroups();
+        secrets = out.secrets || [];
+        renderSecretSummary();
+        renderSecrets();
     } catch (err) {
         if (err.body && err.body.error === 'CREDENTIAL_STORE_LOCKED') {
             $('cred-locked').style.display = '';
-            $('cred-body').innerHTML = '<tr class="empty-row"><td colspan="7">The credential store is locked</td></tr>';
+            $('secret-body').innerHTML = '<tr class="empty-row"><td colspan="7">The secret store is locked</td></tr>';
             $('cred-summary').innerHTML = '';
-            $('btn-cred-add').hidden = true;
-            $('btn-cred-import').hidden = true;
         } else {
             toast(msgOf(err), true);
         }
@@ -170,133 +160,114 @@ async function loadCredentialsPage() {
 }
 
 // ── reveal, copy and the row buttons ──────────────────────────────────────────
-async function revealPassword(name, purpose) {
-    const out = await api(`/admin/credentials/${encodeURIComponent(name)}/reveal`, {
-        method: 'POST', body: JSON.stringify({ purpose }),
-    });
-    return out.password;
+async function secretValue(name, how) {
+    const out = await api(`/admin/secrets/${encodeURIComponent(name)}/${how}`, { method: 'POST', body: JSON.stringify({}) });
+    return out.value;
 }
 
-$('cred-body').addEventListener('click', async e => {
+$('secret-body').addEventListener('click', async e => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const name = btn.dataset.name;
     try {
         switch (btn.dataset.act) {
             case 'reveal': {
-                if (revealed.has(name)) { hidePassword(name); return; }
-                const pw = await revealPassword(name, 'reveal');
+                if (revealed.has(name)) { hideValue(name); return; }
+                const value = await secretValue(name, 'reveal');
                 const cell = document.querySelector(`.pw-cell[data-name="${CSS.escape(name)}"] .pw`);
                 if (!cell) return;
-                cell.textContent = pw;
+                cell.textContent = value;
                 cell.classList.add('shown');
-                btn.title = 'Hide the password';
-                revealed.set(name, setTimeout(() => hidePassword(name), REVEAL_MS));
+                btn.title = 'Hide the value';
+                revealed.set(name, setTimeout(() => hideValue(name), REVEAL_MS));
                 break;
             }
             case 'copy': {
-                const pw = await revealPassword(name, 'copy');
-                await navigator.clipboard.writeText(pw);
-                toast(`Password of ${name} copied`);
+                const value = await secretValue(name, 'copy');
+                await navigator.clipboard.writeText(value);
+                toast(`Value of ${name} copied`);
                 break;
             }
             case 'history': openHistory(name); break;
-            case 'edit':    openCredModal(creds.find(c => c.name === name)); break;
+            case 'edit':    openSecretModal(secrets.find(c => c.name === name)); break;
             case 'delete':
-                confirmDialog('Delete credential', `Delete the credential ${name}? Its history is kept. This cannot be undone.`, 'Delete', async () => {
-                    await api(`/admin/credentials/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                confirmDialog('Delete secret', `Delete the secret ${name}? Its history is kept. A secret that a group variable still uses cannot be deleted.`, 'Delete', async () => {
+                    await api(`/admin/secrets/${encodeURIComponent(name)}`, { method: 'DELETE' });
                     toast(`Deleted ${name}`);
-                    loadCredentialsPage();
+                    loadSecretsPage();
                 });
                 break;
         }
     } catch (err) { toast(msgOf(err), true); }
 });
 
-$('cred-group-filter').addEventListener('change', loadCredentialsPage);
 let searchTimer = null;
-$('cred-search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadCredentialsPage, 250); });
-$('btn-cred-refresh').addEventListener('click', loadCredentialsPage);
+$('secret-search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSecrets, 150); });
+$('btn-secret-refresh').addEventListener('click', loadSecretsPage);
 
 // ── add and edit ──────────────────────────────────────────────────────────────
-let editingCred = null;
+let editingSecret = null;
 
 function setExpiryInputs(expiresOn) {
-    $('cred-expiry-none').checked = !expiresOn;
-    $('cred-expiry-date').checked = !!expiresOn;
-    $('cred-expires').value = expiresOn || '';
-    $('cred-expires').disabled = !expiresOn;
+    $('secret-expiry-none').checked = !expiresOn;
+    $('secret-expiry-date').checked = !!expiresOn;
+    $('secret-expires').value = expiresOn || '';
+    $('secret-expires').disabled = !expiresOn;
 }
-document.querySelectorAll('input[name="cred-expiry"]').forEach(r => r.addEventListener('change', () => {
-    $('cred-expires').disabled = !$('cred-expiry-date').checked;
-    if ($('cred-expiry-date').checked && !$('cred-expires').value) $('cred-expires').focus();
+document.querySelectorAll('input[name="secret-expiry"]').forEach(r => r.addEventListener('change', () => {
+    $('secret-expires').disabled = !$('secret-expiry-date').checked;
+    if ($('secret-expiry-date').checked && !$('secret-expires').value) $('secret-expires').focus();
 }));
 
-function openCredModal(c) {
-    editingCred = c || null;
-    setErr('cred-error', '');
-    $('cred-modal-title').textContent = c ? `Edit ${c.name}` : 'Add a credential';
-    $('cred-name').value = c ? c.name : '';
-    $('cred-name').disabled = !!c;
-    $('cred-group').innerHTML = groups.map(g => `<option value="${esc(g.name)}">${esc(g.name)}</option>`).join('');
-    if (c) $('cred-group').value = c.group;
-    $('cred-username').value = c ? c.username : '';
-    $('cred-password').value = '';
-    $('cred-password').type = 'password';
-    $('cred-password-hint').textContent = c ? 'Leave empty to keep the password as it is.' : '';
-    $('cred-totp').value = '';
-    $('cred-totp').type = 'password';
-    $('cred-totp-hint').innerHTML = c && c.hasTotp
-        ? 'A key is stored. Leave empty to keep it. <label class="check"><input type="checkbox" id="cred-totp-remove"> Remove the key</label>'
-        : 'Only for sites that ask for a code from an authenticator app.';
-    $('cred-site').value = c ? c.siteUrl : '';
-    $('cred-notes').value = c ? c.notes : '';
+function openSecretModal(c) {
+    editingSecret = c || null;
+    setErr('secret-error', '');
+    $('secret-modal-title').textContent = c ? `Edit ${c.name}` : 'Add a secret';
+    $('secret-name').value = c ? c.name : '';
+    $('secret-name').disabled = !!c;
+    $('secret-kind').value = c ? c.kind : 'text';
+    $('secret-kind').disabled = !!c;
+    $('secret-value').value = '';
+    $('secret-value').type = 'password';
+    $('secret-value-hint').textContent = c ? 'Leave empty to keep the value as it is.' : '';
+    $('secret-desc').value = c ? (c.description || '') : '';
     setExpiryInputs(c ? c.expiresOn : null);
-    if (!groups.length) setErr('cred-error', 'Create a group first (Groups tab).');
-    showModal('cred-overlay');
-    (c ? $('cred-username') : $('cred-name')).focus();
+    showModal('secret-overlay');
+    (c ? $('secret-value') : $('secret-name')).focus();
 }
 
-$('btn-cred-add').addEventListener('click', () => openCredModal(null));
-$('cred-dismiss').addEventListener('click', () => { $('cred-password').value = ''; hideModal('cred-overlay'); });
+$('btn-secret-add').addEventListener('click', () => openSecretModal(null));
+$('secret-dismiss').addEventListener('click', () => { $('secret-value').value = ''; hideModal('secret-overlay'); });
 
-$('cred-save').addEventListener('click', async () => {
-    setErr('cred-error', '');
-    const expiresOn = $('cred-expiry-date').checked ? $('cred-expires').value : null;
-    if ($('cred-expiry-date').checked && !expiresOn) { setErr('cred-error', 'Pick the expiry date, or choose No expiry.'); return; }
+$('secret-save').addEventListener('click', async () => {
+    setErr('secret-error', '');
+    const expiresOn = $('secret-expiry-date').checked ? $('secret-expires').value : null;
+    if ($('secret-expiry-date').checked && !expiresOn) { setErr('secret-error', 'Pick the expiry date, or choose No expiry.'); return; }
     try {
-        if (editingCred) {
-            const body = {
-                group: $('cred-group').value, username: $('cred-username').value.trim(),
-                siteUrl: $('cred-site').value.trim(), notes: $('cred-notes').value.trim(), expiresOn,
-            };
-            if ($('cred-password').value) body.password = $('cred-password').value;
-            const remove = $('cred-totp-remove');
-            if (remove && remove.checked) body.totpKey = '';
-            else if ($('cred-totp').value.trim()) body.totpKey = $('cred-totp').value.trim();
-            await api(`/admin/credentials/${encodeURIComponent(editingCred.name)}`, { method: 'PUT', body: JSON.stringify(body) });
-            toast(`Saved ${editingCred.name}`);
+        if (editingSecret) {
+            const body = { description: $('secret-desc').value.trim(), expiresOn };
+            if ($('secret-value').value) body.value = $('secret-value').value;
+            await api(`/admin/secrets/${encodeURIComponent(editingSecret.name)}`, { method: 'PUT', body: JSON.stringify(body) });
+            toast(`Saved ${editingSecret.name}`);
         } else {
             const body = {
-                name: $('cred-name').value.trim(), group: $('cred-group').value, username: $('cred-username').value.trim(),
-                password: $('cred-password').value, siteUrl: $('cred-site').value.trim(), notes: $('cred-notes').value.trim(),
+                name: $('secret-name').value.trim(), kind: $('secret-kind').value,
+                value: $('secret-value').value, description: $('secret-desc').value.trim(), expiresOn,
             };
-            if ($('cred-totp').value.trim()) body.totpKey = $('cred-totp').value.trim();
-            if (expiresOn) body.expiresOn = expiresOn;
-            await api('/admin/credentials', { method: 'POST', body: JSON.stringify(body) });
+            await api('/admin/secrets', { method: 'POST', body: JSON.stringify(body) });
             toast(`Added ${body.name}`);
         }
-        $('cred-password').value = '';
-        $('cred-totp').value = '';
-        hideModal('cred-overlay');
-        loadCredentialsPage();
-    } catch (err) { setErr('cred-error', msgOf(err)); }
+        $('secret-value').value = '';
+        hideModal('secret-overlay');
+        loadSecretsPage();
+    } catch (err) { setErr('secret-error', msgOf(err)); }
 });
 
 // ── history ───────────────────────────────────────────────────────────────────
 const EVENT_LABEL = {
-    CREATED: 'Created', UPDATED: 'Changed', DELETED: 'Deleted', REVEALED: 'Password shown', COPIED: 'Password copied',
+    CREATED: 'Created', UPDATED: 'Changed', DELETED: 'Deleted', REVEALED: 'Value shown', COPIED: 'Value copied',
     REVEAL_DENIED: 'Reveal refused', READ_BY_RUN: 'Read by a run', READ_DENIED: 'Run refused',
+    VARIABLES_CHANGED: 'Variables changed',
 };
 
 function eventDetail(ev) {
@@ -312,7 +283,7 @@ async function openHistory(name) {
     $('history-body').innerHTML = '<tr class="empty-row"><td colspan="4">Loading…</td></tr>';
     showModal('history-overlay');
     try {
-        const out = await api(`/admin/credentials/${encodeURIComponent(name)}/events`);
+        const out = await api(`/admin/secrets/${encodeURIComponent(name)}/events`);
         $('history-body').innerHTML = out.events.length
             ? out.events.map(ev => `<tr><td>${esc(fmtDate(ev.at))}</td><td>${esc(EVENT_LABEL[ev.kind] || ev.kind)}</td>` +
                 `<td>${esc(ev.actor)}</td><td>${esc(eventDetail(ev))}</td></tr>`).join('')
@@ -323,9 +294,143 @@ async function openHistory(name) {
 }
 $('history-dismiss').addEventListener('click', () => hideModal('history-overlay'));
 
-// Script picker for a group: one drop-down per script, + adds a row, - removes it.
-let scriptChoices = [];
+// ── import ────────────────────────────────────────────────────────────────────
+let importRows = [];
+const IMPORT_COLUMNS = ['name', 'value', 'kind', 'description', 'expireson'];
 
+// A CSV with quoted fields, doubled quotes and line breaks inside quotes.
+function parseCsv(text) {
+    const rows = [];
+    let row = [], field = '', quoted = false;
+    text = text.replace(/^﻿/, '');
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (quoted) {
+            if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+            else if (ch === '"') quoted = false;
+            else field += ch;
+        } else if (ch === '"') quoted = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(field); field = '';
+            if (row.some(c => c !== '')) rows.push(row);
+            row = [];
+        } else field += ch;
+    }
+    row.push(field);
+    if (row.some(c => c !== '')) rows.push(row);
+    return rows;
+}
+
+function rowsFromCsv(text) {
+    const table = parseCsv(text);
+    if (!table.length) throw new Error('The file is empty');
+    const head = table[0].map(h => h.trim().toLowerCase());
+    for (const need of ['name', 'value']) {
+        if (!head.includes(need)) throw new Error(`The file has no "${need}" column`);
+    }
+    const idx = Object.fromEntries(IMPORT_COLUMNS.map(c => [c, head.indexOf(c)]));
+    const get = (r, c) => idx[c] >= 0 ? (r[idx[c]] || '').trim() : '';
+    return table.slice(1).map(r => ({
+        name: get(r, 'name'), value: (idx.value >= 0 ? r[idx.value] || '' : ''), kind: get(r, 'kind') || 'text',
+        description: get(r, 'description'), expiresOn: get(r, 'expireson'),
+    }));
+}
+
+function renderImportPreview(errors) {
+    const byRow = {};
+    (errors || []).forEach(e => { byRow[e.row] = e.message; });
+    $('import-preview').style.display = importRows.length ? '' : 'none';
+    $('import-body').innerHTML = importRows.map((r, i) => {
+        const err = byRow[i + 1];
+        return `<tr${err ? ' class="row-error"' : ''}><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.kind)}</td>` +
+               `<td>${r.value ? STARS : '<span class="exp-expired">missing</span>'}</td><td>${esc(r.expiresOn) || '<span class="muted">No expiry</span>'}</td>` +
+               `<td>${err ? esc(err) : ''}</td></tr>`;
+    }).join('');
+}
+
+function openImport() {
+    importRows = [];
+    $('import-file').value = '';
+    $('import-replace').checked = false;
+    $('import-body').innerHTML = '';
+    $('import-preview').style.display = 'none';
+    setErr('import-error', '');
+    $('import-ok').textContent = '';
+    $('import-check').disabled = true;
+    $('import-run').disabled = true;
+    showModal('import-overlay');
+}
+
+async function importCall(dryRun) {
+    return api('/admin/secrets/import', {
+        method: 'POST', keepOnUnauthorized: false,
+        body: JSON.stringify({ rows: importRows, replaceExisting: $('import-replace').checked, dryRun }),
+    });
+}
+
+$('btn-secret-import').addEventListener('click', openImport);
+$('import-dismiss').addEventListener('click', () => { importRows = []; hideModal('import-overlay'); });
+// Choosing the same file again (after fixing it) must read it again, so the box is emptied first.
+$('import-file').addEventListener('click', e => { e.target.value = ''; });
+$('import-file').addEventListener('change', async e => {
+    setErr('import-error', '');
+    $('import-ok').textContent = '';
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+        importRows = rowsFromCsv(await f.text());
+        if (!importRows.length) throw new Error('The file has a header but no secrets');
+        renderImportPreview();
+        $('import-check').disabled = false;
+        $('import-run').disabled = false;
+    } catch (err) {
+        importRows = [];
+        renderImportPreview();
+        $('import-check').disabled = true;
+        $('import-run').disabled = true;
+        setErr('import-error', msgOf(err));
+    }
+});
+
+$('import-check').addEventListener('click', async () => {
+    setErr('import-error', '');
+    $('import-ok').textContent = '';
+    try {
+        const out = await importCall(true);
+        renderImportPreview();
+        $('import-ok').textContent = `All ${importRows.length} rows are valid: ${out.wouldCreate} would be added, ${out.wouldReplace} replaced.`;
+    } catch (err) {
+        renderImportPreview(err.body && err.body.errors);
+        setErr('import-error', msgOf(err));
+    }
+});
+
+$('import-run').addEventListener('click', async () => {
+    setErr('import-error', '');
+    $('import-ok').textContent = '';
+    try {
+        const out = await importCall(false);
+        $('import-ok').textContent = `Imported: ${out.created} added, ${out.replaced} replaced. The file still holds the values in clear: delete it now.`;
+        importRows = [];
+        $('import-run').disabled = true;
+        $('import-check').disabled = true;
+        $('import-file').value = '';
+        loadSecretsPage();
+    } catch (err) {
+        renderImportPreview(err.body && err.body.errors);
+        setErr('import-error', msgOf(err));
+    }
+});
+
+// ══ Groups ═══════════════════════════════════════════════════════════════════
+let groups = [];
+let editingGroup = null;      // the group open on the group page; null for a new one
+let scriptChoices = [];
+let secretNames = [];
+
+// Script picker for a group: one type-ahead box per script, + adds a row, - removes it.
 async function loadScriptChoices() {
     try {
         const d = await api('/artifacts');
@@ -359,11 +464,12 @@ function fillScriptOptions() {
         scriptChoices.map(c => `<option value="${esc(c.id)}" label="${esc(scriptLabel(c))}"></option>`).join('');
 }
 
-function refreshScriptButtons() {
-    const rows = [...document.querySelectorAll('#group-scripts-list .script-row')];
+// Shows + only on the last row and − on every row when there is more than one.
+function refreshRowButtons(boxId, rowClass) {
+    const rows = [...document.querySelectorAll(`#${boxId} .${rowClass}`)];
     rows.forEach((r, i) => {
-        r.querySelector('.script-minus').style.visibility = rows.length > 1 ? 'visible' : 'hidden';
-        r.querySelector('.script-plus').style.visibility = i === rows.length - 1 ? 'visible' : 'hidden';
+        r.querySelector('.row-minus, .script-minus').style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+        r.querySelector('.row-plus, .script-plus').style.visibility = i === rows.length - 1 ? 'visible' : 'hidden';
     });
 }
 
@@ -371,7 +477,7 @@ function setScriptRows(list) {
     const box = $('group-scripts-list');
     box.innerHTML = '';
     (list.length ? list : ['']).forEach(s => box.appendChild(scriptRow(s)));
-    refreshScriptButtons();
+    refreshRowButtons('group-scripts-list', 'script-row');
 }
 
 $('group-scripts-list').addEventListener('click', e => {
@@ -381,268 +487,212 @@ $('group-scripts-list').addEventListener('click', e => {
         e.target.closest('.script-row').remove();
         if (!box.children.length) box.appendChild(scriptRow(''));
     } else return;
-    refreshScriptButtons();
+    refreshRowButtons('group-scripts-list', 'script-row');
 });
 
-// ── groups ────────────────────────────────────────────────────────────────────
-let editingGroup = null;
+// Environment variables of a group: NAME, then a plain value or a secret from the Secrets tab.
+let currentGroupNo = null;   // the group's number; null until a new group is saved
+const groupPrefix = () => (currentGroupNo == null ? 'GP…_' : `GP${currentGroupNo}_`);
+
+function setVarPrefix() {
+    document.querySelectorAll('#group-vars-list .var-prefix').forEach(el => { el.textContent = groupPrefix(); });
+}
+
+function varRow(v) {
+    const row = document.createElement('div');
+    row.className = 'var-row';
+    const isSecret = !!(v && v.secret);
+    row.innerHTML = `<span class="var-prefix" title="Every variable of this group starts with this">${esc(groupPrefix())}</span>` +
+        '<input type="text" class="var-name" spellcheck="false" autocomplete="off" placeholder="NAME">' +
+        '<select class="var-mode"><option value="value">Value</option><option value="secret">Secret</option></select>' +
+        '<span class="var-val"></span>' +
+        '<button type="button" class="btn btn-secondary btn-sm row-minus script-minus" title="Remove this variable">−</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm row-plus script-plus" title="Add another variable">+</button>';
+    row.querySelector('.var-name').value = v ? v.name : '';
+    row.querySelector('.var-mode').value = isSecret ? 'secret' : 'value';
+    fillVarValue(row, isSecret ? v.secret : (v && v.value != null ? v.value : ''));
+    return row;
+}
+
+// Puts a text box or a secrets drop-down in the value slot, according to the mode.
+function fillVarValue(row, current) {
+    const slot = row.querySelector('.var-val');
+    const mode = row.querySelector('.var-mode').value;
+    if (mode === 'secret') {
+        const names = secretNames.includes(current) || !current ? secretNames : [current, ...secretNames];
+        slot.innerHTML = '<select class="var-input"><option value="">Choose a secret…</option>' +
+            names.map(n => `<option value="${esc(n)}">${esc(n)}${secretNames.includes(n) ? '' : ' (not found)'}</option>`).join('') + '</select>';
+        slot.querySelector('select').value = current || '';
+    } else {
+        slot.innerHTML = '<input type="text" class="var-input" autocomplete="off" placeholder="the value">';
+        slot.querySelector('input').value = current || '';
+    }
+}
+
+function setVarRows(list) {
+    const box = $('group-vars-list');
+    box.innerHTML = '';
+    (list.length ? list : [null]).forEach(v => box.appendChild(varRow(v)));
+    refreshRowButtons('group-vars-list', 'var-row');
+}
+
+$('group-vars-list').addEventListener('click', e => {
+    const box = $('group-vars-list');
+    if (e.target.closest('.row-plus')) box.appendChild(varRow(null));
+    else if (e.target.closest('.row-minus')) {
+        e.target.closest('.var-row').remove();
+        if (!box.children.length) box.appendChild(varRow(null));
+    } else return;
+    refreshRowButtons('group-vars-list', 'var-row');
+});
+$('group-vars-list').addEventListener('change', e => {
+    if (e.target.classList.contains('var-mode')) fillVarValue(e.target.closest('.var-row'), '');
+});
+
+// The variables typed in, as the API wants them; an untouched empty row is left out.
+function collectVariables() {
+    const out = [];
+    const seen = new Set();
+    for (const row of document.querySelectorAll('#group-vars-list .var-row')) {
+        let name = row.querySelector('.var-name').value.trim();
+        name = name.replace(/^GP\d+_/i, '');   // a pasted full name: the prefix is already shown
+        const mode = row.querySelector('.var-mode').value;
+        const val = row.querySelector('.var-input').value;
+        if (!name && !val.trim()) continue;
+        if (!name) throw new Error('A variable has a value but no name');
+        if (seen.has(name)) throw new Error(`The variable ${groupPrefix()}${name} is listed twice`);
+        seen.add(name);
+        if (mode === 'secret') {
+            if (!val) throw new Error(`Choose a secret for ${groupPrefix()}${name}`);
+            out.push({ name, secret: val });
+        } else {
+            out.push({ name, value: val });
+        }
+    }
+    return out;
+}
 
 function renderGroups() {
     const body = $('group-body');
     if (!groups.length) { body.innerHTML = '<tr class="empty-row"><td colspan="5">No groups yet</td></tr>'; return; }
-    const edit = can('credentials.groups');
     body.innerHTML = groups.map(g => {
         const scripts = g.scripts.length ? g.scripts.map(s => `<code>${esc(s)}</code>`).join(' ') : '<span class="muted">none: no script can read it</span>';
-        const actions = edit
-            ? `<button class="btn btn-secondary btn-sm" data-act="edit" data-name="${esc(g.name)}" title="Edit">✎</button> ` +
-              `<button class="btn btn-outline-danger btn-sm" data-act="delete" data-name="${esc(g.name)}" title="Delete">🗑</button>`
-            : '';
-        return `<tr><td><strong>${esc(g.name)}</strong></td><td>${esc(g.description)}</td><td>${g.credentialCount}</td><td>${scripts}</td><td class="actions">${actions}</td></tr>`;
+        return `<tr class="group-row" data-name="${esc(g.name)}" title="Open ${esc(g.name)}"><td><code>${g.number != null ? 'GP' + esc(g.number) : ''}</code></td><td><strong>${esc(g.name)}</strong></td>` +
+               `<td>${esc(g.description)}</td><td>${g.variableCount}</td><td>${scripts}</td></tr>`;
     }).join('');
 }
 
-function openGroupModal(g) {
-    editingGroup = g || null;
-    setErr('group-error', '');
-    $('group-modal-title').textContent = g ? `Edit group ${g.name}` : 'New group';
-    $('group-name').value = g ? g.name : '';
-    $('group-name').disabled = !!g;
-    $('group-desc').value = g ? g.description : '';
-    loadScriptChoices().then(() => { fillScriptOptions(); setScriptRows(g ? g.scripts : []); });
-    showModal('group-overlay');
-    (g ? $('group-desc') : $('group-name')).focus();
-}
-
-$('btn-group-add').addEventListener('click', () => openGroupModal(null));
-$('btn-group-refresh').addEventListener('click', loadCredentialsPage);
-$('group-dismiss').addEventListener('click', () => hideModal('group-overlay'));
-$('group-save').addEventListener('click', async () => {
-    setErr('group-error', '');
-    const scripts = [...new Set([...document.querySelectorAll('#group-scripts-list input')].map(x => x.value.trim()).filter(Boolean))];
+async function loadGroupsPage() {
+    if ($('group-page').style.display !== 'none') return;   // a group is open: not redrawn
     try {
-        if (editingGroup) {
-            await api(`/admin/credential-groups/${encodeURIComponent(editingGroup.name)}`, {
-                method: 'PUT', body: JSON.stringify({ description: $('group-desc').value.trim(), scripts }),
-            });
-        } else {
-            await api('/admin/credential-groups', {
-                method: 'POST', body: JSON.stringify({ name: $('group-name').value.trim(), description: $('group-desc').value.trim(), scripts }),
-            });
-        }
-        hideModal('group-overlay');
-        toast('Group saved');
-        loadCredentialsPage();
-    } catch (err) { setErr('group-error', msgOf(err)); }
-});
-
-$('group-body').addEventListener('click', e => {
-    const btn = e.target.closest('[data-act]');
-    if (!btn) return;
-    const g = groups.find(x => x.name === btn.dataset.name);
-    if (btn.dataset.act === 'edit') openGroupModal(g);
-    if (btn.dataset.act === 'delete') {
-        confirmDialog('Delete group', `Delete the group ${g.name}? A group that still holds credentials cannot be deleted.`, 'Delete', async () => {
-            await api(`/admin/credential-groups/${encodeURIComponent(g.name)}`, { method: 'DELETE' });
-            toast(`Deleted group ${g.name}`);
-            loadCredentialsPage();
-        });
-    }
-});
-
-document.querySelectorAll('.subtab').forEach(t => t.addEventListener('click', () => {
-    document.querySelectorAll('.subtab').forEach(x => x.classList.toggle('active', x === t));
-    $('sub-creds').style.display = t.dataset.sub === 'creds' ? '' : 'none';
-    $('sub-groups').style.display = t.dataset.sub === 'groups' ? '' : 'none';
-}));
-
-// ── import ────────────────────────────────────────────────────────────────────
-let importRows = [];
-const IMPORT_COLUMNS = ['name', 'group', 'username', 'password', 'siteurl', 'notes', 'expireson'];
-
-// A CSV with quoted fields, doubled quotes and line breaks inside quotes.
-function parseCsv(text) {
-    const rows = [];
-    let row = [], field = '', quoted = false;
-    text = text.replace(/^﻿/, '');
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (quoted) {
-            if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
-            else if (ch === '"') quoted = false;
-            else field += ch;
-        } else if (ch === '"') quoted = true;
-        else if (ch === ',') { row.push(field); field = ''; }
-        else if (ch === '\n' || ch === '\r') {
-            if (ch === '\r' && text[i + 1] === '\n') i++;
-            row.push(field); field = '';
-            if (row.some(c => c !== '')) rows.push(row);
-            row = [];
-        } else field += ch;
-    }
-    row.push(field);
-    if (row.some(c => c !== '')) rows.push(row);
-    return rows;
-}
-
-function rowsFromCsv(text) {
-    const table = parseCsv(text);
-    if (!table.length) throw new Error('The file is empty');
-    const head = table[0].map(h => h.trim().toLowerCase());
-    for (const need of ['name', 'group', 'username', 'password']) {
-        if (!head.includes(need)) throw new Error(`The file has no "${need}" column`);
-    }
-    const idx = Object.fromEntries(IMPORT_COLUMNS.map(c => [c, head.indexOf(c)]));
-    const get = (r, c) => idx[c] >= 0 ? (r[idx[c]] || '').trim() : '';
-    return table.slice(1).map(r => ({
-        name: get(r, 'name'), group: get(r, 'group'), username: get(r, 'username'), password: (idx.password >= 0 ? r[idx.password] || '' : ''),
-        siteUrl: get(r, 'siteurl'), notes: get(r, 'notes'), expiresOn: get(r, 'expireson'),
-    }));
-}
-
-function renderImportPreview(errors) {
-    const byRow = {};
-    (errors || []).forEach(e => { byRow[e.row] = e.message; });
-    $('import-preview').style.display = importRows.length ? '' : 'none';
-    $('import-body').innerHTML = importRows.map((r, i) => {
-        const err = byRow[i + 1];
-        return `<tr${err ? ' class="row-error"' : ''}><td>${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.group)}</td><td>${esc(r.username)}</td>` +
-               `<td>${r.password ? '●●●●●●●●' : '<span class="exp-expired">missing</span>'}</td><td>${esc(r.expiresOn) || '<span class="muted">No expiry</span>'}</td>` +
-               `<td>${err ? esc(err) : ''}</td></tr>`;
-    }).join('');
-}
-
-function openImport() {
-    importRows = [];
-    $('import-file').value = '';
-    $('import-replace').checked = false;
-    $('import-body').innerHTML = '';
-    $('import-preview').style.display = 'none';
-    setErr('import-error', '');
-    $('import-ok').textContent = '';
-    $('import-check').disabled = true;
-    $('import-run').disabled = true;
-    showModal('import-overlay');
-}
-
-async function importCall(dryRun) {
-    return api('/admin/credentials/import', {
-        method: 'POST', keepOnUnauthorized: false,
-        body: JSON.stringify({ rows: importRows, replaceExisting: $('import-replace').checked, dryRun }),
-    });
-}
-
-$('btn-cred-import').addEventListener('click', openImport);
-$('import-dismiss').addEventListener('click', () => { importRows = []; hideModal('import-overlay'); });
-// Choosing the same file again (after fixing it) must read it again, so the box is emptied first.
-$('import-file').addEventListener('click', e => { e.target.value = ''; });
-$('import-file').addEventListener('change', async e => {
-    setErr('import-error', '');
-    $('import-ok').textContent = '';
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
-        importRows = rowsFromCsv(await f.text());
-        if (!importRows.length) throw new Error('The file has a header but no credentials');
-        renderImportPreview();
-        $('import-check').disabled = false;
-        $('import-run').disabled = false;
-    } catch (err) {
-        importRows = [];
-        renderImportPreview();
-        $('import-check').disabled = true;
-        $('import-run').disabled = true;
-        setErr('import-error', msgOf(err));
-    }
-});
-
-$('import-check').addEventListener('click', async () => {
-    setErr('import-error', '');
-    $('import-ok').textContent = '';
-    try {
-        const out = await importCall(true);
-        renderImportPreview();
-        $('import-ok').textContent = `All ${importRows.length} rows are valid: ${out.wouldCreate} would be added, ${out.wouldReplace} replaced.`;
-    } catch (err) {
-        renderImportPreview(err.body && err.body.errors);
-        setErr('import-error', msgOf(err));
-    }
-});
-
-$('import-run').addEventListener('click', async () => {
-    setErr('import-error', '');
-    $('import-ok').textContent = '';
-    try {
-        const out = await importCall(false);
-        $('import-ok').textContent = `Imported: ${out.created} added, ${out.replaced} replaced. The file still holds the passwords in clear: delete it now.`;
-        importRows = [];
-        $('import-run').disabled = true;
-        $('import-check').disabled = true;
-        $('import-file').value = '';
-        loadCredentialsPage();
-    } catch (err) {
-        renderImportPreview(err.body && err.body.errors);
-        setErr('import-error', msgOf(err));
-    }
-});
-
-// ══ Settings ═════════════════════════════════════════════════════════════════
-let settings = [];
-let editingSetting = null;
-
-async function loadSettings() {
-    try {
-        settings = (await api('/admin/settings')).settings;
-        const edit = can('settings.edit');
-        $('setting-body').innerHTML = settings.length ? settings.map(s => {
-            const actions = edit
-                ? `<button class="btn btn-secondary btn-sm" data-act="edit" data-name="${esc(s.name)}" title="Edit">✎</button> ` +
-                  `<button class="btn btn-outline-danger btn-sm" data-act="delete" data-name="${esc(s.name)}" title="Delete">🗑</button>`
-                : '';
-            return `<tr><td><strong>${esc(s.name)}</strong></td><td>${esc(s.value)}</td><td>${esc(s.notes)}</td>` +
-                   `<td>${esc(fmtDate(s.updatedAt))} · ${esc(s.updatedBy)}</td><td class="actions">${actions}</td></tr>`;
-        }).join('') : '<tr class="empty-row"><td colspan="5">No settings yet</td></tr>';
+        groups = (await api('/admin/credential-groups')).groups;
+        renderGroups();
     } catch (err) { toast(msgOf(err), true); }
 }
 
-function openSettingModal(s) {
-    editingSetting = s || null;
-    setErr('setting-error', '');
-    $('setting-modal-title').textContent = s ? `Edit ${s.name}` : 'Add a setting';
-    $('setting-name').value = s ? s.name : '';
-    $('setting-name').disabled = !!s;
-    $('setting-value').value = s ? s.value : '';
-    $('setting-notes').value = s ? s.notes : '';
-    showModal('setting-overlay');
-    (s ? $('setting-value') : $('setting-name')).focus();
+function showGroupsList() {
+    $('group-page').style.display = 'none';
+    $('groups-list').style.display = '';
+    editingGroup = null;
+    loadGroupsPage();
 }
 
-$('btn-setting-add').addEventListener('click', () => openSettingModal(null));
-$('btn-setting-refresh').addEventListener('click', loadSettings);
-$('setting-dismiss').addEventListener('click', () => hideModal('setting-overlay'));
-$('setting-save').addEventListener('click', async () => {
-    setErr('setting-error', '');
-    const name = editingSetting ? editingSetting.name : $('setting-name').value.trim();
-    try {
-        await api(`/admin/settings/${encodeURIComponent(name)}`, {
-            method: 'PUT', body: JSON.stringify({ value: $('setting-value').value, notes: $('setting-notes').value.trim() }),
-        });
-        hideModal('setting-overlay');
-        toast(`Saved ${name}`);
-        loadSettings();
-    } catch (err) { setErr('setting-error', msgOf(err)); }
-});
-$('setting-body').addEventListener('click', e => {
-    const btn = e.target.closest('[data-act]');
-    if (!btn) return;
-    const s = settings.find(x => x.name === btn.dataset.name);
-    if (btn.dataset.act === 'edit') openSettingModal(s);
-    if (btn.dataset.act === 'delete') {
-        confirmDialog('Delete setting', `Delete the setting ${s.name}? Scripts that read it will fail.`, 'Delete', async () => {
-            await api(`/admin/settings/${encodeURIComponent(s.name)}`, { method: 'DELETE' });
-            toast(`Deleted ${s.name}`);
-            loadSettings();
-        });
+async function openGroupPage(name) {
+    setErr('group-error', '');
+    $('group-ok').textContent = '';
+    let g = { name: '', description: '', scripts: [], variables: [] };
+    if (name) {
+        try { g = await api(`/admin/credential-groups/${encodeURIComponent(name)}`); }
+        catch (err) { toast(msgOf(err), true); return; }
     }
+    editingGroup = name ? g : null;
+    currentGroupNo = name && g.number != null ? g.number : null;
+    await Promise.all([
+        loadScriptChoices(),
+        api('/admin/secrets').then(d => { secretNames = (d.secrets || []).map(s => s.name).sort(); }).catch(() => { secretNames = []; }),
+    ]);
+    fillScriptOptions();
+    $('group-page-title').textContent = name ? `Group ${g.name}${currentGroupNo != null ? ' (GP' + currentGroupNo + ')' : ''}` : 'New group';
+    $('group-number-note').textContent = currentGroupNo != null
+        ? `Group number ${currentGroupNo}. Scripts read these variables as \${env:${groupPrefix()}NAME}.`
+        : 'The group number is assigned when you save. Every variable then starts with GP<number>_.';
+    $('group-name').value = g.name;
+    $('group-name').disabled = !!name;
+    $('group-desc').value = g.description || '';
+    setScriptRows(g.scripts || []);
+    setVarRows(g.variables || []);
+    const canGroup = can('credentials.groups');
+    const canVars = can('settings.edit');
+    $('group-name').disabled = !!name || !canGroup;
+    $('group-desc').disabled = !canGroup;
+    document.querySelectorAll('#group-scripts-list input, #group-scripts-list button').forEach(el => { el.disabled = !canGroup; });
+    document.querySelectorAll('#group-vars-list input, #group-vars-list select, #group-vars-list button').forEach(el => { el.disabled = !canVars; });
+    $('group-save').hidden = !(canGroup || canVars);
+    $('btn-group-delete').style.display = name ? '' : 'none';
+    $('groups-list').style.display = 'none';
+    $('group-page').style.display = '';
+    (name ? $('group-desc') : $('group-name')).focus();
+}
+
+$('btn-group-add').addEventListener('click', () => openGroupPage(null));
+$('btn-group-refresh').addEventListener('click', loadGroupsPage);
+$('btn-group-back').addEventListener('click', showGroupsList);
+$('group-dismiss').addEventListener('click', showGroupsList);
+$('group-body').addEventListener('click', e => {
+    const row = e.target.closest('.group-row');
+    if (row) openGroupPage(row.dataset.name);
+});
+
+$('group-save').addEventListener('click', async () => {
+    setErr('group-error', '');
+    $('group-ok').textContent = '';
+    const canGroup = can('credentials.groups');
+    const canVars = can('settings.edit');
+    const scripts = [...new Set([...document.querySelectorAll('#group-scripts-list input')].map(x => x.value.trim()).filter(Boolean))];
+    let variables;
+    try { variables = canVars ? collectVariables() : null; }
+    catch (err) { setErr('group-error', msgOf(err)); return; }
+    const description = $('group-desc').value.trim();
+    try {
+        let name;
+        if (editingGroup) {
+            name = editingGroup.name;
+            if (canGroup) {
+                await api(`/admin/credential-groups/${encodeURIComponent(name)}`, {
+                    method: 'PUT', body: JSON.stringify({ description, scripts }),
+                });
+            }
+        } else {
+            name = $('group-name').value.trim();
+            const made = await api('/admin/credential-groups', { method: 'POST', body: JSON.stringify({ name, description, scripts }) });
+            editingGroup = { name, description, scripts, variables: [], number: made && made.number };
+            if (made && made.number != null) {
+                currentGroupNo = made.number;
+                setVarPrefix();
+                $('group-number-note').textContent = `Group number ${currentGroupNo}. Scripts read these variables as \${env:${groupPrefix()}NAME}.`;
+            }
+            $('group-name').disabled = true;
+            $('group-page-title').textContent = `Group ${name}${currentGroupNo != null ? ' (GP' + currentGroupNo + ')' : ''}`;
+            $('btn-group-delete').style.display = '';
+        }
+        if (canVars) {
+            await api(`/admin/credential-groups/${encodeURIComponent(name)}/variables`, {
+                method: 'PUT', body: JSON.stringify({ variables }),
+            });
+        }
+        $('group-ok').textContent = 'Saved.';
+        toast('Group saved');
+    } catch (err) { setErr('group-error', msgOf(err)); }
+});
+
+$('btn-group-delete').addEventListener('click', () => {
+    if (!editingGroup) return;
+    const name = editingGroup.name;
+    confirmDialog('Delete group', `Delete the group ${name} and its variables? Scripts that read them will fail.`, 'Delete', async () => {
+        await api(`/admin/credential-groups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        toast(`Deleted group ${name}`);
+        showGroupsList();
+    });
 });
 
 // ══ Users ════════════════════════════════════════════════════════════════════

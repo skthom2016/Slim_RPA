@@ -597,3 +597,17 @@ td.actions { white-space: nowrap; }
 .table-wrap td.actions .btn-sm { padding: 3px 8px; }
 .script-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
 .script-row select { flex: 1; min-width: 0; }
+
+.group-page-title { font-weight: 600; font-size: 15px; margin-left: 8px; }
+.group-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 18px; max-width: 900px; }
+.var-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.var-row .var-name { width: 220px; flex: none; font-family: ui-monospace, Consolas, monospace; }
+.var-row .var-mode { width: 100px; flex: none; }
+.var-row .var-val { flex: 1; min-width: 0; }
+tr.group-row { cursor: pointer; }
+tr.group-row:hover { background: #f9fafb; }
+
+.var-row .var-prefix { flex: none; font-family: ui-monospace, Consolas, monospace; color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 7px 8px; }
+.form-row .var-row input.var-name { width: 220px; flex: none; }
+.form-row .var-row .var-val { flex: 1; min-width: 0; }
+.form-row .var-row .var-val input, .form-row .var-row .var-val select { width: 100%; }

@@ -752,7 +752,7 @@ async function confirmDeleteSchedule() {
 // ── Tab switching ─────────────────────────────────────────────────────────────
 const TAB_TITLES = {
     overview: 'Overview', jobs: 'Jobs', schedules: 'Schedules', artifacts: 'Artifacts', workers: 'Workers', logs: 'Logs',
-    credentials: 'Credentials', settings: 'Settings', users: 'Users', password: 'Change password'
+    secrets: 'Secrets', groups: 'Groups', users: 'Users', password: 'Change password'
 };
 let currentTab = 'overview';
 
@@ -781,8 +781,8 @@ function refreshTab(tab) {
         case 'schedules': loadSchedules(); break;
         case 'artifacts': loadArtifacts(); break;
         case 'workers':   loadWorkers();   break;
-        case 'credentials': loadCredentialsPage(); break;
-        case 'settings':  loadSettings();  break;
+        case 'secrets':   loadSecretsPage(); break;
+        case 'groups':    loadGroupsPage();  break;
         case 'users':     loadUsers();     break;
     }
 }
@@ -801,7 +801,7 @@ function esc(s) {
 setInterval(() => {
     checkConn();
     // These pages hold form input or a password the user asked to see: not redrawn on a timer.
-    if (!['logs', 'credentials', 'settings', 'users', 'password'].includes(currentTab)) refreshTab(currentTab);
+    if (!['logs', 'secrets', 'groups', 'users', 'password'].includes(currentTab)) refreshTab(currentTab);
 }, 5000);
 
 // ── Wire up buttons ───────────────────────────────────────────────────────────
